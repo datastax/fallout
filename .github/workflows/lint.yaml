@@ -1,0 +1,48 @@
+name: lint
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Gradle build cache
+      uses: actions/cache@v1
+      with:
+        path: ~/.gradle/caches
+        key: ${{ runner.os }}-gradle-build-${{ hashFiles('**/*.gradle*') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
+    - name: Gradle wrapper cache
+      uses: actions/cache@v1
+      with:
+        path: ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
+    - name: Set up JDK
+      uses: actions/setup-java@v1
+      with:
+        java-version: 11
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: lint
+      run: JAVA11_HOME=$JAVA_HOME ./gradlew
+        --no-daemon
+        --build-cache
+        -PgithubRepo=$GITHUB_REPOSITORY
+        -PgitDescribe=$GITHUB_SHA
+        lint
