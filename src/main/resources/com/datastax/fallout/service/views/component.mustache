@@ -1,0 +1,56 @@
+<div class="form-group {{cssClass}}">
+    <label>{{title}}</label>
+    <select id="{{prefix}}-select" class="form-control {{cssClass}}" name="{{prefix}}-type">
+        <option value="">{{defaultTxt}}</option>
+        {{#components}}
+            {{#component}}
+                <option value="{{name}}">{{name}} - {{description}}</option>
+            {{/component}}
+        {{/components}}
+    </select>
+</div>
+{{#components}}
+    {{#componentCategories}}
+        <div id="{{prefix}}{{#dependent}}-dep{{/dependent}}-props-{{owner.name}}{{#dependent}}-{{parentPropertyName}}{{/dependent}}-{{category}}" class="col-lg-6" style="display: none">
+            <br/>
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    {{owner.name}} {{category}}
+                </div>
+                <div class="panel-body">
+                    {{#properties}}
+                        <div class="form-group">
+                            <label>{{describe}} {{#required}}(required){{/required}}</label>
+                            {{#optionsOnly}}
+                                <select id="{{prefix}}-select-prop-{{name}}" class="form-control" name="{{prefix}}-prop-{{name}}">
+                                    <option id="{{name}}?nil#{{owner.name}}"></option>
+                                    {{#options}}
+                                        <option value="{{id}}" id="{{id}}{{#category}}?{{category}}#{{owner.name}}{{/category}}" {{#isDefault}}SELECTED{{/isDefault}}>{{id}}</option>
+                                    {{/options}}
+                                </select>
+                            {{/optionsOnly}}
+                            {{^optionsOnly}}
+                                <input class="form-control" name="{{prefix}}-prop-{{name}}"
+                                       {{#options.size}}list="{{name}}-list"{{/options.size}}
+                                    {{#defaultValue}}value="{{defaultValue.id}}"{{/defaultValue}}>
+                                {{#options.size}}
+                                    <datalist id="{{name}}-list">
+                                        {{#options}}
+                                            <option value="{{id}}"/>
+                                        {{/options}}
+                                    </datalist>
+                                {{/options.size}}
+                            {{/optionsOnly}}
+                        </div>
+                    {{/properties}}
+                </div>
+            </div>
+        </div>
+    {{/componentCategories}}
+{{/components}}
+
+<script>
+    $(function () {
+        $.fallout_register_tool("{{prefix}}");
+    });
+</script>

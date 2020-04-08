@@ -1,0 +1,6 @@
+workload:
+  phases:
+    - sleep:
+        module: sleep
+        properties:
+          duration: 2s

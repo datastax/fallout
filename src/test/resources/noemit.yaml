@@ -1,0 +1,19 @@
+ensemble:
+   server:
+      node.count: 1
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+workload:
+    phases:
+    - auto_fail:
+        module: fail
+      no_emit:
+        module: noemit

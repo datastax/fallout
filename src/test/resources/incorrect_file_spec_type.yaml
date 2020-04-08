@@ -1,0 +1,12 @@
+ensemble:
+    server:
+        node.count: 1
+        provisioner:
+            name: fake
+        configuration_manager:
+            - name: remote_files
+              properties:
+                  files:
+                      - path: file.txt
+                        url: this is not a valid url
+    client: server

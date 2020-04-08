@@ -1,0 +1,34 @@
+ensemble:
+   server:
+      node.count: 1
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+workload:
+    phases:
+    - phase_lifetime_sleep:
+        module: sleep
+        properties:
+          lifetime: run_to_end_of_phase
+          duration: 5ms
+      sleep:
+        module: sleep
+        properties:
+          duration: 50ms
+    checkers:
+      verify_success:
+        checker: nofail
+      count:
+        checker: count
+        properties:
+          max: 11
+          min: 9
+          processes: phase_lifetime_sleep
+          types: ok

@@ -1,0 +1,912 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2128
+if [[ -z "$BASH_VERSINFO" || ${BASH_VERSINFO[0]} -lt 4 ]]; then
+    cat <<EOF 1>&2
+This script needs a minimum of bash version 4 to run; the bash
+that's first in your PATH is $BASH_VERSION
+EOF
+    exit 1
+fi
+
+shopt -s extglob
+
+export LANG=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
+export TZ=UTC
+
+# FALLOUT_DIST is the root of the distribution
+# shellcheck disable=SC2164
+FALLOUT_DIST="$(cd "$(dirname "$0")/.."; pwd)"
+
+# FALLOUT_HOME is the root of the runtime directory; it defaults to
+# FALLOUT_DIST, but can be overridden for testing or different
+# deployment strategies
+FALLOUT_HOME="${FALLOUT_HOME:-$FALLOUT_DIST}"
+
+cd "$FALLOUT_HOME" || exit 1
+
+FALLOUT_YML=''
+if [[ -f "$FALLOUT_HOME/fallout.yml" ]]; then
+    FALLOUT_YML="$FALLOUT_HOME/fallout.yml"
+fi
+
+# Java -Xmx parameters for each process
+declare -A max_heap
+max_heap=(
+    [cassandra]=${MAX_HEAP_CASSANDRA:-8G}
+    [standalone]=${MAX_HEAP_STANDALONE:-16G}
+    [queue]=${MAX_HEAP_QUEUE:-2G}
+    [runner]=${MAX_HEAP_RUNNER:-10G}
+)
+
+usage() {
+    progname="$(basename "$0")"
+cat<<EOF
+Usage:
+
+$progname start|start-with-runner|stop
+
+  Start/stop cassandra and fallout; see start-fallout and start-cassandra for
+  details.
+
+$progname start-fallout|start-fallout-with-runner
+
+  Start fallout.  start-fallout-with-runner will start a runner to process
+  testruns sent to it by the server.
+
+  Java Flight Recorder will dump data to logs[/runners/RUNNER_ID]/jfr if --jfr
+  is specified.
+
+$progname stop-fallout [--force] [--kill]
+
+  Stop fallout.
+
+  --force will forcibly terminate running testruns, leaving
+    resources dangling.
+
+  --kill will send a series of signals to the server
+    (INT, then TERM, then KILL) instead of sending a shutdown message.
+
+$progname jfr-dump
+
+  Dump the current Flight Recorder cache to a snapshot file
+
+$progname jfr-stop|jfr-start
+
+  Stop/start Java Flight Recorder; note that JFR is started by using --jfr in
+  "$progname start"
+
+$progname jcmd (server|RUNNER-ID|cassandra|all) [ARGS...]
+
+  Run jcmd against the specified JVM if it is running; all will target every
+  running JVM listed by status in the same order.
+
+$progname jmx-remote-start [HOSTNAME [PORT]]
+
+  Enable JMX remote access; HOSTNAME defaults to $(hostname) and
+  PORT defaults to 7091.
+
+$progname jmx-remote-stop
+
+  Disable JMX remote access.
+
+$progname start-cassandra|stop-cassandra
+
+  Start/stop the local cassandra daemon
+EOF
+}
+
+#------------------------------------------------------------------------------
+# logging
+
+log() {
+    echo "$*" 1>&2
+}
+
+info() {
+    log "$@"
+}
+
+warn() {
+    log "WARN: " "$@"
+}
+
+error() {
+    log "ERROR: " "$@"
+}
+
+debug() {
+    if [[ -n "$FALLOUTCTL_DEBUG" ]]; then
+        log "DEBUG: " "$@"
+    fi
+}
+
+#------------------------------------------------------------------------------
+# PID handling
+
+is_running() {
+    kill -0 "$1" >/dev/null 2>&1
+}
+
+live_pid_from_pidfile() {
+    local pidfile="$1"
+
+    if [[ -f "$pidfile" ]]; then
+        local pid
+        pid="$(cat "$pidfile")"
+        if ! is_running "$pid"; then
+            info "Removing stale pidfile $pidfile for pid $pid"
+            rm "$pidfile"
+            return 1
+        fi
+        debug "$pidfile -> $pid"
+        echo "$pid"
+        return 0
+    fi
+
+    return 1
+}
+
+runner_rundir() {
+    local runner_id="$1"
+    echo "$RUNNER_BASE_RUN_DIR/$runner_id"
+}
+
+runner_pidfile() {
+    # shellcheck disable=SC2153
+    echo "$(runner_rundir "$@")/$PID_FILE"
+}
+
+runner_pidfiles() {
+    echo "$RUNNER_BASE_RUN_DIR"/*/"$PID_FILE"
+}
+
+runner_portfile() {
+    # shellcheck disable=SC2153
+    echo "$(runner_rundir "$@")/$PORT_FILE"
+}
+
+runner_logdir() {
+    local runner_id="$1"
+    echo "$RUNNER_BASE_LOG_DIR/$runner_id"
+}
+
+runners_are_running() {
+    local result=1
+
+    for pidfile in $(runner_pidfiles); do
+        if pid=$(live_pid_from_pidfile "$pidfile"); then
+            info "Fallout runner $(basename "$(dirname "$pidfile")") ($pid) is running [$pidfile]"
+            result=0
+        fi
+    done
+
+    return $result
+}
+
+server_is_running() {
+    if pid=$(live_pid_from_pidfile "$SERVER_PID_FILE"); then
+        info "Fallout server ($pid) is running [$SERVER_PID_FILE]"
+        return 0
+    fi
+    return 1
+}
+
+runner_in_use() {
+    local runner_id="$1"
+    local pid
+
+    if pid=$(live_pid_from_pidfile "$(runner_pidfile "$runner_id")"); then
+        info "Runner $runner_id ($pid) is live"
+        return 0
+    elif [[ -d "$(runner_rundir "$1")" ]]; then
+        info "Runner $runner_id is not live but has a run dir"
+        return 0
+    fi
+
+    return 1
+}
+
+find_unused_runner_id() {
+    local runner_id=1
+
+    while runner_in_use "$runner_id"; do
+        runner_id=$((runner_id + 1))
+    done
+
+    echo "$runner_id"
+}
+
+remove_completed_runners() {
+    for rundir in "$RUNNER_BASE_RUN_DIR"/+([0-9]); do
+        if [[ -e $rundir ]] && \
+            ! live_pid_from_pidfile "$rundir/fallout.pid"; then
+
+            info "Removing completed runner $(basename "$rundir")"
+            rm -fr "$rundir"
+        fi
+    done
+}
+
+wait_for_exit() {
+    local pid="$1"
+    shift
+
+    wait_count=30
+    while ((wait_count != 0)) && \
+            is_running "$pid"; do
+        wait_count=$((wait_count - 1))
+        sleep 1;
+    done
+
+    ! is_running "$pid"
+}
+
+kill_by_pidfile() {
+    local name="$1"
+    shift
+
+    local pidfile="$1"
+    shift
+
+    local pid
+    if ! pid="$(live_pid_from_pidfile "$pidfile")"; then
+        info "Fallout $name is not running"
+        return 0
+    fi
+
+    for signal in INT TERM KILL; do
+        info "Killing fallout $name ($pid) with $signal..."
+        kill "-$signal" "$pid"
+
+        if wait_for_exit "$pid"; then
+            break
+        fi
+    done
+
+    if is_running "$pid"; then
+        info "Could not kill fallout $name ($pid); giving up."
+        return 1
+    fi
+
+    info "Killed fallout $name ($pid)"
+    rm -f "$pidfile"
+}
+
+shutdown_runner_by_pidfile() {
+    local name="$1"
+    shift
+
+    local pidfile="$1"
+    shift
+
+    local pid
+    if ! pid="$(live_pid_from_pidfile "$pidfile")"; then
+        info "Fallout $name is not running"
+        return 0
+    fi
+
+    local portfile
+    portfile="$(dirname "$pidfile")/$PORT_FILE"
+
+    local port
+    port="$(cat "$portfile")"
+
+    debug "$portfile -> $port"
+
+    local url="http://localhost:$port/shutdown"
+
+    info "Telling $name ($pid) at $url to shutdown when finished"
+    if ! curl --silent -X POST "$url"; then
+        warn "Telling $name ($pid) at $url to shutdown failed; it may already be shutting down." \
+            "If this error persists, then this runner may be hung and need killing.  Check the logs."
+    fi
+}
+
+shutdown_server_by_pidfile() {
+    local pidfile="$1"
+    shift
+
+    local pid
+    if ! pid="$(live_pid_from_pidfile "$pidfile")"; then
+        info "Fallout server is not running"
+        return 0
+    fi
+
+    local url="http://localhost:8081/tasks/shutdown"
+
+    info "Telling server ($pid) at $url to shutdown now and waiting for shutdown..."
+    if ! curl --silent -X POST "$url"; then
+        error "Telling server ($pid) at $url to shutdown failed." \
+            "If this error persists, then server ($pid) may be hung and" \
+            "need stopping with --kill.  Check the logs."
+        return 1
+    fi
+
+    if ! wait_for_exit "$pid"; then
+        error "Fallout server did not exit after shutdown;" \
+            "use --kill to kill it instead"
+        return 1
+    fi
+}
+
+stop_server_by_pidfile() {
+    local kill="$1"
+    shift
+
+    local pidfile="$1"
+    shift
+
+    if ((kill)); then
+        kill_by_pidfile server "$pidfile"
+    else
+        shutdown_server_by_pidfile "$pidfile"
+    fi
+}
+
+#------------------------------------------------------------------------------
+# Option parsing
+
+OPTION_JFR=0
+OPTION_FORCE=0
+OPTION_KILL=0
+
+parse_options()
+{
+    while [[ $1 == --* ]]; do
+        case $1 in
+            --jfr) OPTION_JFR=1; shift; ;;
+            --no-jfr) OPTION_JFR=0; shift; ;;
+            --force) OPTION_FORCE=1; shift; ;;
+            --kill) OPTION_KILL=1; shift; ;;
+            --*) shift; ;;
+        esac
+    done
+}
+
+#------------------------------------------------------------------------------
+# Helpers
+
+# Run a single command that isn't a daemon; uses JVM opts that may not be
+# suitable for long-running processes in order to reduce JVM start time.  See
+# https://ryanharrison.co.uk/2018/04/29/faster-java-startup-time.html and
+# https://stackoverflow.com/questions/1491325/how-to-speed-up-java-vm-jvm-startup-time
+# Of the suggested options, -XX:TieredStopAtLevel=1 is the only one that
+# seems to make a difference to get-falloutctl-configuration, saving ~1s on
+# startup.
+fallout_command() {
+    FALLOUT_OPTS='-XX:TieredStopAtLevel=1' "$FALLOUT_DIST/bin/fallout" "$@"
+}
+
+get_configuration()
+{
+    info "Getting configuration"
+    # shellcheck disable=SC2086
+    if ! eval "$(fallout_command get-falloutctl-configuration $FALLOUT_YML)"; then
+        error "Failed to get configuration"
+        exit 1
+    fi
+
+    for var in \
+        PID_FILE \
+        PORT_FILE \
+        SERVER_LOG_DIR \
+        SERVER_RUN_DIR \
+        SERVER_PID_FILE \
+        RUNNER_BASE_LOG_DIR \
+        RUNNER_BASE_RUN_DIR; do
+
+        if [[ -z "$(eval echo '$'"$var")" ]]; then
+            error "\$$var was not set by configuration"
+            exit 1
+        fi
+    done
+}
+
+file_exists() {
+    [[ -f "$1" ]]
+}
+
+port_opened() {
+    nc -z localhost "$1" 2>/dev/null
+}
+
+start_daemon() {
+    local name="$1"
+    shift
+
+    local outfile="$1"
+    shift
+
+    local start_predicate="$1"
+    shift
+
+    local start_predicate_target="$1"
+    shift
+
+    local wait_limit="$1"
+    shift
+
+    if "$start_predicate" "$start_predicate_target"; then
+        error "Fallout $name is already running"
+        return 1
+    fi
+
+    info "Starting fallout $name with output in $outfile"
+    debug "$@"
+
+    # Job control is not on by default in non-interactive shells, so we enable it
+    # here.  This allows us to make the fallout start script the process-group
+    # leader, so we can then kill it _and_ it's children should it be necessary.
+    # See https://stackoverflow.com/a/45112755/322152.
+    set -m
+    exec "$@" >"$outfile" 2>&1 <&- &
+    local daemon_pid=$!
+
+    info "Waiting up to $wait_limit seconds for $start_predicate $start_predicate_target..."
+
+    local wait_count="$wait_limit"
+    while ((wait_count != 0)) && \
+            is_running $daemon_pid && \
+            ! "$start_predicate" "$start_predicate_target"; do
+        wait_count=$((wait_count - 1))
+        sleep 1
+    done
+
+    if ! is_running $daemon_pid; then
+        error "Fallout $name stopped running; check logs"
+        return 1
+    fi
+
+    if ! "$start_predicate" "$start_predicate_target"; then
+        error "$start_predicate $start_predicate_target failed; killing fallout $name and children"
+        kill -- -$daemon_pid
+        return 1
+    fi
+
+    info "Fallout $name started after $((wait_limit - wait_count)) seconds; backgrounding..."
+
+    disown $daemon_pid
+
+    echo $daemon_pid
+}
+
+if [[ $(uname) == Darwin ]]; then
+    if type gcp > /dev/null 2>&1; then
+        cp() {
+            gcp "$@"
+        }
+    else
+        error "MacOS' native cp command is inadequate; please install" \
+            "the gnu coreutils version (which will be aliased as gcp) using:"
+        error "  brew install coreutils"
+        exit 1
+    fi
+fi
+
+create_runner_dist() {
+    local runner_id="$1"
+    shift
+
+    local runner_dist
+    runner_dist="$(runner_rundir "$runner_id")"
+
+    info "Creating distribution for runner in $runner_dist"
+
+    mkdir -p "$runner_dist"
+
+    # --link creates a "shadow" hierarchy of hard links, which saves disk
+    # space and copy time; --dereference makes sure we dereference any symlinks
+    # (compile-master.sh creates "$FALLOUT_DIST/bin" as a relative symlink,
+    # for example; if we don't dereference it, then the copy won't point
+    # anywhere useful).
+    cp --archive --dereference --link "$FALLOUT_DIST/bin" "$runner_dist/bin"
+    cp --archive --dereference --link "$FALLOUT_DIST/lib" "$runner_dist/lib"
+
+    echo "$runner_dist"
+}
+
+start_fallout_daemon()
+{
+    local name="$1"
+    shift
+
+    local run_dir="$1"
+    shift
+
+    local log_dir="$1"
+    shift
+
+    local wait_for_file="$1"
+    shift
+
+    local dist="$1"
+    shift
+
+    local pidfile="$run_dir/$PID_FILE"
+    local outfile="$run_dir/fallout.out"
+
+    mkdir -p "$run_dir"
+    mkdir -p "$log_dir"
+
+    # shellcheck disable=SC2153
+    local fallout_opts="${FALLOUT_OPTS:+$FALLOUT_OPTS }-Xmx${max_heap[$name]}"
+
+    gc_log_jvm_opts="-Xlog:gc*:file=$log_dir/fallout-gc.log:time,level,tags:filecount=10,filesize=5M"
+
+    fallout_opts="$fallout_opts $gc_log_jvm_opts"
+
+    jfr_repository="$log_dir/jfr"
+    jfr_maxage_days="7"
+    jfr_opts="defaultrecording=true,disk=true,repository=$jfr_repository,maxage=${jfr_maxage_days}d,dumponexit=true,dumponexitpath=$jfr_repository"
+    jfr_jvm_opts="-XX:+UnlockCommercialFeatures -XX:+FlightRecorder -XX:FlightRecorderOptions=$jfr_opts"
+
+    if ((OPTION_JFR)); then
+        fallout_opts="$fallout_opts $jfr_jvm_opts"
+        mkdir -p "$jfr_repository"
+        jfr_tidy "$jfr_repository" "$jfr_maxage_days"
+    fi
+
+    # shellcheck disable=SC2086
+    debug "FALLOUT_OPTS='$fallout_opts'"
+
+    # FIXME: remove the GRADLE_OPTS="$fallout_opts" line when
+    #  https://github.com/johnrengelman/shadow/issues/551 is fixed; see https://github.com/johnrengelman/shadow/issues/518#issuecomment-590752083
+    # shellcheck disable=SC2086
+    if FALLOUT_OPTS="$fallout_opts" GRADLE_OPTS="$fallout_opts" \
+        start_daemon "$name" "$outfile" file_exists "$wait_for_file" 30 \
+        "$dist/bin/fallout" $name \
+            --pid-file \
+            "$@" \
+            $FALLOUT_YML \
+            > /dev/null # Suppress printing the PID
+    then
+        info "Fallout $name started ($(cat "$pidfile"))"
+    else
+        return 1
+    fi
+}
+
+generate_jmxtrans_config() {
+    jmxtrans_jar="$(find "$FALLOUT_DIST/lib/cassandra-standalone" \
+        -maxdepth 1 -name 'jmxtrans-agent-*.jar' | sort | tail -n 1)"
+
+    if [[ -z "$jmxtrans_jar" ]]; then
+        return
+    fi
+
+    jmxtrans_config="$FALLOUT_HOME/run/jmxtrans-config.xml"
+
+    info "Generating $jmxtrans_config"
+    mkdir -p "$(dirname "$jmxtrans_config")"
+    # shellcheck disable=SC2086
+    if ! fallout_command generate-jmxtrans-conf \
+        --output="$jmxtrans_config" \
+        $FALLOUT_YML 1>&2; then
+
+        info "Generating $jmxtrans_config failed; no embedded cassandra stats will be collected"
+        rm -f "$jmxtrans_config" 1>&2
+        return
+    fi
+
+    echo "-javaagent:$jmxtrans_jar=$jmxtrans_config"
+}
+
+exit_if_fallout_server_is_running() {
+    local name="$1"
+    shift
+
+    if pid=$(live_pid_from_pidfile "$SERVER_PID_FILE"); then
+        error "Not starting fallout $name, because a fallout process" \
+            "($pid) is already running."
+        exit 1
+    fi
+}
+
+start_fallout_server() {
+    local name="$1"
+    shift
+
+    exit_if_fallout_server_is_running "$name"
+
+    start_fallout_daemon "$name" \
+        "$SERVER_RUN_DIR" \
+        "$SERVER_LOG_DIR" \
+        "$SERVER_PID_FILE" \
+        "$FALLOUT_DIST" \
+        "$@"
+}
+
+exit_if_last_command_failed()
+{
+    local result=$?
+
+    if (( result != 0 )); then
+        exit $result
+    fi
+}
+
+#------------------------------------------------------------------------------
+# Commands - these should be the only places where exit is called directly;
+# all other functions in the code should return a status code.
+
+start_fallout() {
+    parse_options "$@"
+
+    if runners_are_running; then
+        error "Not starting fallout standalone, because runners are running"
+        exit 1
+    fi
+
+    start_fallout_server standalone
+}
+
+start_fallout_with_runner() {
+    parse_options "$@"
+
+    remove_completed_runners
+
+    exit_if_fallout_server_is_running queue
+
+    runner_id="$(find_unused_runner_id)"
+
+    start_fallout_daemon runner \
+        "$(runner_rundir "$runner_id")" \
+        "$(runner_logdir "$runner_id")" \
+        "$(runner_portfile "$runner_id")" \
+        "$(create_runner_dist "$runner_id")" \
+        --port-file \
+        "$runner_id"
+
+    exit_if_last_command_failed
+
+    # If this fails, we _must_ kill the runner as well
+    if ! start_fallout_server queue "$runner_id"; then
+        kill_by_pidfile "runner $runner_id" "$(runner_pidfile "$runner_id")"
+        exit 1
+    fi
+}
+
+stop_fallout() {
+    parse_options "$@"
+    local force=$OPTION_FORCE
+    local kill=$OPTION_KILL
+
+    if ! runners_are_running; then
+        info "No runners detected; killing server"
+
+        local runningTestsCount
+        runningTestsCount=$(curl --silent http://localhost:8080/status/runningTestsCount)
+
+        if ((! force && runningTestsCount != 0)); then
+            error "Not stopping fallout while tests are running!" \
+                "Use --force to override this check"
+            exit 1
+        fi
+
+        stop_server_by_pidfile "$kill" "$SERVER_PID_FILE"
+    else
+        stop_server_by_pidfile "$kill" "$SERVER_PID_FILE"
+        local result=$?
+
+        for pidfile in $(runner_pidfiles); do
+            local runner
+            runner="runner $(basename "$(dirname "$pidfile")")"
+            if ((force)); then
+                kill_by_pidfile "$runner" "$pidfile"
+            else
+                shutdown_runner_by_pidfile "$runner" "$pidfile"
+            fi
+            result=$(($? || result))
+        done
+
+        return $result
+    fi
+}
+
+jcmd() {
+    local target="$1"
+    shift
+
+    if [[ "$target" == "all" ]]; then
+
+        if pid=$(live_pid_from_pidfile "$SERVER_PID_FILE"); then
+            info "--- Fallout server ($pid)"
+            command jcmd "$pid" "$@"
+        fi
+
+        for pidfile in $(runner_pidfiles); do
+            if pid=$(live_pid_from_pidfile "$pidfile"); then
+                info "--- Fallout runner $(basename "$(dirname "$pidfile")") ($pid)"
+                command jcmd "$pid" "$@"
+            fi
+        done
+
+        if pid="$(live_pid_from_pidfile "$SERVER_RUN_DIR/cassandra.pid")"; then
+                info "--- Cassandra ($pid)"
+                command jcmd "$pid" "$@"
+        fi
+
+    else
+
+        local pid
+        if [[ "$target" = "server" ]]; then
+            if ! pid="$(live_pid_from_pidfile "$SERVER_PID_FILE")"; then
+                 error "Fallout server is not running"
+                 exit 1
+            fi
+        elif [[ "$target" = "cassandra" ]]; then
+            if ! pid="$(live_pid_from_pidfile "$SERVER_RUN_DIR/cassandra.pid")"; then
+                 error "Cassandra is not running"
+                 exit 1
+            fi
+        else
+            if ! pid="$(live_pid_from_pidfile "$(runner_pidfile "$target")")"; then
+                 error "Fallout runner $target is not running"
+                 exit 1
+            fi
+        fi
+
+        command jcmd "$pid" "$@"
+    fi
+}
+
+jfr_dump() {
+    # shellcheck disable=SC2155
+    local filename="$jfr_repository/$(date +'%Y_%m_%d_%H_%M_%S')_$pid".snapshot.jfr
+
+    jcmd JFR.dump recording=0 "filename=$filename" || exit $?
+}
+
+jfr_stop() {
+    jcmd JFR.stop recording=0
+}
+
+jfr_start() {
+    jcmd JFR.start defaultrecording=true
+}
+
+jfr_tidy() {
+    local jfr_repository="$1"
+    shift
+
+    local jfr_maxage_days="$1"
+    shift
+
+    info "Removing files from $jfr_repository older than $jfr_maxage_days days"
+    find "$jfr_repository" -type d -mtime +"$jfr_maxage_days" -print0 | xargs -t -0 rm -fr
+    find "$jfr_repository" -type f -mtime +"$jfr_maxage_days" -print0 | xargs -t -0 rm -f
+}
+
+jmx_remote_start() {
+    local hostname="$1"
+    shift
+    local port="$1"
+    shift
+
+    if [[ -z $hostname ]]; then
+        hostname=$(hostname)
+    fi
+
+    if [[ -z $port ]]; then
+        port=7091
+    fi
+
+    jcmd ManagementAgent.start \
+        jmxremote.host="$hostname" \
+        jmxremote.port="$port" \
+        jmxremote.rmi.port="$port" \
+        jmxremote.ssl=false \
+        jmxremote.authenticate=false || exit $?
+
+    info "Connect to JMX at $hostname:$port"
+}
+
+jmx_remote_stop() {
+    jcmd ManagementAgent.stop || exit $?
+}
+
+start_cassandra() {
+    if [[ -z "$JAVA8_HOME" ]]; then
+        error "JAVA8_HOME must be set for cassandra"
+        exit 1
+    fi
+
+    local cassandra_lib_dir="$FALLOUT_DIST/lib/cassandra-standalone"
+
+    local cassandra_jar
+    cassandra_jar="$(find "$cassandra_lib_dir" \
+        -maxdepth 1 -name 'cassandra-all-2*.jar' | sort | tail -n 1)"
+
+    if [[ -z "$cassandra_jar" ]]; then
+        error "Could not find cassandra-all-2*.jar"
+        exit 1
+    fi
+
+    local cassandra_log_dir="$SERVER_LOG_DIR/cassandra"
+    mkdir -p "$cassandra_log_dir"
+
+    local cassandra_pidfile="$SERVER_RUN_DIR/cassandra.pid"
+
+    local classpath
+    classpath="$(find "$cassandra_lib_dir" -name '*.jar' -print0 | tr '\0' ':')"
+
+    local jmxtrans_opts
+    jmxtrans_opts="$(generate_jmxtrans_config)"
+
+    # shellcheck disable=SC2086
+    cassandra_pid=$(start_daemon cassandra "$cassandra_log_dir/start.log" port_opened 9096 600 \
+    "$JAVA8_HOME/bin/java" -classpath "$classpath" \
+        -XX:+HeapDumpOnOutOfMemoryError \
+        "-Xms${max_heap[cassandra]}" "-Xmx${max_heap[cassandra]}" \
+        -server -ea \
+        -Dcassandra.config="file://$cassandra_lib_dir/cassandra.yaml" \
+        -Dcassandra-pidfile="$cassandra_pidfile" \
+        -Dcassandra.logdir="$cassandra_log_dir" \
+        -Dlogback.configurationFile="$cassandra_lib_dir/logback.xml" \
+        $jmxtrans_opts \
+        org.apache.cassandra.service.CassandraDaemon)
+
+    exit_if_last_command_failed
+
+    info "Fallout cassandra started ($cassandra_pid)"
+
+    # Cassandra doesn't actually create _or_ write its PID to the pidfile,
+    # it just deletes it on exit
+    echo "$cassandra_pid" > "$cassandra_pidfile"
+}
+
+stop_cassandra() {
+    if server_is_running || runners_are_running; then
+        error "Cannot stop cassandra if server or runners are running"
+        exit 1
+    fi
+    kill_by_pidfile cassandra "$SERVER_RUN_DIR/cassandra.pid"
+}
+
+start() {
+    start_cassandra
+    start_fallout "$@"
+}
+
+start_with_runner() {
+    start_cassandra
+    start_fallout_with_runner "$@"
+}
+
+stop() {
+    stop_fallout "$@"
+    exit_if_last_command_failed
+    stop_cassandra
+}
+
+status() {
+    if ! server_is_running; then
+        info "Fallout server is not running"
+    fi
+
+    if ! runners_are_running; then
+        info "Fallout runners are not running"
+    fi
+
+    if pid=$(live_pid_from_pidfile "$SERVER_RUN_DIR/cassandra.pid"); then
+        info "Cassandra ($pid) is running [$SERVER_PID_FILE]"
+    else
+        info "Cassandra is not running"
+    fi
+}
+
+#------------------------------------------------------------------------------
+# main
+
+case $1 in
+    start-fallout|start-fallout-with-runner|stop-fallout|jmx-remote-start|jmx-remote-stop|jfr-start|jfr-stop|jfr-dump|jcmd|start-cassandra|stop-cassandra|start|start-with-runner|stop|status)
+        cmd="${1//-/_}"
+        shift
+        get_configuration
+        "$cmd" "$@"
+        ;;
+    help|--help) usage; exit 0; ;;
+    *) usage; exit 1; ;;
+esac

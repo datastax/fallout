@@ -1,0 +1,9 @@
+workload:
+    phases:
+    - my_module:
+        module: fail
+    artifact_checkers:
+        my_artifact_checker:
+          artifact_checker: systemlog
+          artifact_checker_with_wrong_indent:
+                    artifact_checker: systemlog

@@ -1,0 +1,37 @@
+{{> partials/header }}
+
+{{> partials/menus }}
+
+<!-- Page Content -->
+<div id="page-wrapper">
+    <div class="container-fluid">
+
+        <div class="row">
+            <h3>User Directory</h3>
+            <table class="table table-bordered table-striped">
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Test Runs</th>
+                    <th>Performance Reports</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{#allUsers}}
+                <tr>
+                    <td>{{name}} ({{email}})</td>
+                    <td><a href="/tests/ui/{{email}}">test runs</a></td>
+                    <td><a href="/performance/{{email}}">performance reports</a></td>
+                </tr>
+                {{/allUsers}}
+                </tbody>
+            </table>
+        </div>
+        <!-- /.row -->
+    </div>
+    <!-- /.container-fluid -->
+</div>
+<!-- /#page-wrapper -->
+
+
+{{> partials/footer }}

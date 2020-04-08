@@ -1,0 +1,11 @@
+workload:
+
+  phases:
+    - my_module:
+        module: fail
+
+  artifact_checkers:
+    hdr:
+      artifact_checker: hdrtool
+      properties:
+          bogus: 1

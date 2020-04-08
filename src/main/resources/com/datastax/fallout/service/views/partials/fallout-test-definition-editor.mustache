@@ -1,0 +1,51 @@
+<link rel="stylesheet" href="{{mainView.assetsRoot}}/codemirror/codemirror.css">
+<link rel="stylesheet" href="{{mainView.assetsRoot}}/codemirror/lint.css">
+<link rel="stylesheet" href="{{mainView.assetsRoot}}/codemirror/dialog.css">
+<link rel="stylesheet" href="{{mainView.assetsRoot}}/codemirror/matchesonscrollbar.css">
+<link rel="stylesheet" href="{{mainView.assetsRoot}}/codemirror/trailingspace.css">
+<script lang="JavaScript" src="{{mainView.assetsRoot}}/codemirror/codemirror.js"></script>
+<script lang="JavaScript" src="{{mainView.assetsRoot}}/codemirror/lint.js"></script>
+<script lang="JavaScript" src="{{mainView.assetsRoot}}/codemirror/yaml.js"></script>
+<script lang="JavaScript" src="{{mainView.assetsRoot}}/codemirror/js-yaml.min.js"></script>
+<script lang="JavaScript" src="{{mainView.assetsRoot}}/codemirror/search.js"></script>
+<script lang="JavaScript" src="{{mainView.assetsRoot}}/codemirror/searchcursor.js"></script>
+<script lang="JavaScript" src="{{mainView.assetsRoot}}/codemirror/dialog.js"></script>
+<script lang="JavaScript" src="{{mainView.assetsRoot}}/codemirror/annotatescrollbar.js"></script>
+<script lang="JavaScript" src="{{mainView.assetsRoot}}/codemirror/matchesonscrollbar.js"></script>
+<script lang="JavaScript" src="{{mainView.assetsRoot}}/codemirror/trailingspace.js"></script>
+
+<script>
+    // The provided CodeMirror YAML linter doesn't handle multi-document YAML, so we provide our own:
+    CodeMirror.registerHelper("lint", "yaml", function(text) {
+      var found = [];
+      try { jsyaml.loadAll(text, function(doc) {}); }
+      catch(e) {
+          var loc = e.mark;
+          if (loc) {
+              found.push({
+                  from: CodeMirror.Pos(loc.line, loc.column),
+                  to: CodeMirror.Pos(loc.line, loc.column),
+                  message: e.message
+              });
+          }
+      }
+      return found;
+    });
+
+    function createFalloutTestDefinitionEditor(textarea, vsize) {
+        var findKey = /Mac/.test(navigator.platform) ? "Cmd-F" : "Ctrl-F";
+        var editor = CodeMirror.fromTextArea(textarea, {
+            lineNumbers: true,
+            showTrailingSpace: true,
+            gutters: ["CodeMirror-lint-markers"],
+            lint: true,
+            mode: "yaml",
+            extraKeys: {findKey: "findPersistent"}
+        });
+
+        editor.setSize("auto", vsize);
+        editor.refresh();
+
+        return editor;
+    }
+</script>

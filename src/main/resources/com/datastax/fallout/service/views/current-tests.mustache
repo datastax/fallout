@@ -1,0 +1,238 @@
+{{> partials/header }}
+
+{{> partials/menus }}
+
+<script src="{{mainView.assetsRoot}}/js/testruns.js"></script>
+
+<!-- Page Content -->
+<div id="page-wrapper">
+    <div class="container-fluid">
+
+        {{> partials/message-area}}
+
+        <div class="row">
+            <div class="col-lg-6">
+                <h3>Active Resources</h3>
+                <table class="table table-bordered table-striped">
+                    <thead>
+                        <tr>
+                            <th>Provider</th>
+                            <th>Tenant</th>
+                            <th>Instance Type</th>
+                            <th>Cluster Name</th>
+                            <th>Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{#activeResources}}
+                            <tr>
+                                <td>{{resourceType.provider}}</td>
+                                <td>{{resourceType.tenant}}</td>
+                                <td>{{resourceType.instanceType}}</td>
+                                <td>{{resourceType.uniqueName}}</td>
+                                <td>{{nodeCount}}</td>
+                            </tr>
+                        {{/activeResources}}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="col-lg-6">
+                <h3>Requested Resources</h3>
+                <table class="table table-bordered table-striped">
+                    <thead>
+                        <tr>
+                            <th>Provider</th>
+                            <th>Tenant</th>
+                            <th>Instance Type</th>
+                            <th>Cluster Name</th>
+                            <th>Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{#requestedResources}}
+                            <tr>
+                                <td>{{resourceType.provider}}</td>
+                                <td>{{resourceType.tenant}}</td>
+                                <td>{{resourceType.instanceType}}</td>
+                                <td>{{resourceType.uniqueName}}</td>
+                                <td>{{nodeCount}}</td>
+                            </tr>
+                        {{/requestedResources}}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+        <!-- /.row -->
+
+        <div class="row">
+
+            <h3>Queued Test Runs</h3>
+            {{#queuedTestRuns}}
+                {{> partials/testrun/table}}
+            {{/queuedTestRuns}}
+
+            <h3>Active Test Runs</h3>
+            {{#runningTestRuns}}
+                {{> partials/testrun/table}}
+            {{/runningTestRuns}}
+
+            <h3>Recent Test Runs</h3>
+            {{#recentTestRuns}}
+                {{> partials/testrun/table}}
+            {{/recentTestRuns}}
+
+        </div>
+        <!-- /.row -->
+
+        <div class="row">
+            <div class="col-lg-12">
+                <form id="test-search-form">
+
+                    <h3>Search for a Test</h3>
+
+                    <div class="alert alert-info">
+                        <p>Search for tests by their tags. Filter on other criteria.</p>
+                    </div>
+
+                    <div class="col-lg-6">
+                        <div class="form-group">
+                            <label>Tag</label>
+                            <input id="searchTags" class="form-control" name="tag" type="text" placeholder="comma separated" required>
+                        </div>
+                    </div>
+
+                    <div id="filterSearchOptions" style="display: none;">
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label>Test Name</label>
+                                <input id="searchTestName" class="form-control" name="testName" type="text" placeholder="test name">
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label>Owner</label>
+                                <input id="searchTestOwner" class="form-control" name="owner" type="text" placeholder="Owner's email">
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label>Date Created</label>
+                                <input id="searchCreated" class="form-control" name="created" type="date">
+                            </div>
+                        </div>
+
+                    </div>
+                    <!-- /#filterSearchOptions -->
+
+                    <div class="col-lg-12">
+                        <div class="form-group">
+                            <button id="submit-search" class="btn btn-primary">Search</button>
+                            <a id="toggleFilterOptions" href="#">Filter Options</a>
+                        </div>
+                    </div>
+
+                </form>
+
+                <table id="resultsTable" class="table table-bordered table-striped" style="display: none;">
+                    <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Owner</th>
+                    </tr>
+                    </thead>
+                    <tbody id="searchResults">
+                    </tbody>
+                </table>
+
+            </div>
+            <!-- /.col-lg-12 -->
+        </div>
+        <!-- /.row -->
+
+    </div>
+    <!-- /.container-fluid -->
+</div>
+<!-- /#page-wrapper -->
+
+
+<script>
+$("#toggleFilterOptions").click(function(){
+    $("#filterSearchOptions").toggle();
+});
+
+$("#submit-search").click(function(e){
+    e.preventDefault();
+
+    var queryData = generateQueryData();
+    if(!queryData) {
+        return;
+    }
+
+    $.ajax({
+        url: "/tests/search/",
+        type: "GET",
+        data: queryData,
+        traditional: true,
+        success: function(data){
+            clearMessages();
+            $("#searchResults").html("");
+            if(data.length === 0) {
+                $("#searchResults").html("<tr><td>There are no matching tests!</td><td></td></tr>");
+            }
+            else {
+                for(var i = 0; i < data.length; i++){
+                    $("#searchResults").append(newTestSearchResult(data[i]));
+                }
+            }
+            $("#resultsTable").show();
+        },
+        error: function(data){
+            showErrorMessage("There was an error searching tests.<br>" + data.responseStatus + "");
+        }
+    });
+});
+
+function newTestSearchResult(testData) {
+    var testUrl = "/tests/ui/" + testData.owner + "/" + testData.name;
+    return "<tr><td><a href='" + testUrl + "'>" + testData.name + "</a></td><td>" + testData.owner + "</td></tr>";
+}
+
+function generateQueryData() {
+    var queryData = {};
+
+    var tagsString = $("#searchTags").val();
+    if(tagsString === "") {
+        showErrorMessage("Tags must be specified to search!");
+        return false;
+    }
+    else {
+        queryData['tags'] = $.map(tagsString.split(","), function(t){
+            return t.trim();
+        });
+    }
+
+    var testName = $("#searchTestName").val();
+    if(testName !== "") {
+        queryData['testName'] = testName;
+    }
+
+    var owner = $("#searchTestOwner").val();
+    if(owner !== "") {
+        queryData['owner'] = owner;
+    }
+
+    var created = $("#searchCreated").val();
+    if(created !== "") {
+        queryData['created'] = created;
+    }
+
+    return queryData;
+}
+
+</script>
+
+{{> partials/footer }}

@@ -1,0 +1,29 @@
+# Test the fake provisioner, provider and module
+nodes: 1
+properties:
+provisionerProperties:
+moduleProperties:
+---
+ensemble:
+  server:
+    node.count: {{nodes}}
+    provisioner:
+      name: fake
+      properties:
+        {{properties}}
+        {{provisionerProperties}}
+    configuration_manager:
+      - name: fake
+
+  client: server
+
+workload:
+  phases:
+    - dummy:
+        module: fake
+        properties:
+          {{properties}}
+          {{moduleProperties}}
+  checkers:
+    nofail:
+      checker: nofail

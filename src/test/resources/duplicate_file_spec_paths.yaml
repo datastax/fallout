@@ -1,0 +1,14 @@
+ensemble:
+    server:
+        node.count: 1
+        provisioner:
+            name: fake
+        configuration_manager:
+            - name: remote_files
+              properties:
+                  files:
+                      - path: duplicate.txt
+                        data: this is a duplicate
+                      - path: duplicate.txt
+                        data: this is a duplicate
+    client: server

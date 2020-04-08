@@ -1,0 +1,43 @@
+{"title": "performance-report","stats":[
+{"revision":"Test Run","test":"stress-write_standard:insert-st","metrics":["Ops/Sec","Latency Avg","Latency Median","Latency 95th","Latency 99th","Latency 99.9th","time"],"intervals":[
+	"omitted to save space..."
+]
+,"Total Operations": 21477943
+,"Op Rate": "35796 op/sec"
+,"Min Latency": "0.2 ms"
+,"Avg Latency": "13.9 ms"
+,"Median Latency": "9.2 ms"
+,"95th Latency": "43.3 ms"
+,"99th Latency": "70.6 ms"
+,"99.9th Latency": "133.1 ms"
+,"Max Latency": "385.6 ms"
+}
+,
+{"revision":"Test Run","test":"stress-read_standard:query-st","metrics":["Ops/Sec","Latency Avg","Latency Median","Latency 95th","Latency 99th","Latency 99.9th","time"],"intervals":[
+	"omitted to save space..."
+]
+,"Total Operations": 20542199
+,"Op Rate": "34294 op/sec"
+,"Min Latency": "0.2 ms"
+,"Avg Latency": "14.6 ms"
+,"Median Latency": "9.9 ms"
+,"95th Latency": "44.8 ms"
+,"99th Latency": "69.5 ms"
+,"99.9th Latency": "125.4 ms"
+,"Max Latency": "445.9 ms"
+}
+,
+{"revision":"Test Run","test":"stress-preload_data:insert-st","metrics":["Ops/Sec","Latency Avg","Latency Median","Latency 95th","Latency 99th","Latency 99.9th","time"],"intervals":[
+	"omitted to save space..."
+]
+,"Total Operations": 9820497
+,"Op Rate": "132711 op/sec"
+,"Min Latency": "0.2 ms"
+,"Avg Latency": "6.0 ms"
+,"Median Latency": "4.7 ms"
+,"95th Latency": "7.5 ms"
+,"99th Latency": "12.7 ms"
+,"99.9th Latency": "200.3 ms"
+,"Max Latency": "566.8 ms"
+}
+]}

@@ -1,0 +1,144 @@
+{{> partials/header }}
+
+{{> partials/menus }}
+
+<!-- Page Content -->
+<div id="page-wrapper">
+    <div class="container-fluid">
+        {{#componentType}}
+            <h2>{{name}}:</h2>
+
+            <div class="alert alert-success">
+                {{blurb}}
+            </div>
+
+            <h5>Did you know you can add your own {{name}}? <a
+                    href="https://github.com/datastax/fallout/tree/master/docs/3_extending.md"><u>Learn how.</u></a></h5>
+
+            <p>Looking for more examples? If you <a href="https://github.com/datastax/fallout/tree/master/fallout-cli">install the fallout-cli</a>, you can use the search-yaml command to search all fallout tests.</p>
+            <br/>
+
+            {{#categories}}
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="panel panel-primary">
+                            <div class="panel-heading" id="{{component.name}}-panel">
+                                <h4 id="{{component.name}}">{{component.name}}</h4>
+                            </div>
+                            <div>
+                                <div class="panel-body">
+                                    <div class="row container">
+                                        <div class="col-lg-10">{{component.description}}</div>
+                                        <div class="col-lg-10">Prefix: <code>{{component.prefix}}</code></div>
+                                        {{#component.hasPhaseLifetime}}
+                                            <div class="col-lg-10"><strong>PHASE LIFETIME</strong> This module will run
+                                                until all other modules in the phase have finished
+                                            </div>
+                                        {{/component.hasPhaseLifetime}}
+                                        {{#component.hasDynamicLifetime}}
+                                            <div class="col-lg-10"><strong>DYNAMIC LIFETIME</strong> This module's
+                                                lifetime can be controlled with the lifetime property (see below)
+                                            </div>
+                                        {{/component.hasDynamicLifetime}}
+                                        {{#component.exampleUsage}}
+                                            <div class="col-lg-10">Example: See this <a
+                                                    href="https://github.com/datastax/fallout/tree/master/examples/{{component.exampleUsage}}"><u>example
+                                                usage on github</u></a></div>
+                                        {{/component.exampleUsage}}
+                                        {{^component.exampleUsage}}
+                                            <div class="col-lg-10">Example: No specific example usage, but see the <a
+                                                    href="https://github.com/datastax/fallout/tree/master/examples"><u>general
+                                                examples on github</u></a></div>
+                                        {{/component.exampleUsage}}
+                                        {{#component.disabledWhenShared}}
+                                            <div class="col-lg-10 text-warning">Warning: This component can only be used
+                                                when running on your personal install
+                                            </div>
+                                        {{/component.disabledWhenShared}}
+                                    </div>
+                                    <br/>
+                                </div>
+                                {{#componentCategories}}
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading"> {{category}} properties:</div>
+                                        <div class="panel-body">
+                                            {{#properties}}
+                                                <div class="row">
+                                                    <div class="col-md-2 text-primary">name:</div>
+                                                    <div class="col-md-10"><a id="{{component.prefix}}{{shortName}}" href="#{{component.prefix}}{{shortName}}"><code>{{shortName}}</code></a></div>
+                                                </div>
+                                                {{#deprecatedShortName}}
+                                                    <div class="row">
+                                                        <div class="col-md-2 text-primary">deprecated name:</div>
+                                                        <div class="col-md-10"><code>{{deprecatedShortName}}</code>
+                                                        </div>
+                                                    </div>
+                                                {{/deprecatedShortName}}
+                                                <div class="row">
+                                                    <div class="col-md-2 text-primary">description:</div>
+                                                    <div class="col-md-10">{{describe}}</div>
+                                                </div>
+                                                {{#isRequired}}
+                                                    <div class="row">
+                                                        <div class="col-md-2 text-primary">required:</div>
+                                                        <div class="col-md-10"><strong>yes</strong></div>
+                                                    </div>
+                                                {{/isRequired}}
+                                                {{#dependsOn}}
+                                                    <div class="row">
+                                                        <div class="col-md-2 text-primary">parent property:</div>
+                                                        <div class="col-md-10"><code>{{shortName}}</code></div>
+                                                    </div>
+                                                {{/dependsOn}}
+                                                {{#defaultValueYaml}}
+                                                    <div class="row">
+                                                        <div class="col-md-2 text-primary">default:</div>
+                                                        <div class="col-md-10 text-success">
+                                                            <pre>{{.}}</pre>
+                                                        </div>
+                                                    </div>
+                                                {{/defaultValueYaml}}
+                                                {{#validationPattern}}
+                                                    <div class="row">
+                                                        <div class="col-md-2 text-primary">validation regex:</div>
+                                                        <div class="col-md-10"><i>{{validationPattern}}</i></div>
+                                                    </div>
+                                                {{/validationPattern}}
+                                                {{#options.size}}
+                                                    <div class="row">
+                                                        <div class="col-md-2 text-primary">{{#isOptionsOnly}}options:{{/isOptionsOnly}}{{^isOptionsOnly}}suggestions:{{/isOptionsOnly}}</div>
+                                                        <div class="col-md-10">
+                                                        <ul>
+                                                            {{#options}}
+                                                                <li>{{category}}</li>
+                                                            {{/options}}
+                                                        </ul>
+                                                        </div>
+                                                    </div>
+                                                {{/options.size}}
+
+                                                <div class="row">&nbsp;</div>
+                                            {{/properties}}
+                                        </div>
+                                    </div>
+                                {{/componentCategories}}
+                            </div>
+                        </div>
+                    </div>
+                    <!-- /.col-lg-12 -->
+                </div>
+            {{/categories}}
+            <!-- /.row -->
+        {{/componentType}}
+    </div>
+    <!-- /.container-fluid -->
+</div>
+<!-- /#page-wrapper -->
+<script>
+$(document).ready(function() {
+    var url = window.location.href;
+    var targetElementId = url.split('#')[1];
+    document.getElementById(targetElementId).scrollIntoView();
+})
+</script>
+{{> partials/footer }}

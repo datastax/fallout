@@ -1,0 +1,47 @@
+{{> partials/header}}
+
+{{> partials/menus }}
+
+<!-- Page Content -->
+<div id="page-wrapper">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-12">
+                <p class="h3"> {{report.reportName}} @ {{report.reportDateUtc}}</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-12">
+                <h3>Report Test Runs</h3>
+                {{#linkedTestRuns}}
+                {{> partials/testrun/table }}
+                {{/linkedTestRuns}}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-12">
+                <p class="h3">Report Permalink:</p>
+                <a id="report-url" href=""></a>
+                <iframe id="report-iframe" src="/artifacts/{{report.reportArtifact}}" style="height: 5000px; width: 100vw;" frameborder="0" scrolling="no"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateReportUrl(newUrl) {
+    $("#report-url")[0].href = newUrl;
+    $("#report-url").text(newUrl);
+}
+updateReportUrl($("#report-iframe")[0].src);
+
+window.addEventListener("message", reportUrlChanged, false);
+
+function reportUrlChanged(event) {
+    if (event.data) {
+        updateReportUrl(event.data);
+    }
+}
+</script>
+
+{{> partials/footer }}

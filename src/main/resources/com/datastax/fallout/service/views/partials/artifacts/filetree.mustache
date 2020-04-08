@@ -1,0 +1,30 @@
+{{#isDirectory}}
+    <li>
+        <span class="item folder folder-open">
+            <i class="fa fa-folder-open"></i>
+            {{name}}
+            <span class="size">{{displaySize}}</span>
+        </span>
+        <ul>
+         {{#children}}
+             {{> filetree.mustache}}
+         {{/children}}
+        </ul>
+    </li>
+{{/isDirectory}}
+{{^isDirectory}}
+    <li>
+        <span class="item file">
+            <i class="fa fa-file-text"></i>
+            <a href="{{url}}">{{name}}</a>
+            <span class="size">{{displaySize}}</span>
+            {{#liveUrl}}
+            <a title="View with live viewer" href="{{.}}">
+                <span class="controls">
+                    <i class="fa fa-eye fa-inverse"></i>
+                </span>
+            </a>
+            {{/liveUrl}}
+        </span>
+    </li>
+{{/isDirectory}}

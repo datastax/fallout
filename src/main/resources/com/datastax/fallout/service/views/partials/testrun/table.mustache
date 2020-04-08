@@ -1,0 +1,355 @@
+{{#show.TEMPLATE_PARAMS}}
+    <a id="toggle-template-params-display" class="btn btn-info btn-xs hide-template-params-table toggle-template-params" href="#" role="button">
+        <span class="template-params-table"><i class="fa fa-list"></i> Show template params as list</span>
+        <span class="template-params-list"><i class="fa fa-th"></i> Show template params as table</span>
+    </a>
+{{/show.TEMPLATE_PARAMS}}
+
+<script>
+    /** If a table has columns with rowspans that overflow the computed number
+     *  of rows, firefox will fail to render the bottom border on the
+     *  overflowing columns.  This function ensures that the correct rowspan
+     *  is set. */
+    function setNonTemplateParamsHeaderRowspan() {
+        let headers = $('.testruns-table .non-template-params-headers th')
+                .not('.template-params-table');
+
+        if ($('.template-params-table').filter(':visible').length > 0) {
+            headers.attr('rowspan', 2);
+        }
+        else {
+            headers.attr('rowspan', null);
+        }
+    }
+
+    function switchParamsListTable() {
+        let $toggleTemplateParams = $('.toggle-template-params');
+
+        if ($toggleTemplateParams.hasClass('hide-template-params-table')) {
+            $toggleTemplateParams
+                .addClass('hide-template-params-list')
+                .removeClass('hide-template-params-table');
+        }
+        else {
+            $toggleTemplateParams
+                .addClass('hide-template-params-table')
+                .removeClass('hide-template-params-list');
+        }
+
+        setNonTemplateParamsHeaderRowspan();
+    }
+
+    $('#toggle-template-params-display').click(switchParamsListTable);
+
+    $(document).ready(function() {
+        setNonTemplateParamsHeaderRowspan();
+    });
+</script>
+
+{{#areQueued}}
+    <p>
+        <a class="btn btn-primary btn-xs" data-toggle="collapse" href="#queueHelp" role="button"><i class="fa fa-question-circle"></i> About the fallout queue</a>
+    </p>
+    <div class="collapse" id="queueHelp">
+        <p> This table lists test runs from lowest to highest priority: the test run at the bottom will be the next to be attempted.  Test runs in the queue are prioritized as follows:
+        <ol>
+            <li> The more running tests owned by a user, the lower the priority of all that user's queued tests.
+            <li> The longer a test has been in the queue, the higher the priority.
+        </ol>
+        <p> Processing the queue:
+        <ol>
+            <li> First, a snapshot is taken of all the pending tests:
+            <li> Then, that snapshot is sorted by priority and the highest priority test is processed.
+
+        </ol>
+    </div>
+{{/areQueued}}
+
+<table class="testruns-table toggle-template-params hide-template-params-table table table-bordered {{tableClass}}">
+    <colgroup>
+        {{#show.OWNER}}<col>{{/show.OWNER}}
+        {{#show.TEST_NAME}}<col>{{/show.TEST_NAME}}
+        {{#show.TEST_RUN}}<col>{{/show.TEST_RUN}}
+        {{#show.TEMPLATE_PARAMS}}
+            {{#templateParamColumns}}
+                <col class="template-params-table">
+            {{/templateParamColumns}}
+            <col class="template-params-list">
+        {{/show.TEMPLATE_PARAMS}}
+        <col>
+        <col>
+        {{#show.FINISHED_AT}}<col>{{/show.FINISHED_AT}}
+        <col>
+        <col>
+        {{#show.TEMPLATE_PARAMS}}
+            {{! if there are template parameters, show button to rerun test with its template parameters, which needs more width }}
+            <col style="width: 18em">
+        {{/show.TEMPLATE_PARAMS}}
+        {{^show.TEMPLATE_PARAMS}}
+            <col style="width: 10em">
+        {{/show.TEMPLATE_PARAMS}}
+    </colgroup>
+    <thead>
+    <tr class="non-template-params-headers">
+        {{! All headers (except for Params in table mode) are rowspan="2" to
+            accommodate the Params columns in table mode.  Note that we
+            dynamically alter the rowspan when switching params from table to
+            list view in setNonTemplateParamsHeaderRowspan }}
+        {{#show.OWNER}}
+            <th rowspan="2">Owner</th>
+        {{/show.OWNER}}
+        {{#show.TEST_NAME}}
+            <th rowspan="2">Test</th>
+        {{/show.TEST_NAME}}
+        {{#show.TEST_RUN}}
+            <th rowspan="2">Test Run</th>
+        {{/show.TEST_RUN}}
+        {{#show.TEMPLATE_PARAMS}}
+            {{^templateParamColumns.empty}}
+                <th class="template-params-table" colspan="{{templateParamColumns.size}}">Params</th>
+            {{/templateParamColumns.empty}}
+            <th rowspan="2" class="template-params-list">Params</th>
+        {{/show.TEMPLATE_PARAMS}}
+        <th rowspan="2">Created at</th>
+        <th rowspan="2">Started at</th>
+        {{#show.FINISHED_AT}}
+            <th rowspan="2">Finished at</th>
+        {{/show.FINISHED_AT}}
+        {{#show.DURATION}}
+            {{#areQueued}}
+                <th rowspan="2">Time in Queue</th>
+            {{/areQueued}}
+            {{^areQueued}}
+                <th rowspan="2">Time Running</th>
+            {{/areQueued}}
+        {{/show.DURATION}}
+        {{#show.RESOURCE_REQUIREMENTS}}
+            <th rowspan="2">Resource Requirements</th>
+        {{/show.RESOURCE_REQUIREMENTS}}
+        {{#show.SIZE_ON_DISK}}
+            <th rowspan="2">Size on disk</th>
+        {{/show.SIZE_ON_DISK}}
+        <th rowspan="2">State</th>
+        <th rowspan="2">Actions
+            {{#canDeleteAny}}{{#show.DELETE_MANY}}
+                <a id="toggle-checkboxes" href="#" class="btn btn-info btn-xs" type="button">Delete Multiple TestRuns</a>
+                <a id="delete" href="#" class="btn btn-danger btn-xs hidden" type="button">Delete Test Runs</a>
+                <a id="delete-checks" href="#" class="btn btn-danger btn-xs hidden" type="button">Cancel</a>
+            {{/show.DELETE_MANY}}{{/canDeleteAny}}
+        </th>
+    </tr>
+    {{#show.TEMPLATE_PARAMS}}
+        <tr class="template-params-table">
+            {{#templateParamColumns}}
+                <th>{{.}}</th>
+            {{/templateParamColumns}}
+        </tr>
+    {{/show.TEMPLATE_PARAMS}}
+    </thead>
+    <tbody>
+    {{#testRuns}}
+        {{#testRun}}
+            <tr class="{{stateAlertType}}" test-run-id="{{{testRunId}}}" short-test-run-id="{{{buildShortTestRunId}}}" id="{{{testRunId}}}">
+                {{#show.OWNER}}
+                    <td>{{{ownerLink}}}</td>
+                {{/show.OWNER}}
+                {{#show.TEST_NAME}}
+                    <td>{{{testLink}}}</td>
+                {{/show.TEST_NAME}}
+                {{#show.TEST_RUN}}
+                    <td>{{{testRunLink}}}</td>
+                {{/show.TEST_RUN}}
+                {{#show.TEMPLATE_PARAMS}}
+                    {{#templateParamValues}}
+                        <td class="template-params-table">{{value}}</td>
+                    {{/templateParamValues}}
+                    <td class="template-params-list">
+                        {{#templateParamValues}}
+                            <strong>{{key}}:</strong> {{value}}<br>
+                        {{/templateParamValues}}
+                    </td>
+                {{/show.TEMPLATE_PARAMS}}
+                <td>{{createdAtUtc}}</td>
+                <td>{{startedAtUtc}}</td>
+                {{#show.FINISHED_AT}}
+                    <td>{{finishedAtUtc}}</td>
+                {{/show.FINISHED_AT}}
+                {{#show.DURATION}}
+                    <td>{{calculateDurationString}}</td>
+                {{/show.DURATION}}
+                {{#show.RESOURCE_REQUIREMENTS}}
+                    <td>
+                        {{#resourceRequirements}}
+                            {{resourceType.provider}}
+                            {{resourceType.tenant}}
+                            {{resourceType.instanceType}}
+                            {{#resourceType.uniqueName}}
+                                <span class="label label-default">{{resourceType.uniqueName}}</span>
+                            {{/resourceType.uniqueName}}
+                            : {{nodeCount}}<br>
+                        {{/resourceRequirements}}
+                    </td>
+                {{/show.RESOURCE_REQUIREMENTS}}
+                {{#show.SIZE_ON_DISK}}
+                    <td>{{sizeOnDisk}}</td>
+                {{/show.SIZE_ON_DISK}}
+                <td>{{state}} {{#notWaitingAndFailedDuring}}({{notWaitingAndFailedDuring}}){{/notWaitingAndFailedDuring}}</td>
+                <td>
+                    <div class="toggleable-action-buttons">
+                        {{#show.TEMPLATE_PARAMS}}{{#isOwner}}{{#show.MUTATION_ACTIONS}}
+                            <div class="btn-group btn-group-xs">
+                                <a title="Rerun current test definition with these parameters" class="btn btn-primary btn-xs"
+                                   onclick="rerunTestRun('{{owner}}', '{{testName}}', '{{testRunId}}', false)">
+                                    <i class="fa fa-play"></i>
+                                </a>
+                                <a title="Rerun original test definition with these parameters" class="btn btn-primary btn-xs"
+                                   onclick="rerunTestRun('{{owner}}', '{{testName}}', '{{testRunId}}', true)">
+                                    <i class="fa fa-history"></i>
+                                </a>
+                            </div>
+                        {{/show.MUTATION_ACTIONS}}{{/isOwner}}{{/show.TEMPLATE_PARAMS}}
+
+                        {{#show.RESULTS}}
+                            <a title="Show test result" class="btn btn-info btn-xs"
+                               onclick="$('#{{testRunId}}-result-toggle').toggleClass('hidden'); return false;" href="#">
+                                <i class="fa fa-info"></i>
+                            </a>
+                        {{/show.RESULTS}}
+
+                        {{#show.DEFINITION}}
+                            <a title="Show test run yaml" class="btn btn-success btn-xs"
+                                onclick="$('#{{testRunId}}-definition-toggle').toggleClass('hidden'); return false;" href="#">
+                                <i class="fa fa-list"></i>
+                            </a>
+                        {{/show.DEFINITION}}
+
+                        <div class="btn-group btn-group-xs">
+                            {{#show.ARTIFACTS_LINK}}<a title="View artifacts" class="btn btn-info btn-xs"
+                               href="/tests/ui/{{owner}}/{{testName}}/{{testRunId}}/artifacts">
+                                <i class="fa fa-search-plus"></i>
+                            </a>{{/show.ARTIFACTS_LINK}}
+                            <a title="Download all artifacts" class="btn btn-info btn-xs"
+                               href="/tests/ui/{{owner}}/{{testName}}/{{testRunId}}/artifactsArchive">
+                                <i class="fa fa-download"></i>
+                            </a>
+                        </div>
+
+                        {{#canCancel}}{{#show.MUTATION_ACTIONS}}
+                            <a title="Cancel test" class="btn btn-danger btn-xs"
+                               onclick="abortTestRun('{{owner}}', '{{testName}}', '{{testRunId}}')">
+                                <i class="fa fa-minus-circle"></i>
+                            </a>
+                        {{/show.MUTATION_ACTIONS}}{{/canCancel}}
+
+                        {{#canDelete}}{{#show.MUTATION_ACTIONS}}
+                            <a title="Delete Test Run" class="btn btn-danger btn-xs"
+                               onclick="deleteTestRun('{{owner}}', '{{testName}}', '{{testRunId}}', '{{buildShortTestRunId}}')">
+                                <i class="fa fa-trash-o"></i>
+                            </a>
+                        {{/show.MUTATION_ACTIONS}}{{/canDelete}}
+                    </div>
+
+                        {{#canDelete}}
+                            <input type="checkbox" class="checkbox hidden" />
+                        {{/canDelete}}
+
+                        {{#canDelete}}
+                            {{#show.RESTORE_ACTIONS}}
+                                <a title="Restore Test Run" class="btn btn-primary btn-xs"
+                                   onclick="restoreTestRun('{{owner}}', '{{testName}}', '{{testRunId}}')">
+                                    <i class="fa fa-recycle"></i>
+                                </a>
+                            {{/show.RESTORE_ACTIONS}}
+                        {{/canDelete}}
+                </td>
+            </tr>
+            {{#show.RESULTS}}
+                {{#state.active}}
+                    {{^grafanaDashboardLinks.empty}}
+                        <tr>
+                            <td colspan="999">
+                                <div>
+                                  <strong>Grafana: </strong>
+                                  {{#grafanaDashboardLinks}}
+                                    <a href="{{url}}" target="_blank">{{name}}  </a>
+                                  {{/grafanaDashboardLinks}}
+                                </div>
+                            </td>
+                        </tr>
+                    {{/grafanaDashboardLinks.empty}}
+                {{/state.active}}
+                <tr id="{{testRunId}}-result-toggle" {{^state.active}}class="hidden"{{/state.active}}>
+                    {{#results}}
+                        <td colspan="999">
+                            <pre>{{results}}</pre>
+                        </td>
+                    {{/results}}
+                </tr>
+            {{/show.RESULTS}}
+            {{#show.DEFINITION}}
+                <tr id="{{testRunId}}-definition-toggle" class="hidden">
+                    <td colspan="999">
+                        <pre>{{definition}}</pre>
+                    </td>
+                </tr>
+            {{/show.DEFINITION}}
+        {{/testRun}}
+    </tr>
+    {{/testRuns}}
+    </tbody>
+</table>
+
+<script>
+
+    function toggleCheckboxes() {
+       $('#delete').toggleClass('hidden');
+       $('#toggle-checkboxes').toggle();
+       $('#delete-checks').toggleClass('hidden');
+       $('.toggleable-action-buttons').toggle();
+       $('.checkbox').toggleClass('hidden');
+    }
+
+    $('#testrun-table-div').on('click','#toggle-checkboxes', toggleCheckboxes);
+    $('#testrun-table-div').on('click','#delete', toggleCheckboxes);
+    $('#testrun-table-div').on('click','#delete-checks', toggleCheckboxes);
+
+    $('#testrun-table-div').on('click','#delete', function() {
+        var testRuns = [];
+        var runNames = [];
+        if($("input[type=checkbox]:checked")) {
+            $("input:checked").each(function() {
+            var runId = $(this).closest('tr').attr("test-run-id");
+            var shortRunId = $(this).closest('tr').attr("short-test-run-id");
+            testRuns.push(runId);
+            runNames.push(shortRunId);
+            });
+
+            if(testRuns.length > 0) {
+                if(!confirm("Delete Test Runs " + runNames + "?"))
+                    return;
+            };
+            clearMessages();
+
+            function ajaxResponse(runId, i) {
+                $.ajax({
+                    url: "/tests/" + '{{email}}' + "/" + '{{name}}' +
+                        "/runs/" + runId + "/api",
+                    type: "DELETE",
+                    success: function(data) {
+                        $('#' + runId).load(location.href + ' #row-' + runId);
+                    },
+                    error: function(data) {
+                        appendErrorMessage("Problem deleting " + runId + ": " + data.responseText + "<br>");
+                    }
+                });
+            };
+            for (var i=0, l=testRuns.length; i<l; i++) {
+                ajaxResponse(testRuns[i], i);
+            };
+        }
+    });
+
+    $('#testrun-table-div').on('click','#delete-checks', function() {
+        $('input:checkbox:checked').prop('checked', false);
+    });
+</script>

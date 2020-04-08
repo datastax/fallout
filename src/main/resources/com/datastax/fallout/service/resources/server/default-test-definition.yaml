@@ -1,0 +1,70 @@
+# Here's an example test yaml to get you started:
+cql_iot_gist: cql-iot.yaml
+namespace: cass-operator
+---
+ensemble:
+  server:
+    node.count: 4
+    provisioner:
+      name: kind
+      properties:
+        kind.config: <<file:cass-operator/operator/k8s-flavors/kind/kind-example-config.yaml>>
+    configuration_manager:
+      - name: kubernetes_manifest
+        properties:
+          manifest: <<file:cass-operator/operator/k8s-flavors/kind/rancher-local-path-storage.yaml>>
+          wait.strategy: FIXED_DURATION
+          wait.timeout: 1m
+      - name: ds_cass_operator
+        properties:
+          namespace: {{namespace}}
+          operator.manifest: <<file:cass-operator/docs/user/cass-operator-manifests.yaml>>
+          datacenter.manifest: <<file:kind-default-dc.yaml>>
+      - name: nosqlbench
+        properties:
+          namespace: {{namespace}}
+          replicas: 1
+    local_files: # required for kubernetes manifests
+      - git:
+          repo: https://github.com/datastax/cass-operator
+      - url: https://raw.githubusercontent.com/datastax/fallout/oss-fallout/examples/kubernetes/datastax-cass-operator-resources/kind-default-dc.yaml
+        path: kind-default-dc.yaml
+  client: server
+workload:
+  phases:
+    - set_schema:
+        module: nosqlbench
+        properties:
+          num_clients: 1
+          args:
+            - run
+            - type=cql
+            - yaml={{cql_iot_gist}}
+            - tags=phase:schema
+    - add_new_node:
+        module: kubectl
+        properties:
+          namespace: {{namespace}}
+          iterations: 1
+          command: |
+            patch cassdc dc1 --patch '{"spec": {"size": 2}}' --type merge
+      show-pods:
+        module: kubectl
+        properties:
+          namespace: {{namespace}}
+          command: get pods
+      run_workload_while_bootstrapping:
+        module: nosqlbench
+        properties:
+          cycles: 1m
+          args:
+            - run
+            - type=cql
+            - yaml={{cql_iot_gist}}
+            - tags=phase:main
+  checkers:
+    nofail:
+      checker: nofail
+  artifact_checkers:
+    hdr:
+      artifact_checker: hdrtool

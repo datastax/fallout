@@ -1,0 +1,19 @@
+ensemble:
+    server:
+        node.count: 1
+        name: my_duplicate_cluster
+        provisioner:
+            name: fake
+        configuration_manager:
+            name: fake
+    client:
+        node.count: 1
+        name: my_duplicate_cluster
+        provisioner:
+            name: fake
+        configuration_manager:
+            name: fake
+workload:
+    phases:
+        - noop:
+              module: noop

@@ -1,0 +1,22 @@
+ensemble:
+   server:
+      node.count: 1
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+workload:
+    phases:
+    - nonlinearizable:
+        module: nonlinearizable
+    checkers:
+       linearizability:
+         checker: linearizability
+         properties:
+           module.check: nonlinearizable

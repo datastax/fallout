@@ -1,0 +1,59 @@
+<div class="navbar-default sidebar" role="navigation">
+    <button type="button" onclick="toggleSidebar()">&#9776;</button>
+    <div class="sidebar-nav navbar-collapse" id="sidebar-toggleable">
+        <ul class="nav" id="side-menu">
+            <li>
+                <a href="/directory"><i class="fa fa-th-list fa-fw"></i>Users</a>
+            </li>
+            <li>
+                <a href="/performance/{{user.email}}"><i class="fa fa-dashboard fa-fw"></i>Performance Tool</a>
+            </li>
+            {{#user.admin}}
+                <li>
+                    <a href="/tests/tools/admin"><i class="fa fa-stethoscope fa-fw"></i>Admin Panel</a>
+                </li>
+            {{/user.admin}}
+            <li>
+                <a href="/tests/ui/deleted"><i class="fa fa-trash-o fa-fw"></i>Trash Bin</a>
+            </li>
+            <li>
+                <a href="#"><i class="fa fa-files-o fa-fw"></i> Component Docs<span
+                        class="fa arrow"></span></a>
+                <ul class="nav nav-second-level">
+                    {{#mainView.componentMenu}}
+                        <li>
+                            <a href="#"><i class="fafa-fw"></i> {{name}}<span class="fa arrow"></span></a>
+                            <ul class="nav nav-third-level">
+                                {{#categories}}
+                                    <li>
+                                        <a href="/components/{{key}}#{{component.name}}" data-toggle="collapse"
+                                           data-target="#collapse-{{component.name}}">{{component.name}}</a>
+                                    </li>
+                                {{/categories}}
+                            </ul>
+                        </li>
+                    {{/mainView.componentMenu}}
+                </ul>
+            </li>
+            <li>
+                <a href="/swagger#/default"><i class="fa fa-files-o fa-fw"></i> REST API Docs</a>
+            </li>
+            <li>
+                <a href="https://github.com/datastax/fallout/tree/master/fallout-cli"><i class="fa fa-files-o fa-fw"></i> CLI Docs</a></a>
+            </li>
+            <li>
+                <a href="https://github.com/datastax/fallout/tree/master/docs"><i class="fa fa-files-o fa-fw"></i> Usage Docs</a>
+            </li>
+        </ul>
+    </div>
+    <!-- /.sidebar-collapse -->
+</div>
+<!-- /.navbar-static-side -->
+
+<script>
+function toggleSidebar() {
+    $("#sidebar-toggleable").slideToggle("slow");
+}
+
+$("#sidebar-toggleable").hide();
+</script>

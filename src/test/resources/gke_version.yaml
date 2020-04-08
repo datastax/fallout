@@ -1,0 +1,20 @@
+set_cluster_version: true
+gke_cluster_version: this_is_not_a_version
+---
+ensemble:
+    server:
+        node.count: 3
+        provisioner:
+            name: gke
+            properties:
+                project: eng-test-tools
+                region: us-west2
+                machine.type: n1-standard-1
+                {{#set_cluster_version}}
+                cluster_version: {{gke_cluster_version}}
+                {{/set_cluster_version}}
+    client: server
+workload:
+    phases:
+        - noop:
+            module: noop

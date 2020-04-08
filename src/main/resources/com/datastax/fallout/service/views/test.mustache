@@ -1,0 +1,199 @@
+{{> partials/header}}
+
+{{> partials/menus }}
+
+<script src="{{mainView.assetsRoot}}/js/testruns.js"></script>
+
+<!-- Test Tag Modal -->
+<div class="modal fade" id="testTagModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        <h4 class="modal-title" id="testTagModalLabel">Tag Test</h4>
+      </div>
+      <div class="modal-body">
+        <div id="existing-tags">
+            <h4>Existing Tags</h4>
+        </div>
+        <br>
+        <div id="new-tags">
+            <input id="new-tags-input" class="form-control" type="text" placeholder="Add tag here (submit with Enter)">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+        <button id="edit-tags-submit" type="button" class="btn btn-primary">Submit</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- /Test Tag Modal -->
+
+<!-- Page Content -->
+<div id="page-wrapper">
+    <div class="container-fluid">
+
+        <div class="row">
+            <h2>Test Manager for {{email}}</h2>
+            {{#isOwner}}
+                <a href="/tests/tools/create" type="button" class="btn btn-primary">Create New Test</a>
+            {{/isOwner}}
+            <br/>
+            {{> partials/message-area}}
+        </div>
+        <!-- /.row -->
+
+        <div class="row">
+            <h3>Queued Test Runs</h3>
+            {{^queuedTestRuns.testRuns.empty}}
+                {{#queuedTestRuns}}
+                    {{> partials/testrun/table}}
+                {{/queuedTestRuns}}
+            {{/queuedTestRuns.testRuns.empty}}
+        </div>
+
+        <div class="row">
+            <h3>Running Test Runs</h3>
+            {{^runningTestRuns.testRuns.empty}}
+                {{#runningTestRuns}}
+                    {{> partials/testrun/table}}
+                {{/runningTestRuns}}
+            {{/runningTestRuns.testRuns.empty}}
+        </div>
+
+        <div class="row">
+            <h3>Recent Test Runs</h3>
+            {{^recentTestRuns.testRuns.empty}}
+                {{#recentTestRuns}}
+                    {{> partials/testrun/table}}
+                {{/recentTestRuns}}
+            {{/recentTestRuns.testRuns.empty}}
+        </div>
+
+        <!-- /.row -->
+
+        <div class="row">
+            <h3>User Tests</h3>
+            <h4>Total size on disk: {{totalSizeOnDisk}}</h4>
+            {{^tests.empty}}
+                {{> partials/test/table}}
+            {{/tests.empty}}
+            {{#tests.empty}}
+                <p>No tests found<p>
+            {{/tests.empty}}
+        </div>
+        <!-- /.row -->
+    </div>
+    <!-- /.container-fluid -->
+</div>
+<!-- /#page-wrapper -->
+
+<script>
+function deleteTest(owner, testName){
+    if (!confirm("Delete test " + testName + "?"))
+        return;
+
+    $.ajax({
+        url: "/tests/" + owner + "/" + testName + "/api",
+        type: "DELETE",
+
+        success: function (data) {
+            //reload
+            window.location.reload();
+        },
+        error: function (data) {
+
+            if (data.responseJSON != null && data.responseJSON["error"] != null) {
+                showErrorMessage(data.responseJSON["error"]);
+            } else {
+                showErrorMessage("<pre>" + JSON.stringify(data, null, 2) + "</pre>");
+            }
+        }
+    });
+}
+
+function toggleInfo(testName) {
+    var escapedName = "#" + escapeTestName(testName) + "-toggle";
+    $(escapedName).toggleClass('hidden');
+}
+
+</script>
+
+<script>
+var tags = [];
+
+$("#new-tags-input").keyup(function(e){
+    if (e.keyCode === 13) {
+        if(e.target.value === "" || tags.includes(e.target.value)) {
+            $(e.target).val("");
+            return false;
+        }
+        addEditableTagPill(e.target.value);
+        $(e.target).val("");
+    }
+});
+
+$("#edit-tags-submit").click(function(){
+    var tagInInput = $("#new-tags-input").val();
+    if (tagInInput !== "") {
+        addEditableTagPill(tagInInput);
+    }
+
+    var testName = $("#testTagModal").data("testName");
+    $.ajax({
+        url: "/tests/" + testName + "/tag/api",
+        type: "PUT",
+        contentType: "application/json",
+        data: JSON.stringify(tags),
+        success: function(data){
+            showMessage("Test successfully tagged! Page will reload...");
+            $("#testTagModal").modal('toggle');
+            setTimeout(function(){
+                location.reload();
+            }, 1000);
+        },
+        error: function(data){
+            showErrorMessage("Error tagging test: " + data.statusText + "<br>" + data.responseText);
+        }
+    });
+});
+
+function addEditableTagPill(tag) {
+    tags.push(tag);
+    $("#existing-tags")
+    .append(
+        $("<p>").addClass("tag-pill").text(tag)
+        .append(
+            $("<span>").on("click", function(){
+                    $(this).parent().remove();
+                    tags.splice(tags.indexOf(tag), 1);
+                })
+            .append(
+                $("<i>").addClass("fa fa-times"))));
+}
+
+function displayTagModal(testName) {
+   $.ajax({
+        url: "/tests/" + testName + "/tag/api",
+        type: "GET",
+        success: function(data){
+            clearMessages();
+            tags = [];
+            $("#existing-tags").html("");
+            data.forEach(function(tag){
+                addEditableTagPill(tag);
+            });
+        },
+        error: function(data){
+            showErrorMessage("Error retrieving tags: " + data.statusText + "<br>" + data.responseText);
+        }
+    });
+
+    $("#testTagModalLabel").text("Edit Tags for " + testName);
+    $("#testTagModal").data("testName", testName).modal();
+}
+
+</script>
+
+{{> partials/footer }}

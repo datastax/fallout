@@ -1,0 +1,9 @@
+# Slimmed-down fakes.yaml for test definition edit functionality testing
+
+workload:
+  phases:
+    - dummy:
+        module: fake
+  checkers:
+    nofail:
+      checker: nofail

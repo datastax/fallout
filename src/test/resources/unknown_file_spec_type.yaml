@@ -1,0 +1,12 @@
+ensemble:
+    server:
+        node.count: 1
+        provisioner:
+            name: local
+        configuration_manager:
+            - name: remote_files
+              properties:
+                  files:
+                      - path: foo
+                        bar: bar is an invalid file spec type
+    client: server

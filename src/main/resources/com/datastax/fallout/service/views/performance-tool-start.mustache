@@ -1,0 +1,62 @@
+{{> partials/header }}
+
+{{> partials/menus }}
+
+<!-- Page Content -->
+<div id="page-wrapper">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-12">
+                <br/>
+
+                {{> partials/message-area}}
+
+                <form id="select-runs-form" method="post">
+                    <div class="panel panel-primary">
+                        <div class="panel-heading">
+                            Performance Tool >> Generate Perf Chart
+                        </div>
+                        <div class="panel-body">
+                            <div id="test-components"></div>
+                            <div class="form-group col-lg-12">
+                                <div class="form-group col-lg-6">
+                                    <label>Name the chart</label>
+                                    <input class="form-control" name="report-name"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="panel-footer">
+                            <button id="buildPerfReport" class="btn btn-primary">Run</button>
+                            <button id="addGroup" class="btn">Add Another Test</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-6 col-md-offset-3">
+
+            </div>
+            <!-- /.col-lg-12 -->
+        </div>
+        <!-- /.row -->
+    </div>
+    <!-- /.container-fluid -->
+</div>
+<!-- /#page-wrapper -->
+
+<script src="{{mainView.assetsRoot}}/js/performance-tool.js"></script>
+
+<script>
+    var defaultUser = {"name": "{{user.name}}", "email": "{{user.email}}"}
+    initiate(defaultUser);
+
+    $("#buildPerfReport").click(function() {
+        submitFormToBuild(defaultUser['email']);
+        return false;
+    });
+    $("#addGroup").click(function() {
+        addTestGroup(defaultUser);
+        return false;
+    });
+</script>
+
+{{> partials/footer }}

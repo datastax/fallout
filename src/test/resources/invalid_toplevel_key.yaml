@@ -1,0 +1,10 @@
+workload:
+    phases:
+    - my_module:
+        module: fail
+invalid_top_level_key_1:
+      verify_success:
+          checker: nofail
+invalid_top_level_key_2:
+      verify_success:
+          checker: nofail

@@ -1,0 +1,261 @@
+{{> partials/header}}
+
+{{> partials/menus }}
+
+<!-- Page Content -->
+<div id="page-wrapper">
+    <div class="container-fluid">
+        <h2>User Profile Page</h2>
+
+        <div class="modal fade" id="googleCloudSAModal" role="dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <!-- Modal Header -->
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span aria-hidden="true">&times;</span>
+                            <span class="sr-only">Close</span>
+                        </button>
+                        <h4 class="modal-title" id="googleCloudSAFormLabel">Add Google Service Account</h4>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="modal-body">
+                        <form role="form" id="googleCloudSAForm" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="googleCloudSAKeyFile">Service Account Key File</label>
+                                <input type="text" class="form-control" id="googleCloudSAKeyFile" name="googleCloudSAKeyFile" placeholder="Paste the entire service account json file."/>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="googleCloudSAKeyButton">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            {{> partials/message-area}}
+            <form id="profile-form" onsubmit="return false;">
+                <div class="col-lg-6">
+                    {{#user}}
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <p class="form-control-static">{{email}}</p>
+                    </div>
+
+                    <div class="form-group form-inline">
+                        <label for="email-select">Email Notifications</label>
+                        <select id="email-select" class="form-control" name="emailPref" required>
+                            {{#allEmailNotify}}
+                                <option value="{{left.name}}" {{#right}}selected{{/right}}>{{left.prettyName}}</option>
+                            {{/allEmailNotify}}
+                        </select>
+                    </div>
+                    <div class="form-group form-inline">
+                        <label for="slack-select">Slack Notifications</label>
+                        <select id="slack-select" class="form-control" name="slackPref" required>
+                            {{#allSlackNotify}}
+                                <option value="{{left.name}}" {{#right}}selected{{/right}}>{{left.prettyName}}</option>
+                            {{/allSlackNotify}}
+                        </select>
+                    </div>
+
+
+                    <div class="form-group">
+                        <label>OAuth ID</label>
+                        <p class="form-control-static">{{oauthId}}</p>
+                    </div>
+                    {{/user}}
+                    <button type="button" class="btn btn-primary">Submit</button>
+                    <input type="submit" class="btn btn-default" value="Reset OAuth Id" onclick="$.get('/account/reset-oauth', location.reload());"/>
+                </div>
+            </form>
+        </div>
+        <!-- /.row -->
+
+        <hr>
+
+        <div class="row">
+            <div class="col-md-12">
+
+                <div class="panel">
+                    <div class="panel-body">
+                        <div class="panel-group" id="accordion">
+                            <!--Google Cloud Credentials-->
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">
+                                        <a data-toggle="collapse" data-parent="#accordion" href="#googleCloud-form-collapse" aria-expanded="false" class="collapsed">Google Cloud Service Accounts</a>
+                                    </h4>
+                                </div>
+                                <div id="googleCloud-form-collapse" class="panel-collapse collapse">
+                                    <div class="panel-body" id="googleCloudTableDiv">
+                                        <form id="googleCloud-profile-form" onsubmit="return false;">
+                                            <div class="form-group">
+                                                <label>Default Google Cloud Service Account</label>
+                                                <input id="googleCloud_project_name" class="form-control" name="googleCloudServiceAccount" {{#user}}value="{{defaultGoogleCloudServiceAccountEmail}}"{{/user}} readonly>
+                                                <p class="help-block">Must match the email of one of the service accounts below.</p>
+                                                <button class="btn btn-primary" data-toggle="modal" data-target="#googleCloudSAModal">
+                                                    Add Service Account
+                                                </button>
+                                                {{#user}}
+                                                <table class="table table-bordered table-striped" id="googleCloudTableTable">
+                                                    <thead>
+                                                    <tr>
+                                                        <th>Service Account Email</th>
+                                                        <th>Project</th>
+                                                        <th>Private Key ID</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                    </thead>
+                                                    {{#googleCloudServiceAccounts}}
+                                                    <tbody>
+                                                    <td>{{email}}</td>
+                                                    <td>{{project}}</td>
+                                                    <td>{{privateKeyId}}</td>
+                                                    <td>
+                                                        <a title="Set as Default" class="btn btn-success btn-xs"
+                                                               onclick="setDefaultServiceAccount('{{email}}')">
+                                                            <i class="fa fa-flag"></i>
+                                                        </a>
+                                                        <a title="Delete Credentials" class="btn btn-danger btn-xs"
+                                                               onclick="deleteServiceAccount('{{email}}')">
+                                                            <i class="fa fa-trash-o"></i>
+                                                        </a>
+                                                    </td>
+                                                    </tbody>
+                                                    {{/googleCloudServiceAccounts}}
+                                                </table>
+                                                {{/user}}
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- /.accordion -->
+            </div>
+            <!-- /.col -->
+        </div>
+        <!-- /.row -->
+
+        <script>
+            function submitCredentialForm(formId, endpoint, modalId, tableDivId) {
+                var form = $("#" + formId);
+                $.ajax({
+                    url: "/account/profile/" + endpoint,
+                    type: "POST",
+                    data: $(form).serialize(),
+                    success: function(data) {
+                        showSuccessAndMaybeClearInputs(form);
+
+                        form.trigger('reset');
+
+                        $("#" + modalId).modal('hide');
+                        $("#" + tableDivId).load(" #" + tableDivId);
+                    },
+                    error: showAjaxErrorMessage
+                });
+            }
+
+            function showSuccessAndMaybeClearInputs(form) {
+                showMessage("Account updated!");
+
+                // Update saved inputs
+                var inputs = $(form).find(".form-control, input[name=group]");
+                $(inputs).css("border-color", "");
+                $(inputs).parent("label").removeClass("highlighted-radio-label");
+                $(inputs).removeData('changed');
+
+                // Remove bind only if no other inputs have been changed
+                var anyChangedElements = $(".form-control, input[name=group]").map(function() {
+                    return $(this).data("changed");
+                }).get();
+
+                if (!anyChangedElements.some(function(changed){return changed;})) {
+                    $(window).unbind("beforeunload");
+                }
+            }
+
+            function setDefaultCreds(endPoint, data, credIdDisplayId, returnKey) {
+                ajaxWrapper(endPoint, data, "POST", function(data) {
+                    $("#" + credIdDisplayId).val(data[returnKey]);
+                });
+            }
+
+            function deleteCreds(endPoint, data, confirmMessage, tableDivId) {
+                if (!confirm(confirmMessage)) {
+                    return;
+                }
+                ajaxWrapper(endPoint, data, "DELETE", function(data) {
+                    $("#" + tableDivId).load(" #" + tableDivId);
+                });
+            }
+
+            function ajaxWrapper(endPoint, data, type, success) {
+                $.ajax({
+                    url: "/account/profile/" + endPoint,
+                    type: type,
+                    data: JSON.stringify(data),
+                    contentType: "application/json",
+                    success: success,
+                    error: showAjaxErrorMessage
+                });
+            }
+
+            $("#googleCloudSAKeyButton").click(function() {
+                submitCredentialForm("googleCloudSAForm", "google_cloud_service_account", "googleCloudSAModal", "googleCloudTableDiv")
+            });
+
+            function setDefaultServiceAccount(email) {
+                setDefaultCreds("google_cloud_service_account_default", {email: email},
+                    "googleCloud_project_name", "default_google_cloud_service_account_email");
+            }
+
+            function deleteServiceAccount(email) {
+                var confirmMessage = "Delete Google service account " + email + "?";
+                deleteCreds("google_cloud_service_account", {email: email}, confirmMessage, "googleCloudTableDiv");
+            }
+
+            $(function() {
+                $("form button").click(function(){
+                    var form = $(this).parents("form");
+
+                    $.ajax({
+                        url: "/account/profile",
+                        type: "POST",
+                        data: $(form).serialize(),
+                        success: showSuccessAndMaybeClearInputs(form),
+                        error: showAjaxErrorMessage
+                    })
+                });
+
+                $(".form-control, input[name=group]").change(function(){
+                    if( $(this).is("input[name=group]") ) {
+                        $(".highlighted-radio-label").removeClass("highlighted-radio-label");
+                        $(this).parent("label").addClass("highlighted-radio-label");
+                    }
+                    else {
+                        $(this).css("border-color", "red");
+                    }
+
+                    $(this).data('changed', true);
+                    $(window).bind('beforeunload', function(){
+                        return true;
+                    });
+                });
+            });
+         </script>
+    </div>
+    <!-- /.container-fluid -->
+</div>
+<!-- /#page-wrapper -->
+
+{{> partials/footer}}

@@ -1,0 +1,11 @@
+ensemble:
+    server:
+        node.count: 1
+        provisioner:
+            name: kind
+        configuration_manager:
+            - name: ds_cass_operator
+              properties:
+                  namespace: "optest"
+                  datacenter.manifest: not_a_managed_file
+    client: server

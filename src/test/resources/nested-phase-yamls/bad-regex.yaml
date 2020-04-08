@@ -1,0 +1,47 @@
+ensemble:
+   server:
+      node.count: 1
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+
+workload:
+  phases:
+    - subphases:
+        - text1:
+            module: text
+            properties:
+              text: a
+        - text2:
+            module: text
+            properties:
+              text: b
+        - text3:
+            module: text
+            properties:
+              text: c
+    - next_serial_phases:
+        - text4:
+            module: text
+            properties:
+              text: d
+        - text5:
+            module: text
+            properties:
+              text: e
+        - text6:
+            module: text
+            properties:
+              text: f
+  checkers:
+      verify_success:
+        checker: regex
+        properties:
+          regex: abdcef # Swap `c` and `d` ordering

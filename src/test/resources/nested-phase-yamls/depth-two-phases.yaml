@@ -1,0 +1,62 @@
+ensemble:
+   server:
+      node.count: 1
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+
+workload:
+  phases:
+    - subphasesA:
+        - text1:
+            module: text
+            properties:
+              text: a
+        - sleep1:
+            module: sleep
+            properties:
+              duration: 5ms
+        - text2:
+            module: text
+            properties:
+              text: b
+      subphasesB:
+        - texta:
+            module: text
+            properties:
+              text: e
+        - sleep2:
+            module: sleep
+            properties:
+              # Leading whitespace and full name of unit is doing double duty
+              # as a Duration test.
+              duration:    5 milliseconds
+        - textb:
+            module: text
+            properties:
+              text: f
+      a_module:
+        module: text
+        properties:
+          text: q
+    - text3:
+        module: text
+        properties:
+          text: c
+      text4:
+        module: text
+        properties:
+          text: d
+  checkers:
+      verify_success:
+        checker: regex
+        properties:
+          forbid.duplicate_characters: true
+          regex: "(?!b.*a)(?!f.*e)[qaebf]{5}[cd]{2}"

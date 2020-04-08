@@ -1,0 +1,273 @@
+{{> partials/header}}
+
+{{> partials/menus }}
+
+<style>
+    .tree {
+        min-height:20px;
+        padding:19px;
+        margin-bottom:20px;
+        background-color:#fbfbfb;
+    }
+    .tree li {
+        list-style-type:none;
+        margin:0;
+        padding:10px 5px 0 5px;
+        position:relative
+    }
+    .tree li::before, .tree li::after {
+        content:'';
+        left:-20px;
+        position:absolute;
+        right:auto
+    }
+    .tree li::before {
+        border-left:1px solid #999;
+        bottom:0;
+        top:0;
+        width:1px
+    }
+    .tree li::after {
+        border-top:1px solid #999;
+        height:20px;
+        top:25px;
+        width:25px
+    }
+    .tree li .item {
+        -moz-border-radius:5px;
+        -webkit-border-radius:5px;
+        border:1px solid #999;
+        border-radius:5px;
+        display:inline-block;
+        padding: 3px 8px;
+        text-decoration:none;
+    }
+    .tree li .file {
+        overflow: hidden;
+    }
+    .tree li .size {
+        margin-left: 0.5em;
+        padding: 0 0.5em;
+        border-left: 1px solid #999;
+    }
+    .tree li .file .controls {
+        display: inline-block;
+        background-color: #999;
+        padding: 3px 8px;
+        margin: -3px -8px -3px 0;
+    }
+    .tree .item {
+        cursor:pointer
+    }
+    .tree>ul>li::before, .tree>ul>li::after {
+        border:0
+    }
+    .tree li:last-child::before {
+        height:25px
+    }
+    .tree li.parent_li>.item:hover, .tree li.parent_li>.item:hover+ul li .item {
+        background:#eee;
+        border:1px solid #94a0b4;
+        color:#000
+    }
+</style>
+
+<script type="text/javascript">
+    $(window).on("load", function(){
+        var logText = $("#snippet_block").text();
+        var indexOfFailureLine = logText.lastIndexOf("\n");
+        var failureLine = logText.substring(indexOfFailureLine+1, logText.length);
+
+        $("#highlighted_snippet_block").text(failureLine);
+
+        $("#snippet_block").text(logText.substring(0, indexOfFailureLine));
+    });
+</script>
+
+<!-- Page Content -->
+<div id="page-wrapper">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-12">
+                <p class="h2"> <a href="/tests/ui/{{testRun.owner}}/{{name}}">{{name}}</a> artifacts
+                    <a href="yaml" type="button" class="btn btn-info btn-small">View YAML</a></p>
+                {{#deleted}}
+                    <div class="panel panel-danger">
+                        <div class="panel-heading">
+                            This test run is deleted!
+                        </div>
+                    </div>
+                {{/deleted}}
+                {{#failed}}
+                    <div class="{{stateAlertType}}">
+                        {{#failedDuringWorkload}}
+                            The test run failed during the <code>workload</code>
+                            {{#testRun.failedDuring}}stage {{testRun.failedDuring}};{{/testRun.failedDuring}}
+                            {{^testRun.failedDuring}}stage;{{/testRun.failedDuring}}
+                            this probably means that whatever your workload was designed to test has not passed that test.
+                        {{/failedDuringWorkload}}
+                        {{^failedDuringWorkload}}
+                            The test run failed during the <code>ensemble</code> stage {{testRun.failedDuring}}; this could mean you have something wrong in your ensemble definition, or it could be an infrastructure failure.  You need to inspect the logs to find out which.
+                        {{/failedDuringWorkload}}
+                    </div>
+                {{/failed}}
+                {{#testRuns}}
+                    {{> partials/testrun/table}}
+                {{/testRuns}}
+            </div>
+        </div>
+        <div class="row">
+            {{^hasArtifacts}}
+                <div class="col-md-6 col-md-offset-3">
+                    No artifacts saved
+                </div>
+            {{/hasArtifacts}}
+            {{#hasArtifacts}}
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <p>
+                            Need help reading these logs? Check out <code>fallout-errors.log</code> first, which contains just the log messages logged at ERROR, and then
+                            <code>fallout-shared.log</code>, which is an aggregate of everything logged.
+                            Or maybe <code>jepsen-history.json</code>, which contains the raw jepsen output. Failures in test operations will most
+                            likely be in <code>jepsen-history</code>, and all other issues, especially failure to setup, will be in
+                            the errors and shared log.
+                            <code>ensemble-summary.json</code> contains a summary of various components and should help with ad hoc debugging.
+                            <code>fallout-warnings.log</code> contains the log messages logged at WARN, and
+                            <code>fallout-debug.log</code> contains DEBUG messages.
+                        </p>
+                        <p>
+                            The remaining artifacts are separated into directories depending on which nodegroup they belong to. These directories are then further split into additional directories per node in each nodegroup. The
+                            <code>fallout-shared.log</code> comprises
+                            the <code>fallout-nodegroup.log</code> files (for the nodegroup) and
+                            <code>fallout-node.log</code> files (for the nodes in that nodegroup).
+                        </p>
+                        <p>
+                            If you are trying to diagnose a provisioning failure, the error should appear in a log snippet immediately below this paragraph. You can find the remaining context of the error within
+                            <code>fallout-shared.log</code>, or
+                            you can check the <code>fallout-nodegroup.log</code> under the directory that matches the specific cluster that failed to launch.
+                        </p>
+                        {{#testRun.parsedLogInfo}}
+                            <p>
+                            If that isn't enough, we've attempted to pull out relevant portions of the logs which
+                            may help debug a failure:
+                            </p>
+                            <div class="panel panel-default" id="accordion">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">
+                                        <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne"><p class="text-muted">Log Snippet</p></a>
+                                    </h4>
+                                </div>
+                                <div id="collapseOne" class="panel-collapse collapse in">
+                                    <div class="panel-body">
+                                        <p id="snippet_block" class="new-lines">{{testRun.parsedLogInfo}}</p>
+                                        <p class="new=lines"><span id="highlighted_snippet_block" style="background-color: #FFFF00"></span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        {{/testRun.parsedLogInfo}}
+                        <button type="button" class="btn btn-default tree-expand-all">Expand all</button>
+                        <button type="button" class="btn btn-default tree-collapse-all">Collapse all</button>
+                    </div>
+                    <div class="panel-body">
+                        <div class="tree">
+                            <ul>
+                                {{#fileTree}}
+                                    {{> partials/artifacts/filetree.mustache}}
+                                {{/fileTree}}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="panel-footer">
+                        <button type="button" class="btn btn-default tree-expand-all">Expand all</button>
+                        <button type="button" class="btn btn-default tree-collapse-all">Collapse all</button>
+                    </div>
+                </div>
+            {{/hasArtifacts}}
+        </div>
+        <!-- /.row -->
+    </div>
+    <!-- /.container-fluid -->
+</div>
+<!-- /#page-wrapper -->
+
+<script>
+    function setButtonStates() {
+        $('.tree-collapse-all').attr('disabled', $('.tree .folder-open').length === 0);
+        $('.tree-expand-all').attr('disabled', $('.tree .folder-closed').length === 0);
+    }
+
+    function collapseBranch(folder) {
+        $(folder)
+            .attr('title', 'Expand this branch')
+            .addClass('folder-closed')
+            .removeClass('folder-open')
+            .find(' > i')
+            .addClass('fa-folder')
+            .removeClass('fa-folder-open');
+        $(folder).siblings('ul').slideUp('fast');
+        setButtonStates();
+    }
+
+    function expandBranch(folder) {
+        $(folder)
+            .attr('title', 'Collapse this branch')
+            .addClass('folder-open')
+            .removeClass('folder-closed')
+            .find(' > i')
+            .addClass('fa-folder-open')
+            .removeClass('fa-folder');
+        $(folder).siblings('ul').slideDown('fast');
+        setButtonStates();
+    }
+
+    function toggleBranch(folder) {
+        var children = $(folder).siblings('ul');
+        if (children.is(":visible")) {
+            collapseBranch(folder);
+        } else {
+            expandBranch(folder);
+        }
+    }
+
+    function collapseAll(folders) {
+        collapseBranch(folders);
+    }
+
+    function expandAll(folders) {
+        expandBranch(folders);
+    }
+
+    $(function () {
+        $('.tree li').has('ul')
+            .addClass('parent_li')
+            .find(' > span')
+            .attr('title', 'Collapse this branch');
+
+        var allFolders = $('.tree .folder');
+
+        allFolders.on('click', function (e) {
+            toggleBranch(this);
+            e.stopPropagation();
+        });
+
+        $('.tree-collapse-all').on('click', function (e) {
+            collapseAll($('.tree .folder-open'));
+            e.stopPropagation();
+        });
+
+        $('.tree-expand-all').on('click', function (e) {
+            expandAll($('.tree .folder-closed'));
+            e.stopPropagation();
+        });
+
+        // Pre-collapse big trees
+        var bigTrees = allFolders.filter((index, folder) => {
+            return $(folder).siblings('ul').children('li').length > 10;
+        });
+        collapseBranch(bigTrees);
+
+        setButtonStates();
+    });
+</script>
+
+{{> partials/footer }}

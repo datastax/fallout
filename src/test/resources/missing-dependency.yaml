@@ -1,0 +1,15 @@
+
+ensemble:
+  client:
+    node.count: 3
+    provisioner:
+      name: fake
+    configuration_manager:
+      - name: nosqlbench # Requires DseOperatorProvider
+        properties:
+          replicas: 3
+  server: client
+workload:
+  phases:
+    - noop:
+        module: noop

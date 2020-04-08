@@ -1,0 +1,9 @@
+workload:
+    phases:
+    - auto_fail:
+        module: fail
+    - auto_fail:
+        module: fail
+    checkers:
+       verify_success:
+          checker: nofail

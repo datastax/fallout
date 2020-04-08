@@ -1,0 +1,82 @@
+ensemble:
+   server:
+      node.count: 1
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+
+workload:
+  phases:
+    # This test runs:
+    #  (a_module AND another_module)
+    #  THEN
+    #  (one_module AND second_module AND (
+    #    this_is_the_only_module_in_the_first_subphase THEN this_is_the_only_module_in_the_second_subphase))
+    #  THEN
+    #  (moduleA AND moduleB AND a_module_in_a_subphase AND (
+    #    (a_module_in_the_first_subphase AND another_module_in_the_first_subphase)
+    #    THEN a_module_in_the_second_subphase))
+    - a_module:
+        module: text
+        properties:
+          text: a
+      another_module:
+        module: text
+        properties:
+          text: b
+    - one_module:
+        module: text
+        properties:
+          text: c
+      second_module:
+        module: text
+        properties:
+          text: d
+      this_is_a_list_of_subphases:
+        - this_is_the_only_module_in_the_first_subphase:
+            module: text
+            properties:
+              text: e
+        - this_is_the_only_module_in_the_second_subphase:
+            module: text
+            properties:
+              text: f
+    - moduleA:
+        module: text
+        properties:
+          text: a
+      moduleB:
+        module: text
+        properties:
+          text: b
+      one_list_of_subphases:
+        - a_module_in_a_subphase:
+            module: text
+            properties:
+              text: c
+      another_list_of_subphases:
+        - a_module_in_the_first_subphase:
+            module: text
+            properties:
+              text: f
+          another_module_in_the_first_subphase:
+            module: text
+            properties:
+              text: g
+        - a_module_in_the_second_subphase:
+            module: text
+            properties:
+              text: h
+  checkers:
+      verify_success:
+        checker: regex
+        properties:
+          forbid.duplicate_characters: true
+          regex: "[ab]{2}[cde]{3}f[abcfgh]{5}"

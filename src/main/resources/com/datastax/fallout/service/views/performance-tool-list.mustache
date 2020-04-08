@@ -1,0 +1,86 @@
+{{> partials/header}}
+
+{{> partials/menus }}
+
+<!-- Page Content -->
+<div id="page-wrapper">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-12">
+                <p class="h2">Performance reports for {{email}}
+                    {{#isOwner}}
+                    <a href="/performance/start" type="button" class="btn btn-primary">Create New</a>
+                    {{/isOwner}}
+                </p>
+            </div>
+        </div>
+        <div class="row">
+            {{#reports.empty}}
+                <div class="col-md-6 col-md-offset-3">
+                    No reports found
+                </div>
+            {{/reports.empty}}
+            {{^reports.empty}}
+                <br/>
+                {{> partials/message-area}}
+            <table class="table table-bordered table-striped">
+                <thead>
+                <tr>
+                    <th>Report name</th>
+                    <th>Created at</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+            <tbody>
+            {{/reports.empty}}
+            {{#reports}}
+            <tr>
+                <td><a href="/performance/{{email}}/report/{{reportGuid}}">{{reportName}}</a></td>
+                <td>{{reportDateUtc}}</td>
+                <td>
+                    {{#isOwner}}
+                        <a title="Delete report" id="{{reportGuid}}-del" class="btn btn-danger btn-xs" href="#">
+                            <i class="fa fa-trash-o"></i>
+                        </a>
+                        <script>
+                            $("#{{reportGuid}}-del").click(function() {
+
+                                if (!confirm("Delete report {{reportName}} @ {{reportDateUtc}}?"))
+                                    return;
+
+                                $.ajax({
+                                    url: "/performance/{{email}}/report/{{reportGuid}}/api",
+                                    type: "DELETE",
+
+                                    success: function (data) {
+                                        //reload
+                                        window.location.reload();
+                                    },
+                                    error: function (data) {
+
+                                        if (data.responseJSON != null && data.responseJSON["error"] != null) {
+                                            showErrorMessage(data.responseJSON["error"]);
+                                        } else {
+                                            showErrorMessage("<pre>" + JSON.stringify(data, null, 2) + "</pre>");
+                                        }
+                                    }
+                                })
+                            })
+                        </script>
+                    {{/isOwner}}
+                </td>
+            </tr>
+
+            {{/reports}}
+            {{^reports.empty}}
+            </tbody>
+            </table>
+            {{/reports.empty}}
+        </div>
+        <!-- /.row -->
+    </div>
+    <!-- /.container-fluid -->
+</div>
+<!-- /#page-wrapper -->
+
+{{> partials/footer }}

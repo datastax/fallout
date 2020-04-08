@@ -1,0 +1,41 @@
+# PARAMETERS FOR TEST RUN fallout-unittest-user@example.com, complete-defaults, %s:
+dummy_module: noop
+runlevel: STARTED_SERVICES_RUNNING
+checker_module: nofail
+
+# DEFAULT PARAMETERS:
+# # Test that defaults are used
+# 
+# dummy_module: fake
+# runlevel: STARTED_SERVICES_RUNNING
+# checker_module: nofail
+---
+# Test the fake provisioner, provider and module
+
+ensemble:
+  server:
+    node.count: 1
+    runlevel: STARTED_SERVICES_UNCONFIGURED
+    provisioner:
+      name: fake
+    configuration_manager:
+      - name: fake
+
+  client: server
+
+workload:
+  phases:
+    - dummy:
+        module: {{dummy_module}}
+    - runlevel:
+        module: runlevel
+        properties:
+          role: server
+          runlevel: {{runlevel}}
+  checkers:
+    check:
+      checker: {{checker_module}}
+    runlevels:
+      checker: runlevel
+      properties:
+        runlevels: STARTED_SERVICES_RUNNING

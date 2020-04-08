@@ -1,0 +1,42 @@
+ensemble:
+   server:
+      node.count: 1
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+workload:
+    phases:
+    - emit:
+        module: multithreaded
+
+    checkers:
+      verify_success:
+        checker: nofail
+      countinfo:
+        checker: count
+        properties:
+          max: 11
+          min: 11
+          processes: emit
+          types: info
+      countinvoke:
+        checker: count
+        properties:
+          max: 1
+          min: 1
+          processes: emit
+          types: invoke
+      countok:
+        checker: count
+        properties:
+          max: 1
+          min: 1
+          processes: emit
+          types: ok

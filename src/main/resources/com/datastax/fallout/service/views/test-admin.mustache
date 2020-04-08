@@ -1,0 +1,74 @@
+{{> partials/header}}
+
+{{> partials/menus }}
+
+<script src="{{mainView.assetsRoot}}/js/testruns.js"></script>
+
+<!-- Page Content -->
+<div id="page-wrapper">
+    <div class="container-fluid">
+        <h2>Test Runner Administration</h2>
+        {{> partials/message-area}}
+
+        {{#mainView.testRunner.shutdownRequested}}
+            <a href="#" id="cancelShutdown" type="button" class="btn btn-success">
+                <i class="fa fa-play"></i>
+                Cancel shutdown and restart queue</a>
+            <span
+                {{#mainView.testRunner.testsHaveBeenAbortedAndRequeued}}
+                title="This has already been triggered during the current shutdown request, and cannot be triggered again"
+                {{/mainView.testRunner.testsHaveBeenAbortedAndRequeued}}>
+
+                <a href="#" id="abortAndRequeueRunningTestRuns" type="button"
+                   class="btn btn-danger {{#mainView.testRunner.testsHaveBeenAbortedAndRequeued}}disabled{{/mainView.testRunner.testsHaveBeenAbortedAndRequeued}}">
+                    <i class="fa fa-minus-circle"></i>
+                    Abort and requeue running tests</a>
+
+            </span>
+        {{/mainView.testRunner.shutdownRequested}}
+
+        {{^mainView.testRunner.shutdownRequested}}
+            <a href="#" id= "requestShutdown" type="button" class="btn btn-warning">
+                <i class="fa fa-pause"></i>
+                Request shutdown and pause queue</a>
+        {{/mainView.testRunner.shutdownRequested}}
+
+        <div class="row">
+            <h3>Queued Test Runs</h3>
+            {{#queuedTestRuns}}
+                {{> partials/testrun/table}}
+            {{/queuedTestRuns}}
+        </div>
+
+        <div class="row">
+            <h3>Running Test Runs</h3>
+            {{#runningTestRuns}}
+                {{> partials/testrun/table}}
+            {{/runningTestRuns}}
+        </div>
+
+        <!-- /.row -->
+    </div>
+    <!-- /.container-fluid -->
+</div>
+<!-- /#page-wrapper -->
+
+<script>
+    $(function () {
+        $("#requestShutdown, #cancelShutdown, #abortAndRequeueRunningTestRuns").click(function(){
+            $.ajax({
+                url: "/tests/" + $(this)[0].id + "/api",
+                type: "POST",
+
+                success: function (data) {
+                    window.location.reload();
+                },
+                error: function (data) {
+                    showErrorMessage("<pre>" + JSON.stringify(data, null, 2) + "</pre>");
+                }
+            })
+        })
+    });
+</script>
+
+{{> partials/footer}}

@@ -1,0 +1,14 @@
+ensemble:
+    server:
+        node.count: 1
+        provisioner:
+            name: reused
+        configuration_manager:
+            - name: reused
+
+    client: server
+
+workload:
+    phases:
+        - noop:
+              module: noop

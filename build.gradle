@@ -1,0 +1,1265 @@
+buildscript {
+    ext.falloutRepositories = {
+        mavenLocal()
+        jcenter()
+        mavenCentral()
+
+        maven { url "http://oss.sonatype.org/content/repositories/snapshots" }
+        maven { url "http://oss.sonatype.org/content/repositories/releases" }
+        maven { url "http://clojars.org/repo" }
+    }
+
+    repositories falloutRepositories
+
+    dependencies {
+        classpath 'guru.nidi:graphviz-java:0.8.3'
+        classpath 'net.sourceforge.plantuml:plantuml:1.2019.7'
+    }
+}
+
+plugins {
+    id 'java'
+    id 'application'
+    id 'pmd'
+    id "com.github.spotbugs" version "2.0.0"
+    id "org.jetbrains.gradle.plugin.idea-ext" version "0.5"
+
+    // When upgrading the shadow plugin to 6.0, please remove the
+    // GRADLE_OPTS workaround in falloutctl.
+    id "com.github.johnrengelman.shadow" version "5.2.0"
+    id "com.github.johnrengelman.processes" version "0.5.0"
+    id "com.github.voplex95.lesscompiler" version "1.0.3"
+    id "com.diffplug.gradle.spotless" version "3.28.0"
+    id "com.palantir.docker" version "0.25.0"
+    id "com.palantir.docker-compose" version "0.25.0"
+    id "de.undercouch.download" version "4.0.4"
+    id "com.google.osdetector" version "1.6.2"
+}
+
+
+import com.github.jengelman.gradle.plugins.processes.tasks.Fork
+import guru.nidi.graphviz.engine.Format
+
+group = 'com.datastax'
+version = '0.1.0-SNAPSHOT'
+mainClassName = 'com.datastax.fallout.service.FalloutService'
+
+def javaModuleJvmArgs = [
+    // Handle jackson reflection under Java 9+ (see
+    // https://github.com/FasterXML/jackson-modules-base/issues/37#issuecomment-389581245)
+    '--illegal-access=permit',
+    '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+    '--add-opens', 'java.base/java.nio=ALL-UNNAMED'
+]
+
+// This will be inserted into the fallout wrapper script
+applicationDefaultJvmArgs = [
+    '-XX:+HeapDumpOnOutOfMemoryError',
+    '-XX:-OmitStackTraceInFastThrow',
+    '-server',
+    '-ea',
+    '-Djava.util.concurrent.ForkJoinPool.common.parallelism=1024'
+] + javaModuleJvmArgs
+
+// In production, falloutctl sets heap sizes; when running within gradle
+// we must set something larger than the default 512m
+// (https://docs.gradle.org/current/userguide/build_environment.html#sec:configuring_jvm_memory)
+// for the test and server processes:
+ext.applicationGradleJvmArgs = applicationDefaultJvmArgs + ["-Xmx10G"]
+
+description = """DataStax Fallout"""
+
+allprojects {
+    sourceCompatibility = 11.0
+    targetCompatibility = 11.0
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
+    }
+
+    repositories falloutRepositories
+
+    repositories {
+        // For some reason, hitting jitpack for gradle plugins always results
+        // in HTTP 401 (Unauthorized), which means that we get a ~3s pause
+        // on _every_ build.  So instead we add it here (it's needed for
+        // com.github.nitsanw:HdrLogProcessing).
+        maven { url "https://jitpack.io" }
+    }
+
+    // Ensure that archive tasks have reproducible outputs: this allows
+    // build caching and build avoidance.  See
+    // https://docs.gradle.org/5.6.3/userguide/working_with_files.html#sec:reproducible_archives
+    tasks.withType(AbstractArchiveTask) {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+
+    tasks.withType(Zip) {
+        zip64 = true
+    }
+
+    tasks.withType(JavaExec) {
+        enableAssertions = true
+    }
+}
+
+subprojects {
+  rootProject.clean {
+      dependsOn tasks.matching { it.name == "clean" }
+  }
+}
+
+def dropwizardVersion = '2.0.2'
+
+// Make sure this is the same version of jetty that dropwizard uses:
+def jettyVersion = '9.4.26.v20200117'
+
+// Make sure this is the same version of jersey that dropwizard uses:
+// (In this case, it isn't; dropwizard 2.0.1 uses jersey 2.30, but that
+// has a bug that prevents usage with Java 11 LTS:
+// https://github.com/eclipse-ee4j/jersey/issues/4380.  This will be
+// fixed in the as-yet-unreleased dropwizard 2.0.3:
+// https://github.com/dropwizard/dropwizard/pull/3165)
+def jerseyVersion = '2.30.1'
+
+def autoServiceVersion = '1.0-rc6'
+def autoValueVersion = '1.7'
+
+def junit5Version = "5.5.2"
+
+defaultTasks ':shadowJar'
+
+sourceSets {
+    testBase
+    integrationTest
+}
+
+configurations {
+    testBaseImplementation.extendsFrom(implementation)
+
+    integrationTestImplementation.extendsFrom(testBaseImplementation)
+    integrationTestRuntimeOnly.extendsFrom(testBaseRuntimeOnly)
+    integrationTestCompileOnly.extendsFrom(testBaseCompileOnly)
+
+    testImplementation.extendsFrom(testBaseImplementation)
+    testRuntimeOnly.extendsFrom(testBaseRuntimeOnly)
+    testCompileOnly.extendsFrom(testBaseCompileOnly)
+}
+
+dependencies {
+    implementation project(path: ':cassandra-all-shaded', configuration: 'shadow')
+    implementation files('lib/jepsen-0.8.0-SNAPSHOT-all.jar')
+
+    implementation "com.google.guava:guava:28.1-jre"
+    implementation "com.github.spullara.mustache.java:compiler:0.9.6"
+    implementation "io.dropwizard:dropwizard-core:${dropwizardVersion}"
+    implementation("io.dropwizard:dropwizard-views-mustache:${dropwizardVersion}") {
+        exclude(group: 'com.github.spullara.mustache.java', module: 'compiler')
+    }
+    implementation "io.dropwizard:dropwizard-assets:${dropwizardVersion}"
+    implementation "io.dropwizard:dropwizard-auth:${dropwizardVersion}"
+    implementation "io.dropwizard:dropwizard-logging:${dropwizardVersion}"
+    implementation "io.dropwizard:dropwizard-metrics-graphite:${dropwizardVersion}"
+    implementation "org.eclipse.jetty:jetty-rewrite:${jettyVersion}"
+    implementation "com.jcraft:jsch:0.1.54"
+    implementation "commons-io:commons-io:2.5"
+    implementation "org.yaml:snakeyaml:1.18"
+    implementation "ca.szc.configparser:java-configparser:0.2"
+    implementation("org.apache.jclouds:jclouds-scriptbuilder:2.0.2") {
+        exclude(group: 'javax.ws.rs', module: 'jsr311-api')
+    }
+    implementation "com.h2database:h2:1.4.195"
+    implementation "javax.mail:javax.mail-api:1.6.0"
+    implementation "com.sun.mail:javax.mail:1.6.0"
+    implementation "org.apache.commons:commons-csv:1.5"
+    implementation "org.hdrhistogram:HdrHistogram:2.1.10"
+    implementation "com.github.nitsanw:HdrLogProcessing:v0.2-beta"
+    implementation "io.netty:netty-all:4.0.44.Final"
+    implementation("com.github.docker-java:docker-java:3.0.13") {
+        exclude(group: 'com.google.guava', module: 'guava')
+        exclude(group: 'io.netty')
+    }
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.8.10"
+    implementation "org.apache.httpcomponents:httpclient:4.5.3"
+    implementation "org.apache.commons:commons-math3:3.6.1"
+
+    implementation("io.dropwizard:dropwizard-views-freemarker:${dropwizardVersion}")
+    implementation "com.smoketurner:dropwizard-swagger:1.1.0-1"
+
+    // For Server-Sent Events
+    implementation "org.glassfish.jersey.media:jersey-media-sse:${jerseyVersion}"
+    implementation("org.glassfish.jersey.security:oauth2-client:${jerseyVersion}") {
+        // Prevent the Jersey JacksonFeature (which overrides the Dropwizard
+        // one) from being found and registered.
+        // See https://github.com/dropwizard/dropwizard/issues/1341
+        exclude(group: "org.glassfish.jersey.media", module: "jersey-media-json-jackson")
+    }
+    implementation "javax.ws.rs:javax.ws.rs-api:2.1.1"
+
+    annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
+    testAnnotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
+    testBaseAnnotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
+    integrationTestAnnotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
+
+    implementation "com.google.auto.service:auto-service-annotations:${autoServiceVersion}"
+
+    annotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
+    implementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
+
+    testBaseImplementation sourceSets.main.output
+    testBaseImplementation "org.junit.jupiter:junit-jupiter-api:${junit5Version}"
+    testBaseImplementation "org.assertj:assertj-core:3.9.0"
+    testBaseImplementation "org.awaitility:awaitility:4.0.1"
+    testBaseImplementation "io.dropwizard:dropwizard-logging:${dropwizardVersion}"
+    testBaseImplementation("io.dropwizard:dropwizard-testing:${dropwizardVersion}") {
+        exclude group: "junit", module: "junit"
+    }
+
+    testBaseCompileOnly "junit:junit:4.12"
+    testBaseRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junit5Version}"
+    testBaseRuntimeOnly "org.junit.vintage:junit-vintage-engine:${junit5Version}"
+
+    testImplementation sourceSets.testBase.output
+    testImplementation "org.apache.sshd:sshd-core:1.6.0"
+    testImplementation "org.mockito:mockito-core:3.0.0"
+    testImplementation "org.quicktheories:quicktheories:0.26"
+    // Java 8 StreamUtils: remove once we're on Java > 8
+    testImplementation "com.codepoetics:protonpack:1.15"
+
+    integrationTestImplementation sourceSets.testBase.output
+    integrationTestImplementation project(path: ':cassandra-all-shaded', configuration: 'shadow')
+}
+
+// ----------------------------------------------------------------------------
+// Compilation
+
+// Supporting @JsonCreator with implicit named parameters requires
+// that we store the parameter names in the generated class files
+// (https://docs.oracle.com/javase/tutorial/reflect/member/methodparameterreflection.html):
+tasks.withType(JavaCompile) {
+    options.compilerArgs += '-parameters'
+}
+
+// ----------------------------------------------------------------------------
+// IDEA integration
+
+idea {
+    module {
+        excludeDirs += [file('tests'), file('cassandra')]
+    }
+}
+
+def ideaVersion = System.getProperty('idea.version')
+
+if (ideaVersion) {
+
+    def (major, minor) = ideaVersion.split("\\.").collect { it.toInteger() }
+
+    // IDEA 2019 defines idea.version for _all_ gradle invocations; prior
+    // versions only defined it when importing.  2019 additionally
+    // defines sync.active when importing.
+    def importing = major < 2019 || System.getProperty('idea.sync.active');
+
+    if (importing) {
+
+        println "Detected IDEA ${ideaVersion} Sync"
+
+        // IDEA incorrectly uses the annotation processor classpath as
+        // "Provided", which means that any library versions in the annotation
+        // processor classpath override the versions in the implementation
+        // classpath.
+        println "Fixing incorrect annotation processor classpaths"
+        dependencies {
+            annotationProcessor configurations.implementation
+            testAnnotationProcessor configurations.testImplementation
+        }
+
+        // IDEA < 2019.3 searches for annotation processors on the classpath,
+        // and doesn't use the annotationProcessor configuration,
+        // so we add it here.
+        if (major < 2019 || (major == 2019 && minor < 3)) {
+            println "Adding annotation processor classpaths"
+            idea {
+                module {
+                    scopes.each {
+                        it.value.plus += [configurations.annotationProcessor]
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Convenience
+
+task compile {
+    setDependsOn(tasks.findAll {
+        it.name != 'compile' &&
+            it.name.startsWith('compile')
+    })
+}
+
+task setupGit {
+    def config = [
+        "core.hooksPath": "git-hooks",
+        "core.whitespace": "blank-at-eol,space-before-tab,tab-in-indent,trailing-space"
+    ]
+    doLast {
+        config.each { entry ->
+            exec {
+                commandLine 'git', 'config', entry.key, entry.value
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Run cassandra as a standalone process; also declare docker dependencies
+
+def cassandraVersion = "2.1.21"
+
+configurations {
+    cassandraStandalone
+}
+
+dependencies {
+    cassandraStandalone 'org.jmxtrans.agent:jmxtrans-agent:1.2.8'
+    cassandraStandalone "org.apache.cassandra:cassandra-all:${cassandraVersion}"
+    docker "org.apache.cassandra:cassandra-all:${cassandraVersion}"
+}
+
+task startCassandra(type: Fork) {
+    def pidFile = file("${project.rootDir}/run/cassandra.pid")
+    def java8Home = System.getenv('JAVA8_HOME')
+    def classPath = configurations.cassandraStandalone.asPath
+    def cassandraYaml = "${project.rootDir}/src/main/resources/cassandra.yaml"
+    def logbackXml = "${project.rootDir}/etc/cassandra/logback.xml"
+    def logDir = "${project.rootDir}/logs/cassandra"
+
+    doFirst {
+        if (!java8Home) {
+            throw new GradleException("JAVA8_HOME must be set to run startCassandra task")
+        }
+    }
+
+    workingDir "${project.rootDir}"
+    commandLine "${java8Home}/bin/java",
+        "-classpath", classPath,
+        "-XX:+HeapDumpOnOutOfMemoryError", "-Xms8G", "-Xmx8G", "-server", "-ea",
+        "-Dcassandra.config=file://${cassandraYaml}",
+        "-Dcassandra-pidfile=${pidFile}",
+        "-Dcassandra.logdir=${logDir}",
+        "-Dlogback.configurationFile=${logbackXml}",
+        "org.apache.cassandra.service.CassandraDaemon"
+
+    doLast {
+        def waitSeconds = 60
+        def port = 9096
+        def portOpened = false
+
+        while (!portOpened && waitSeconds && !processHandle.state.terminal) {
+            try {
+                new Socket("localhost", port);
+                portOpened = true
+            }
+            catch (ConnectException e) {
+            }
+            waitSeconds -= 1
+            Thread.sleep(1000)
+        }
+
+        if (processHandle.state.terminal) {
+            throw new GradleException("Cassandra exited with code ${processHandle.waitForFinish().exitValue}")
+        }
+
+        if (!portOpened) {
+            processHandle.abort()
+            throw new GradleException("Cassandra didn't start listening on ${port} within ${waitSeconds} seconds")
+        }
+    }
+}
+
+task stopCassandra {
+    doFirst {
+        startCassandra.processHandle.abort()
+        startCassandra.processHandle.waitForFinish()
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Tests
+
+allprojects {
+    tasks.withType(Test) {
+        useJUnitPlatform()
+
+        jvmArgs = project.applicationGradleJvmArgs
+
+        if (rootProject.hasProperty('testIgnoreFailures')) {
+            ignoreFailures = testIgnoreFailures.toBoolean()
+        }
+
+        // Pass through any -Plog.... settings as system properties
+        // (see TestLogbackConfigurator.java)
+        rootProject.properties.each { k, v ->
+            if (k =~ /log\..*/) {
+                systemProperty k, v
+            }
+        }
+
+        testLogging {
+            events "skipped", "failed", "passed"
+            exceptionFormat "full"
+        }
+
+        def reportDestination = file("${buildDir}/reports/junit/${it.name}")
+
+        reports {
+            html.enabled = false
+            junitXml.enabled = true
+            junitXml.outputPerTestCase = true
+            junitXml.destination = reportDestination
+        }
+
+        outputs.cacheIf { false }
+    }
+}
+
+test {
+    useJUnit {
+        excludeCategories "com.datastax.fallout.test.utils.categories.RequiresDb"
+    }
+}
+
+task dbTest(type: Test) {
+    description = 'Starts a local DB instance and runs tests marked RequiresDb.'
+    group = 'verification'
+
+    useJUnit {
+        includeCategories "com.datastax.fallout.test.utils.categories.RequiresDb"
+    }
+
+    dependsOn startCassandra
+    finalizedBy stopCassandra
+
+    shouldRunAfter test
+}
+
+check.dependsOn(dbTest)
+
+// ----------------------------------------------------------------------------
+// Create a custom jar with a different FalloutVersion for the purpose of
+// deployment testing
+
+def generatedDeploymentTestSourcesOutputDir = file("${buildDir}/src/deploymentTestVersion/java")
+
+sourceSets {
+    deploymentTest {
+        java {
+            srcDirs += generatedDeploymentTestSourcesOutputDir
+        }
+    }
+}
+
+task generateDeploymentTestVersionJavaFile {
+    ext.target = file("${generatedDeploymentTestSourcesOutputDir}/com/datastax/fallout/FalloutVersion.java")
+    ext.targetContent = """
+        package com.datastax.fallout;
+
+        public class FalloutVersion {
+            public static String getVersion() { return "DEPLOYMENT_TEST"; }
+            public static String getCommitHash() { return "DEPLOYMENT_TEST"; }
+        }
+    """
+
+    inputs.property("content", targetContent)
+    outputs.file target
+
+    doLast {
+        target.getParentFile().mkdirs()
+        target.text = targetContent
+    }
+}
+
+compileDeploymentTestJava.dependsOn(generateDeploymentTestVersionJavaFile)
+
+// Create a jar that contains all but the FalloutVersion from the main
+// sourceset, and the FalloutVersion we build for deployment testing
+task deploymentTestJar(type: Jar) {
+    from(sourceSets.main.output) {
+        exclude "**/FalloutVersion.*"
+    }
+    from(sourceSets.deploymentTest.output)
+    archiveName "fallout-deploymentTest.jar"
+}
+
+// ----------------------------------------------------------------------------
+// Integration tests
+
+task integrationTest(type: Test, dependsOn: [installDist, deploymentTestJar]) {
+    description = 'Runs integration tests.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    systemProperties([
+        installDistDir: installDist.getDestinationDir(),
+        deploymentTestJar: deploymentTestJar.outputs.files.singleFile,
+        productionJar: file("${installDist.destinationDir}/lib/${jar.outputs.files.singleFile.name}")
+    ])
+
+    shouldRunAfter test
+}
+
+check.dependsOn(integrationTest)
+
+// ----------------------------------------------------------------------------
+// Running development versions
+
+def nginxStandaloneDir = file("${buildDir}/nginx-standalone")
+
+task generateStandaloneNginxFalloutYml {
+    ext.falloutYml = file("fallout.yml")
+    ext.generatedFalloutYml = file("${nginxStandaloneDir}/fallout.yml")
+
+    inputs.file falloutYml
+    outputs.file generatedFalloutYml
+
+    doLast {
+        generatedFalloutYml.getParentFile().mkdirs()
+        generatedFalloutYml.withOutputStream { out ->
+            if (falloutYml.exists()) {
+                falloutYml.withInputStream {
+                    out << it.filterLine {
+                        !it.contains("useNginxToServeArtifacts")
+                    }
+                }
+            }
+            out << "\nuseNginxToServeArtifacts: true"
+        }
+    }
+}
+
+task generateStandaloneNginxConf(type: JavaExec, dependsOn: [compileJava, generateStandaloneNginxFalloutYml]) {
+    ext.nginxConf = file("${nginxStandaloneDir}/nginx.conf")
+    ext.nginxHtml = file("management-scripts/nginx/html")
+
+    outputs.file nginxConf
+
+    main run.main
+    classpath run.classpath
+    args 'generate-nginx-conf',
+        '--standalone',
+        '--nginx-listen-port', '8090',
+        '--output', nginxConf,
+        generateStandaloneNginxFalloutYml.generatedFalloutYml, nginxHtml
+}
+
+task startStandaloneNginx(type: Fork, dependsOn: generateStandaloneNginxConf) {
+    commandLine "nginx", "-p", nginxStandaloneDir, "-c", generateStandaloneNginxConf.nginxConf
+}
+
+task stopStandaloneNginx {
+    doFirst {
+        startStandaloneNginx.processHandle.abort()
+    }
+}
+
+class RunServer extends JavaExec {
+    RunServer() {
+        main = project.tasks.run.main
+        classpath = project.tasks.run.classpath
+        group = "application"
+
+        jvmArgs project.applicationGradleJvmArgs
+        if (project.hasProperty("devmode")) {
+            jvmArgs jvmArgs + ['-Dfallout.devmode=true']
+        }
+    }
+}
+
+task runServerWithNginx(type: RunServer) {
+    description "Run the fallout server and nginx, " +
+        "using nginx to serve artifacts"
+
+    dependsOn startStandaloneNginx, startCassandra
+    finalizedBy stopCassandra, stopStandaloneNginx
+
+    args 'standalone', generateStandaloneNginxFalloutYml.generatedFalloutYml
+}
+
+task runServer(type: RunServer) {
+    description "Run the fallout server"
+
+    ext.falloutYml = file("fallout.yml")
+    inputs.file falloutYml
+
+    dependsOn startCassandra
+    finalizedBy stopCassandra
+
+    if (falloutYml.exists()) {
+        args 'standalone', falloutYml
+    }
+    else {
+        args 'standalone'
+    }
+}
+
+ext.dockerComposeFile = file("docker-compose.yml")
+
+// We don't use the palantir plugin's dockerComposeUp task, because
+// it isn't an Exec task: we need to be able to change the environment
+// for SSH_AUTH_SOCK on macOS (see comments in docker/entrypoint.sh).
+task falloutDockerComposeUp(type: Exec) {
+    dependsOn("dockerTagLatest", "generateDockerCompose")
+    commandLine "docker-compose", "-f", dockerComposeFile, "up", "-d"
+    if (osdetector.os == "osx") {
+        environment "SSH_AUTH_SOCK", "/run/host-services/ssh-auth.sock"
+    }
+}
+
+dockerComposeUp {
+    // See falloutDockerComposeUp docs for why this is disabled
+    enabled = false
+    dependsOn(falloutDockerComposeUp)
+}
+
+task runServerInDocker {
+    group 'docker'
+    description "Run the fallout server docker image using docker-compose"
+
+    dependsOn "dockerComposeUp"
+    finalizedBy "dockerComposeDown"
+
+    // Gradle won't run finalizers on ctrl-C, and it won't pass the
+    // SIGINT thus generated to child processes (it uses destroyForcibly
+    // == SIGTERM), so we can't just make this task run plain
+    // "docker-compose up" and allow ctrl-C to do graceful shutdown.
+    doFirst {
+        println "Fallout server is running; press <RETURN> to terminate."
+        println "Will start log tailing in a moment..."
+
+        // Give people a chance to see the above message
+        Thread.sleep(5000)
+
+        def dockerComposeLogs = project.procs.fork {
+            commandLine "docker-compose", "logs", "--follow"
+        }
+
+        System.in.read();
+
+        dockerComposeLogs.abort()
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Cleanliness
+
+pmd {
+    ignoreFailures = true
+}
+
+spotbugs {
+    ignoreFailures = true
+    // Use the old findbugs report directory for compatibility with existing
+    // CI build definitions.  This can be removed once the CI build
+    // definitions are changed to use spotbugs instead.
+    reportsDir = file("${buildDir}/reports/findbugs")
+}
+
+spotless {
+    java {
+        // The spotless import ordering plugin is based on the eclipse one;
+        // it's not as advanced as IntelliJ, in that it _always_ inserts a
+        // blank line between groups, and matches imports by longest
+        // matching prefix: there's no wildcard matching.
+        // An empty group ('') matches everything.
+        // '\\#' matches static imports.
+        //
+        // If you change this, you should also change the import order in
+        // ij_java_imports_layout in .editorconfig.
+        //
+        // This ordering is pragmatic rather than anything else; it matches
+        // the ordering that most of the codebase already had before we started
+        // enforcing it.
+        importOrder(
+            'javax.', 'java.', '', 'com.datastax.', 'org.apache.cassandra.', '\\#')
+        removeUnusedImports()
+
+        endWithNewline()
+        trimTrailingWhitespace()
+        eclipse().configFile("eclipse-format.prefs")
+        licenseHeaderFile 'gradle/LicenseHeader.java'
+
+        target "src/**/*.java"
+    }
+}
+
+task checkCode {
+    setDependsOn(tasks.findAll { task ->
+        task.name.startsWith('spotbugs') ||
+            task.name.startsWith('pmd') ||
+            task.name.startsWith('spotlessCheck')
+    })
+}
+
+cleanCheck.dependsOn([cleanTest, cleanIntegrationTest])
+
+check.mustRunAfter(cleanCheck)
+test.mustRunAfter(cleanTest)
+integrationTest.mustRunAfter(cleanIntegrationTest)
+
+// ----------------------------------------------------------------------------
+// Version info
+
+// We don't use grgit to do this because it doesn't support worktrees:
+// https://github.com/ajoberstar/grgit/issues/97
+
+def gitCommand(command) {
+    // We have to specify --git-dir and --work-tree because the gradle daemon
+    // doesn't unset environment variables, it just sets them to empty.  If
+    // we run gradle as part of a `git -x './gradlew compile' rebase` or a
+    // bisect, then GIT_WORK_TREE and GIT_DIR will be set; running outside of
+    // the bisect or rebase, the two env vars will be set to empty, which
+    // will cause git to fail.
+    def process = ("git --git-dir=${rootProject.projectDir}/.git " +
+        "--work-tree=${rootProject.projectDir} ${command}").execute()
+    if (process.waitFor() != 0) {
+        throw new RuntimeException("'git " + command + "' failed")
+    }
+    return process.text.trim()
+}
+
+ext {
+    if (file("${rootProject.projectDir}/.git").exists()) {
+        gitDescribe = gitCommand("describe --tags")
+        gitBranch = gitCommand("rev-parse --abbrev-ref HEAD")
+        gitCommit = gitCommand("rev-parse HEAD")
+        githubRepo = gitCommand("remote get-url origin")
+            .replaceAll('^.*github.com[:/](.*?)(:?\\.git)?$', '$1')
+            .toLowerCase()
+    } else {
+        gitDescribe = "NO_GIT_REPO"
+        gitBranch = "NO_GIT_REPO"
+        gitCommit = "NO_GIT_REPO"
+        githubRepo = "NO_GIT_REPO"
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Generated resources
+
+def generatedResourcesOutputDir = file("${buildDir}/src/main/resources")
+
+sourceSets {
+    main {
+        resources {
+            srcDirs += generatedResourcesOutputDir
+        }
+    }
+}
+
+// LESS
+
+lessCompile {
+    source = file('src/main/resources/assets/less/fallout.less')
+
+    target = file("${generatedResourcesOutputDir}/assets/css/fallout.css")
+
+    // The lessCompile task doesn't declare inputs or outputs, so we do it here
+    inputs.files fileTree('src/main/resources/assets/less')
+    outputs.file target
+}
+
+processResources.dependsOn(lessCompile)
+
+// Version HTML file
+
+task generateVersionFile() {
+    ext.target = file("${generatedResourcesOutputDir}/assets/pages/version.html")
+    ext.targetContent = """
+        <dl>
+        <dt>branch:
+        <dd><a href="https://github.com/${githubRepo}/tree/${gitBranch}">${gitBranch}</a>
+        <dt>commit:
+        <dd><a href="https://github.com/${githubRepo}/commit/${gitCommit}">${gitCommit}</a>
+        </dl>
+    """
+
+    inputs.property("content", targetContent)
+    outputs.file target
+
+    doLast {
+        target.getParentFile().mkdirs()
+        target.text = targetContent
+    }
+}
+
+// fallout-client installers
+
+task generateCliInstaller() {
+    ext.target = file("${generatedResourcesOutputDir}/assets/installers/cli")
+    ext.targetContent = """
+        pipx install --force --spec "git+ssh://git@github.com/${githubRepo}.git@${gitCommit}#egg=fallout-client&subdirectory=fallout-cli" fallout-client
+    """
+
+    inputs.property('content', targetContent)
+    outputs.file target
+
+    doLast {
+        target.getParentFile().mkdirs()
+        target.text = targetContent
+    }
+}
+
+task generateApiInstaller() {
+    ext.target = file("${generatedResourcesOutputDir}/assets/installers/api")
+    ext.targetContent = """
+        pip install --upgrade "git+ssh://git@github.com/${githubRepo}.git@${gitCommit}#egg=fallout-client&subdirectory=fallout-cli"
+    """
+
+    inputs.property('content', targetContent)
+    outputs.file target
+
+    doLast {
+        target.getParentFile().mkdirs()
+        target.text = targetContent
+    }
+}
+
+processResources.dependsOn(generateVersionFile, generateCliInstaller, generateApiInstaller)
+
+// ----------------------------------------------------------------------------
+// Generated sources
+
+def generatedSourcesOutputDir = file("${buildDir}/src/main/java")
+
+sourceSets {
+    main {
+        java {
+            srcDirs += generatedSourcesOutputDir
+        }
+    }
+}
+
+// Annotation processors
+
+sourceSets.each { sourceSet ->
+    if (sourceSet.compileJavaTaskName != null) {
+        tasks[sourceSet.compileJavaTaskName].configure {
+            options.annotationProcessorGeneratedSourcesDirectory =
+                file("${buildDir}/src/${sourceSet.name}/java-annotation-processors")
+        }
+    }
+}
+
+// Internal version string
+
+task generateVersionJavaFile {
+    ext.target = file("${generatedSourcesOutputDir}/com/datastax/fallout/FalloutVersion.java")
+    ext.targetContent = """
+        package com.datastax.fallout;
+
+        public class FalloutVersion {
+            public static String getVersion() { return "${gitDescribe}"; }
+            public static String getCommitHash() { return "${gitCommit}"; }
+        }
+    """
+
+    inputs.property("content", targetContent)
+    outputs.file target
+
+    doLast {
+        target.getParentFile().mkdirs()
+        target.text = targetContent
+    }
+}
+
+compileJava.dependsOn(generateVersionJavaFile)
+
+// ----------------------------------------------------------------------------
+// AssertJ custom assertion generation
+
+// See http://joel-costigliola.github.io/assertj/assertj-core-custom-assertions.html
+//
+// We're not using the gradle plugin as it doesn't do incremental builds,
+// and can't trivially be made to, as of
+// gradle.plugin.com.github.opengl-8080:assertjGen-gradle-plugin:1.1.3
+
+configurations {
+    assertj.extendsFrom(configurations.runtimeClasspath)
+}
+
+dependencies {
+    assertj 'org.assertj:assertj-assertions-generator:2.1.0'
+}
+
+// This task does not derive from JavaExec because that would trigger
+// a rebuild every time the classpath changes (the classpath has to
+// include _all_ our compiled files for the generator to find them), which
+// means it always runs if compileJava runs.
+//
+// Instead, we calculate the java files that we're interested in, and define
+// them as the inputs.
+task generateAssertjAssertions(dependsOn: compileJava) {
+    def sourceClasses = [
+            'com.datastax.fallout.harness.TestResult',
+            'com.datastax.fallout.ops.NodeGroup',
+            'com.datastax.fallout.ops.commands.NodeResponse',
+            'com.datastax.fallout.runner.CheckResourcesResult',
+            'com.datastax.fallout.service.core.Test',
+            'com.datastax.fallout.service.core.TestRun',
+            'com.datastax.fallout.service.core.User',
+            'javax.ws.rs.core.Response',
+            'javax.ws.rs.core.Response$Status$Family']
+    def sourcePackages = []
+
+    def sourceClassFiles = sourceClasses
+        .collectMany { className ->
+            def path = className.replaceAll('\\.', '/').replaceAll('\\$.*$', '')
+
+            sourceSets.main.java.sourceDirectories.collectMany { srcDir ->
+                fileTree("${srcDir}/${path}.java").files
+            }
+        }
+        .unique()
+
+    def sourcePackageFiles = sourcePackages.collectMany { className ->
+        def path = className.replaceAll('\\.', '/')
+
+        sourceSets.main.java.sourceDirectories.collectMany { srcDir ->
+            fileTree("${srcDir}/${path}").files
+        }
+    }
+
+    ext.outputDir = file("${buildDir}/src/testBase/java")
+
+    // Make sure we get re-run if anything in the generator's runtime
+    // dependencies changes
+    inputs.property('assertjClasspath', configurations.assertj)
+
+    // Pick up any changes to the specification, since not all of the classes
+    // and packages listed may be in code we've written: they might be in
+    // the dependencies.
+    inputs.property('sourceClasses', sourceClasses)
+    inputs.property('sourcePackages', sourcePackages)
+
+    inputs.files(sourceClassFiles)
+    inputs.files(sourcePackageFiles)
+
+    outputs.dir(outputDir)
+
+    outputs.cacheIf { true }
+
+    doLast {
+        if (outputDir.exists()) {
+            outputDir.deleteDir()
+        }
+        outputDir.mkdirs()
+
+        (
+            javaexec {
+                main 'org.assertj.assertions.generator.cli.AssertionGeneratorLauncher'
+                classpath configurations.assertj, compileJava.destinationDir
+                workingDir outputDir
+                args(*(sourcePackages + sourceClasses))
+            }
+        ).assertNormalExitValue()
+    }
+}
+
+compileTestBaseJava.dependsOn(generateAssertjAssertions)
+
+sourceSets {
+    testBase {
+        java {
+            srcDirs += generateAssertjAssertions.outputDir
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Distribution and packaging
+
+// External tools
+
+def externalToolsDir = file("${buildDir}/external-tools")
+
+task downloadKubectl(type: Download) {
+    ext.version = "1.16.0"
+
+    src "https://storage.googleapis.com/kubernetes-release/release/v${version}/bin/linux/amd64/kubectl"
+    dest file("${buildDir}/kubectl")
+    overwrite false
+
+    outputs.cacheIf { true }
+}
+
+// This is a separate task instead of a doLast in downloadKubectl because
+// the latter technique invalidates the build cache every time _anything_
+// in build.gradle changes
+task unpackKubectl(type: Copy, dependsOn: downloadKubectl) {
+    from downloadKubectl.outputs.files.singleFile
+    into "${externalToolsDir}/bin"
+    fileMode 0755
+}
+
+task downloadGcloud(type: Download) {
+    ext.version = "263.0.0"
+
+    src "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${version}-linux-x86_64.tar.gz"
+    dest buildDir
+    overwrite false
+
+    outputs.cacheIf { true }
+}
+
+def createGcloudSymlink(targetDir) {
+    exec {
+        commandLine "ln", "-fs", "../google-cloud-sdk/bin/gcloud",
+            "${targetDir}/bin/gcloud"
+    }
+}
+
+task unpackGcloud(type: Copy, dependsOn: downloadGcloud) {
+    from tarTree(resources.gzip(downloadGcloud.outputs.files.singleFile))
+
+    def gcloudSymlink = file("${externalToolsDir}/bin/gcloud")
+    outputs.dir file("${externalToolsDir}/google-cloud-sdk")
+    outputs.file gcloudSymlink
+
+    into externalToolsDir
+
+    doLast {
+        // Regenerate the symlink, because the gradle copy task
+        // dereferences symlinks
+        createGcloudSymlink(externalToolsDir)
+    }
+}
+
+task getExternalTools(dependsOn: [downloadKubectl, unpackGcloud]) {
+    outputs.dir externalToolsDir
+}
+
+distributions {
+    // The same as the standard distribution plus the external-tools
+    externalTools {
+        contents {
+            with distributions.main.contents
+            from(getExternalTools)
+        }
+    }
+}
+
+installExternalToolsDist {
+    doLast {
+        // Regenerate the symlink, because the gradle copy task
+        // dereferences symlinks
+        createGcloudSymlink(installExternalToolsDist.destinationDir)
+    }
+}
+
+// Cassandra standalone support
+
+distributions.withType(Distribution) {
+    contents {
+        from(configurations.cassandraStandalone) {
+            into('lib/cassandra-standalone')
+        }
+        from("etc/cassandra") {
+            into('lib/cassandra-standalone')
+        }
+        from("src/main/resources") {
+            include "cassandra.yaml"
+            into('lib/cassandra-standalone')
+        }
+    }
+}
+
+// Include the nginx config support files
+
+distributions.withType(Distribution) {
+    contents {
+        from('management-scripts/nginx') {
+            into('nginx')
+        }
+    }
+}
+
+// Include support scripts in bin
+
+distributions.withType(Distribution) {
+    contents {
+        from('bin') {
+            into('bin')
+        }
+    }
+}
+
+// Ensure shadowJar correctly merges all the service files and also
+// caches the output (it doesn't by default)
+shadowJar {
+    mergeServiceFiles()
+
+    outputs.cacheIf { true }
+}
+
+// Docker
+
+docker {
+    name "datastax/fallout:${gitDescribe.replace("fallout-", "")}"
+    tag "latest", "datastax/fallout:latest"
+    dockerfile file('docker/Dockerfile')
+    files tasks.installExternalToolsDist.outputs,
+        "docker/fallout.yml",
+        "docker/entrypoint.sh"
+}
+
+tasks.dockerPrepare {
+    doLast {
+        // Regenerate the symlink, because the gradle copy task
+        // dereferences symlinks
+        createGcloudSymlink("${buildDir}/docker")
+    }
+}
+
+tasks.docker {
+    // Use the latest docker buildkit
+    environment "DOCKER_BUILDKIT", 1
+}
+
+dockerCompose {
+    template file("docker/docker-compose.yml.mustache")
+    dockerComposeFile project.dockerComposeFile
+}
+
+tasks.generateDockerCompose {
+    // Add a "generated from" message
+    doLast {
+        dockerCompose.dockerComposeFile.text =
+            "# Generated from ${dockerCompose.dockerComposeFile.parentFile.relativePath(dockerCompose.template)}" +
+                " using ./gradlew ${name}\n\n" +
+                dockerCompose.dockerComposeFile.text
+    }
+}
+
+import java.nio.charset.StandardCharsets
+
+def DOCKER_USERNAME_PROPERTY = "dockerUsername"
+def DOCKER_PASSWORD_PROPERTY = "dockerPassword"
+
+task dockerLogin(type: Exec) {
+    group 'docker'
+    description "If the gradle properties ${DOCKER_USERNAME_PROPERTY} and " +
+        "${DOCKER_PASSWORD_PROPERTY} are set, then use them to login to " +
+        "the docker registry"
+
+    def dockerUsername = project.findProperty(DOCKER_USERNAME_PROPERTY) ?: ""
+    def dockerPassword = project.findProperty(DOCKER_PASSWORD_PROPERTY) ?: ""
+
+    onlyIf {
+        dockerUsername && dockerPassword
+    }
+
+    standardInput = new ByteArrayInputStream(
+        dockerPassword.getBytes(StandardCharsets.UTF_8))
+
+    commandLine "docker", "login", "-u", dockerUsername, "--password-stdin"
+}
+
+project.afterEvaluate {
+    tasks.findAll({ it.name.startsWith("dockerPush") })*.dependsOn(dockerLogin)
+}
+
+// ----------------------------------------------------------------------------
+// Diagrams; we use a graphviz library to generate a PNG, and plantuml for
+// sequence diagrams
+
+import guru.nidi.graphviz.engine.Graphviz
+
+task dumpNodeGroupStatesToDot(type: JavaExec) {
+    group "documentation"
+
+    ext.dotFile = file("${buildDir}/node-group-states.dot")
+    description "Create a DOT diagram of node states in ${dotFile}"
+
+    dependsOn compileJava
+    outputs.file dotFile
+
+    main = 'com.datastax.fallout.ops.DumpNodeGroupStatesToDot'
+    classpath = sourceSets.main.runtimeClasspath
+    args = [dotFile]
+}
+
+def renderDotFile(dotFile, pngFile) {
+    Graphviz.fromFile(dotFile).render(Format.PNG).toFile(pngFile)
+}
+
+task dumpNodeGroupStatesToPng {
+    group "documentation"
+
+    dependsOn dumpNodeGroupStatesToDot
+    inputs.files dumpNodeGroupStatesToDot
+    outputs.file file("docs/node-group-states.png")
+
+    description "Create a PNG diagram of node states in " +
+        "${outputs.files.singleFile}"
+
+    doLast {
+        renderDotFile(inputs.files.singleFile, outputs.files.singleFile)
+    }
+}
+
+task renderDocsDots {
+    group "documentation"
+    description "Creates PNGs from DOT source files in docs/assets"
+
+    inputs.files fileTree(dir: "docs/assets", include: "*.dot")
+    outputs.files inputs.files.collect { f -> file(f.path.replace(".dot", ".png")) }
+    doLast {
+        inputs.files.each { f ->
+            renderDotFile(f, file(f.path.replace(".dot", ".png")))
+        }
+    }
+}
+
+// I couldn't make https://github.com/cosminpolifronie/gradle-plantuml-plugin
+// work as of 1.6.0, so we're hand-rolling this like the dot support above:
+
+import net.sourceforge.plantuml.SourceStringReader
+import net.sourceforge.plantuml.FileFormatOption
+import net.sourceforge.plantuml.FileFormat
+
+def renderPlantUmlFile(plantUmlFile, pngFile) {
+    pngFile.withOutputStream { out ->
+        new SourceStringReader(plantUmlFile.text)
+            .outputImage(out, new FileFormatOption(FileFormat.PNG, true))
+    }
+}
+
+task renderDocsPlantUmls {
+    group "documentation"
+    description "Creates PNGs from plantuml source files in docs/assets"
+
+    inputs.files fileTree(dir: "docs/assets", include: "*.plantuml")
+    outputs.files inputs.files.collect { f -> file(f.path.replace(".plantuml", ".png")) }
+    doLast {
+        inputs.files.each { f ->
+            renderPlantUmlFile(f, file(f.path.replace(".plantuml", ".png")))
+        }
+    }
+}
+
+task docs(dependsOn: [dumpNodeGroupStatesToPng, renderDocsDots, renderDocsPlantUmls]) {
+    group "documentation"
+    description "Run all documentation tasks except javadoc"
+}
+
+// ----------------------------------------------------------------------------
+
+wrapper {
+    gradleVersion = '5.6.4'
+    scriptFile = "${project.projectDir}/gradle/gradlew"
+}

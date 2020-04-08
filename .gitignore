@@ -1,0 +1,39 @@
+# IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Bootstrapped Cassandra
+/cassandra/
+/cassandra.logdir_IS_UNDEFINED/
+
+# Running fallout artifacts
+/logs/
+/run/
+
+# Build artifacts
+.gradle/
+build/
+
+# Test artifacts
+/tests/
+/fallout-cli/pytest_results.xml
+/fallout-cli/graphite-data
+/fallout-cli/insights-data
+/fallout-cli/prometheus-data
+
+# Local configuration files
+/fallout.yaml
+/fallout.yml
+
+# gradle.properties is overwritten by CI to control repository access (amongst
+# other things), and should _never_ be checked in
+/gradle.properties
+
+# Eclipse
+.classpath
+.project
+.settings
+.DS_Store

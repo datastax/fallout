@@ -1,0 +1,24 @@
+ensemble:
+   server:
+      node.count: 3
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+workload:
+    phases:
+    - auto_fail:
+        module: fail
+    checkers:
+       verify_success:
+          checker: nofail
+       verify_omitted_failures:
+          checker: nofail
+          properties:
+            processes: testing,a,b

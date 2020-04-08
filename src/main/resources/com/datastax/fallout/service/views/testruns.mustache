@@ -1,0 +1,134 @@
+{{> partials/header}}
+
+{{> partials/menus }}
+
+<script src="{{mainView.assetsRoot}}/js/testruns.js"></script>
+
+<!-- Page Content -->
+<div id="page-wrapper">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-12">
+            <p class="h2"> <a href="/tests/ui/{{email}}">{{email}}</a> test runs for {{name}}
+                {{> partials/message-area}}
+                {{#errorMessage}}
+                    <script>
+                        showErrorMessage("{{errorMessage}}");
+                    </script>
+                {{/errorMessage}}
+
+                {{#deleted}}
+                    <div class="panel panel-danger">
+                        <div class="panel-heading">
+                            This test is deleted and thus is read only!
+                        </div>
+                    </div>
+                {{/deleted}}
+                {{^deleted}}
+                    <a href="/tests/tools/edit?email={{email}}&name={{name}}" type="button" class="btn btn-info">Edit YAML</a>
+                {{/deleted}}
+                <a href="/tests/tools/create?email={{email}}&name={{name}}" type="button" class="btn btn-info">Clone Test</a>
+                </p>
+            </div>
+        </div>
+
+        {{#isOwner}}
+            <div class="row">
+                    <form>
+                        <div class="panel panel-default">
+                        {{#templateParams}}
+                            <div class="panel-heading">
+                                <label for="templateParams">Template params</label>
+                            </div>
+                        {{/templateParams}}
+                            <div class="panel-body">
+                                {{#templateParams}}
+                                    <div class="form-group">
+                                        <textarea id="templateParams" class="form-control">{{templateParams}}</textarea>
+                                    </div>
+                                {{/templateParams}}
+                                {{^deleted}}
+                                    <div class="run-now-controls form-inline">
+                                        <a href="#" id="runtest" type="button" class="btn btn-primary">Run Now!</a>
+
+                                        <div class="notification-controls">
+                                            <div class="form-group">
+                                                <label for="email-select">Email Notifications</label>
+                                                <select id="email-select" class="form-control" name="emailPref" required>
+                                                    {{#allEmailNotify}}
+                                                        <option value="{{left.name}}" {{#right}}selected{{/right}}>{{left.prettyName}}</option>
+                                                    {{/allEmailNotify}}
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="slack-select">Slack Notifications</label>
+                                                <select id="slack-select" class="form-control" name="slackPref" required>
+                                                    {{#allSlackNotify}}
+                                                        <option value="{{left.name}}" {{#right}}selected{{/right}}>{{left.prettyName}}</option>
+                                                    {{/allSlackNotify}}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {{/deleted}}
+                            </div>
+                        </div>
+                    </form>
+            </div>
+        {{/isOwner}}
+
+        <div class="row">
+            {{#testRuns}}
+                {{#testRuns.empty}}
+                    <div class="col-md-6 col-md-offset-3">
+                        No test runs found
+                    </div>
+                {{/testRuns.empty}}
+                {{^testRuns.empty}}
+                    <div id="testrun-table-div">
+                        {{> partials/testrun/table }}
+                    </div>
+                {{/testRuns.empty}}
+
+            {{/testRuns}}
+        </div>
+        <!-- /.row -->
+    </div>
+    <!-- /.container-fluid -->
+</div>
+<!-- /#page-wrapper -->
+
+{{> partials/fallout-test-definition-editor}}
+
+<script>
+    $(function() {
+
+        var getTemplateParams = function() { return null; };
+
+        $("#templateParams").each(function(_, templateParamsTextArea) {
+            var editor = createFalloutTestDefinitionEditor(templateParamsTextArea, 200);
+            getTemplateParams = function() { return editor.getValue(); };
+        });
+
+        $("#runtest").click(function(){
+            $.ajax({
+                url: "/tests/{{name}}/runs/api",
+                type: "POST",
+                data: JSON.stringify({
+                        "emailPref": $('#email-select').val(),
+                        "slackPref": $('#slack-select').val(),
+                        "yamlTemplateParams": getTemplateParams()
+                        }),
+                contentType: "application/json",
+
+                success: function (data) {
+                    window.location.reload();
+                },
+
+                error: showAjaxErrorMessage
+            })
+        })
+    });
+</script>
+
+{{> partials/footer }}

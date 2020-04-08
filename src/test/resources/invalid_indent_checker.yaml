@@ -1,0 +1,9 @@
+workload:
+    phases:
+    - my_module:
+        module: fail
+    checkers:
+       my_checker:
+          checker: nofail
+          checker_with_wrong_indent:
+            checker: nofail

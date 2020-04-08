@@ -1,0 +1,19 @@
+#!/bin/bash -e
+
+thisdir="$(cd "$(dirname "$0")" && pwd)"
+
+# set -x would generate a lot of noise when we activate the venv, so
+# we use this hand-crafted equivalent here:
+run()
+{
+    echo "$@"
+    "$@"
+}
+
+run cd "$thisdir/.."
+
+run mkdir -p .tox
+run python3.7 -m venv .tox/bootstrap
+run source .tox/bootstrap/bin/activate
+run pip install -r requirements_ci.txt
+run exec tox "$@"

@@ -1,0 +1,23 @@
+# Test the fake provisioner, provider and module
+nodes: 1
+testRunId:
+---
+ensemble:
+  server:
+    node.count: {{nodes}}
+    provisioner:
+      name: fake
+    configuration_manager:
+      - name: fake
+
+  client: server
+
+workload:
+  phases:
+    - dummy1:
+        module: fake
+    - dummy2:
+        module: fake
+  checkers:
+    nofail:
+      checker: nofail

@@ -1,0 +1,93 @@
+strict digraph {
+  node [fontname="Helvetica", fontsize=12, shape=rect];
+  edge [fontname="Helvetica", fontsize=10];
+  graph [labeljust=r, labelloc=b, fontname="Helvetica", fontsize=10];
+
+  /* Semantic structure */
+
+  LiveLogView
+    [label="/ui/USER/TEST/TESTRUNID/live-artifacts/fallout-shared.log",
+     shape="note"];
+
+  LiveLogView -> TestResource
+    [style=dotted, label="is handled by"]
+
+  LiveLogView -> logtail
+    [label="contains"];
+
+  logtail
+    [label="logtail.js"];
+
+  logtail -> LiveResourceRequest
+    [style=dotted, label="1. sends SSE update request to"];
+
+  LiveResourceRequest
+    [label="/artifacts/USER/TEST/TESTRUNID/fallout-shared.log",
+     shape="note"];
+
+  LiveResourceRequest -> LiveResource
+    [style=dotted, label="is handled by"];
+
+  LiveResource -> ServerSentEvents [label="has a"];
+  ServerSentEvents -> logtail
+    [style=dotted, label="2. sends HTML5 SSE stream response to"];
+
+  LiveResource -> ArtifactWatcher [label="has a"];
+  ArtifactWatcher -> ServerSentEvents
+    [style=dotted, label="sends artifact update events"]
+
+  ArtifactWatcher -> WatchService [label="has a"];
+  WatchService -> ArtifactWatcher
+    [style=dotted, label="sends directory update events"];
+
+  WatchService [label="java.nio.file.WatchService"];
+
+  logtail -> ArtifactRequest
+    [style=dotted, label="3. makes range request to"];
+
+  ArtifactRequest
+    [label="/ui/USER/TEST/TESTRUNID/artifacts/fallout-shared.log",
+     shape="note"];
+
+  ArtifactRequest -> ArtifactServlet
+    [style=dotted, label="is handled by"];
+
+  ArtifactServlet -> JettyArtifactServlet
+    [arrowtail=onormal, dir=back];
+  JettyArtifactServlet [label="JettyArtifactServlet\n(testing)"];
+
+  ArtifactServlet -> NginxArtifactServlet
+    [arrowtail=onormal, dir=back];
+  NginxArtifactServlet [label="NginxArtifactServlet\n(production)"];
+
+  /* Layout tweaks:
+
+  - use subgraphs with rank=same to force nodes into the same row, using edges
+    with style=invis to force order.
+
+  - use group attribute to force nodes into the same column, using edges with
+    style=invis to join nodes in the same group that don't already have an edge
+    joining them.
+
+  */
+
+  subgraph {
+    rank=same;
+    LiveResource;
+    ArtifactServlet;
+  }
+
+  subgraph {
+    rank=same;
+    ArtifactWatcher;
+    ServerSentEvents;
+  }
+
+  subgraph {
+    rank=same;
+    WatchService;
+    JettyArtifactServlet;
+    NginxArtifactServlet;
+  }
+
+}

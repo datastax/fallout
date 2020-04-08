@@ -1,0 +1,3 @@
+rootProject.name = 'fallout'
+include 'cassandra-all-shaded'
+include 'fallout-cli'

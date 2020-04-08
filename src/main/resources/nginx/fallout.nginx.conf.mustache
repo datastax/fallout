@@ -1,0 +1,105 @@
+{{#standalone}}
+master_process off;
+daemon off;
+
+pid nginx.pid;
+
+# Before this setting is applied nginx will check whether it has access to
+# the default errot_log location, and warn if it doesn't.  On debian distros,
+# the default is /var/log/nmginx/error.log; this results in the warning message:
+#
+#   nginx: [alert] could not open error log file: open() "/var/log/nginx/error.log" failed (13: Permission denied)
+#
+# This message can be ignored.
+error_log stderr;
+
+events {
+    worker_connections  1024;
+}
+
+http {
+    types {}
+    default_type  application/octet-stream;
+
+    access_log /dev/stderr;
+
+    # Override debian's nginx defaults, which all point to /var/lib/nginx/*
+    # directories that we can't write to
+    client_body_temp_path body;
+    fastcgi_temp_path fastcgi;
+    proxy_temp_path proxy;
+    scgi_temp_path scgi;
+    uwsgi_temp_path uwsgi;
+
+    keepalive_timeout  65;
+{{/standalone}}
+
+    server {
+        listen {{nginxListenPort}} default_server;
+        listen [::]:{{nginxListenPort}} default_server ipv6only=on;
+
+        root {{nginxRoot}};
+
+        sendfile on;
+
+        server_name {{serverName}};
+
+        # Static assets including error-page handling
+        location /robots.txt {}
+        location /favicon.ico {}
+
+        error_page 401 /401.html;
+        location /401.html {}
+        location /401.jpg {}
+
+        # Proxy everything else to fallout process
+        location / {
+            proxy_pass http://127.0.0.1:8080;
+
+            # SSE configuration (see https://serverfault.com/questions/801628/for-server-sent-events-sse-what-nginx-proxy-configuration-is-appropriate)
+            proxy_http_version 1.1;
+
+            proxy_read_timeout 86400;
+            proxy_set_header X-Real-IP $remote_addr;
+
+            # Enable the use of error_page directives to handle HTTP response
+            # codes from fallout
+            proxy_intercept_errors on;
+        }
+
+        # Serve artifacts directly using X-Accel; this endpoint is also
+        # used by logtail.js, which is why it isn't configured as "internal",
+        # although it is _not_ part of the fallout public API.  Since it isn't
+        # part of the API, it shouldn't be used in UI elements or by
+        # programs that access the API.
+        location {{NGINX_DIRECT_ARTIFACTS_LOCATION}} {
+
+            # Let fallout determine whether things should be gzipped:
+            # See https://serverfault.com/a/519322
+            add_header Content-Encoding $upstream_http_content_encoding;
+            gzip off;
+
+            alias {{artifactPath}};
+        }
+
+        # Serve artifacts directly using X-Accel, gzipping large plain text
+        # artifacts on the fly.
+        location {{NGINX_GZIP_ARTIFACTS_LOCATION}} {
+            internal;
+
+            gzip on;
+            gzip_types
+                application/json
+                application/xml
+                text/plain
+                text/csv
+                ;
+            gzip_min_length {{NGINX_GZIP_MIN_LENGTH}};
+
+            alias {{artifactPath}};
+        }
+    }
+
+{{#standalone}}
+}
+{{/standalone}}

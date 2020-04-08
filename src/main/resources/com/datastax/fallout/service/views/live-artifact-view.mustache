@@ -1,0 +1,34 @@
+{{> partials/header}}
+
+{{> partials/menus }}
+
+<style type="text/css">
+    #artifactContent {
+        font-size: 0.8em;
+    }
+</style>
+
+<div id="page-wrapper">
+    <h2>Test run {{{artifactsLink}}} : {{{artifactLink}}}</h2>
+
+    {{> partials/message-area}}
+
+    <div class="artifactViewer">
+        <pre id="artifactContent">
+        </pre>
+
+        <div class="controls">
+            <span>Showing the last 30KB of {{{artifactLink}}}</span>
+        </div>
+    </div>
+</div>
+
+<script type="application/javascript" src="{{mainView.assetsRoot}}/js/logtail.js"></script>
+<script type="application/javascript">
+    $(function () {
+        init_logtail("{{directArtifactUri}}", "{{artifactEventStreamUri}}", 30,
+            "#artifactContent");
+    })
+</script>
+
+{{> partials/footer }}

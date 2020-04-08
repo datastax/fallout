@@ -1,0 +1,7 @@
+workload:
+
+  phases:
+    - my_module:
+        module: fail
+        properties:
+            bogus: 1

@@ -1,0 +1,13 @@
+ensemble:
+    server:
+        node.count: 1
+        my_invalid_key: false
+        provisioner:
+            name: noop
+        configuration_manager:
+            name: noop
+    client: server
+workload:
+    phases:
+        - my_module:
+              module: noop

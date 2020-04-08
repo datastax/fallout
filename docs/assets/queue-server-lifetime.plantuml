@@ -1,0 +1,57 @@
+@startuml Queue Server Lifetime
+
+hide footbox
+
+actor admin
+database DB order 90
+
+admin -> falloutctl++: start-with-runner
+falloutctl -> QUEUE1**:start new QUEUE process
+falloutctl <-- QUEUE1: write pid to file
+falloutctl -> RUNNER1**:start new RUNNER process
+falloutctl <-- RUNNER1: write pid to file
+deactivate falloutctl
+
+QUEUE1 -> RUNNER1: connect to /status feed
+
+QUEUE1 -> QUEUE1++: TestRunQueue\nget pending testruns
+QUEUE1 -> DB: get pending testruns
+deactivate QUEUE1
+
+QUEUE1 -> QUEUE1++: TestRunQueueProcessor:\nprocess **TestRun A**\nfrom head of queue
+QUEUE1 -> RUNNER1++: start **TestRun A** via /run
+RUNNER1 -> DB: update **TestRun A**
+QUEUE1 <-- RUNNER1: /status feed says **TestRun A** > CHECKING_RESOURCES
+deactivate QUEUE1
+
+admin -> falloutctl: stop
+activate falloutctl
+falloutctl -> QUEUE1: kill -INT
+activate QUEUE1
+note over QUEUE1: shutdown gracefully: pause queue, wait\nfor any processing testrun to leave\nTestRunQueueProcessor\n
+falloutctl -> QUEUE1: wait for process to exit
+deactivate QUEUE1
+destroy QUEUE1
+
+falloutctl -> RUNNER1: /shutdown
+note right: shutdown gracefully: wait for all\nrunning testruns to complete
+
+deactivate falloutctl
+
+note over RUNNER1, DB: **TestRun A** continues to run\nwith updates sent to DB
+
+admin -> falloutctl++: start-with-runner
+falloutctl -> QUEUE2**: start new QUEUE process
+falloutctl <-- QUEUE2: write pid to file
+falloutctl -> RUNNER2**: start new RUNNER process
+falloutctl <-- RUNNER2: write pid to file
+deactivate falloutctl
+
+QUEUE2 -> RUNNER2: connect to /status feed
+
+RUNNER1 -> DB: update **TestRun A**
+deactivate RUNNER1
+RUNNER1 -> RUNNER1: all testruns complete:\nexit process
+destroy RUNNER1
+
+@enduml

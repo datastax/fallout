@@ -1,0 +1,68 @@
+ensemble:
+   server:
+      node.count: 1
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+workload:
+    phases:
+    - subphasesA:
+        - text1:
+            module: text
+            properties:
+              text: a
+        - subphase:
+            - sleep0:
+                module: sleep
+                properties:
+                  duration: 25ms
+              phase_lifetime_sleep_in_subphase:
+                module: sleep
+                properties:
+                  lifetime: run_to_end_of_phase
+                  duration: 10ms
+          sleep1:
+            module: sleep
+            properties:
+              duration: 10ms
+          phase_lifetime_sleep:
+            module: sleep
+            properties:
+              lifetime: run_to_end_of_phase
+              duration: 5ms
+        - text2:
+            module: text
+            properties:
+              text: b
+      sleep:
+        module: sleep
+        properties:
+          duration: 50ms
+    checkers:
+      verify_success:
+        checker: nofail
+      verify_regex:
+        checker: regex
+        properties:
+          regex: "ab"
+      phase_lifetime_sleep_count:
+        checker: count  # (sleep0.sleep.duration / phase_lifetime_sleep.sleep.duration) +/- 1
+        properties:
+          max: 6
+          min: 4
+          processes: phase_lifetime_sleep
+          types: ok
+      deeper_nested_phase_lifetime_sleep_count:
+        checker: count  # (sleep0.sleep.duration / phase_lifetime_sleep_in_subphase.sleep.duration) +/- 1
+        properties:
+          max: 3
+          min: 1
+          processes: phase_lifetime_sleep_in_subphase
+          types: ok

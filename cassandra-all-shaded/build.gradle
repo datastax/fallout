@@ -1,0 +1,71 @@
+// Cassandra pulls in a lot of dependencies, and many of them conflict
+// with things we'd like to use in fallout.  This project builds a shaded
+// fat jar of cassandra and the java driver so we can upgrade fallout's
+// direct dependencies (like guava) without stepping on cassandra's toes.
+
+plugins {
+    id 'java-library'
+    id "org.jetbrains.gradle.plugin.idea-ext"
+}
+
+apply plugin: 'com.github.johnrengelman.shadow'
+
+group = 'com.datastax.fallout'
+version = '0.1'
+
+def cassandraDriverVersion = '3.7.2'
+
+// The dependencies are the list of jars we're going to aggregate in our shaded
+// fat jar.  We place them in the custom `shadow` configuration.
+
+dependencies {
+    // Note that while this is no longer needed by the fallout server,
+    // RepairModule still uses it for calculating subrange repair splits.
+    api ("org.apache.cassandra:cassandra-all:2.1.21") {
+        exclude(group: 'com.google.guava', module: 'guava')
+        exclude(group: 'junit')
+        exclude(group: 'org.slf4j')
+        exclude(group: 'ch.qos.logback')
+    }
+    api ("com.datastax.cassandra:cassandra-driver-core:${cassandraDriverVersion}:shaded") {
+        exclude(group: 'io.netty', module: '*')
+        exclude(group: 'org.slf4j')
+    }
+    api ("com.datastax.cassandra:cassandra-driver-mapping:${cassandraDriverVersion}") {
+        exclude(group: 'com.datastax.cassandra', module: 'cassandra-driver-core')
+        exclude(group: 'org.slf4j')
+    }
+    api ("com.datastax.cassandra:cassandra-driver-extras:${cassandraDriverVersion}") {
+        exclude(group: 'com.datastax.cassandra', module: 'cassandra-driver-core')
+    }
+}
+
+shadowJar {
+    ext.relocations = [
+        'com.google',
+        'org.codehaus',
+        'org.hibernate',
+        'org.yaml.snakeyaml',
+        'org.apache.commons',
+        'org.apache.http',
+        'org.objectweb.asm',
+        'io.dropwizard',
+        'javax.annotation',
+        'javax.validation',
+        'com.sun.jna',
+        'org.jboss.logging',
+        'com.codahale.metrics',
+        'org.cliffc.high_scale_lib',
+        'io.netty'
+    ]
+
+    inputs.property "relocations", relocations
+
+    relocations.each {
+        relocate it + '.', 'com.datastax.fallout.cassandra.shaded.' + it + '.'
+    }
+
+    mergeServiceFiles()
+
+    outputs.cacheIf { true }
+}

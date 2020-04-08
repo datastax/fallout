@@ -1,0 +1,13 @@
+<html><body>
+Hi,
+<br/>
+<br/>
+Your Fallout test: <strong>{{testRun.testName}}</strong>
+<br/>
+Has completed with status: <strong>{{testRun.state}}</strong>
+{{#testRun.failedDuring}} During: <strong>{{testRun.failedDuring}}</strong>. {{/testRun.failedDuring}}
+<br/>
+More information at:
+<br/>
+<a href="{{testRunUri}}">{{testRunUri}}</a>
+</body></html>

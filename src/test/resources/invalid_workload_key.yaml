@@ -1,0 +1,13 @@
+workload:
+    phases:
+    - my_module:
+        module: fail
+    invalid_workload_key_1:
+    - my_module:
+        module: fail
+    invalid_workload_key_2:
+    - my_module:
+        module: fail
+    checkers:
+    - my_module:
+        module: fail

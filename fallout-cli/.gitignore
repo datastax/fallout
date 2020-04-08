@@ -1,0 +1,21 @@
+# IntelliJ
+/*.iml
+
+# Build artefects
+## disttools
+/*.egg-info/
+/.eggs/
+/dist/
+/build/
+
+# Test artefacts:
+## tox
+.tox/
+## pytest
+.cache/
+/tests/tmp
+
+# Python compiled files
+*.pyc
+__pycache__/
+.pytest_cache/

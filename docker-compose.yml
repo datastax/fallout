@@ -1,0 +1,51 @@
+# Generated from docker/docker-compose.yml.mustache using ./gradlew generateDockerCompose
+
+version: "3.7"
+
+services:
+
+  fallout:
+    image: "datastax/fallout"
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      # Forward local machine SSH keys to docker; this will allow fallout to
+      # access git repos with your private key.  Note that on maoOS you will
+      # need to set SSH_AUTH_SOCK=/run/host-services/ssh-auth.sock; this
+      # is handled for you if you run this file using the gradle
+      # runServerInDocker target.
+      - type: bind
+        source: $SSH_AUTH_SOCK
+        target: /ssh-agent
+      # Where fallout stores testrun artifacts
+      - type: volume
+        source: fallout-artifacts
+        target: /home/fallout/tests
+
+    ulimits:
+      nofile:
+        soft: 100000
+        hard: 100000
+
+    environment:
+      # Set this to "USERNAME:EMAIL:PASSWORD" to create a default
+      # admin user (if it doesn't already exist) on startup.
+      FALLOUT_ADMIN_CREDS:
+      # Set this to "SINGLE_USER" to make fallout launch in single-user
+      # mode
+      FALLOUT_AUTH_MODE:
+      SSH_AUTH_SOCK: /ssh-agent
+
+  cassandra:
+    image: "cassandra:2.1.21"
+
+    volumes:
+      - type: volume
+        source: fallout-cassandra
+        target: /var/lib/cassandra
+
+volumes:
+  fallout-artifacts:
+  fallout-cassandra:

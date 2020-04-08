@@ -1,0 +1,90 @@
+cql_iot: cql-iot.yaml
+namespace: cass-operator
+warm_up_cycles: 100K
+benchmark_cycles: 1M
+
+## These parameters must be replaced:
+gke_project: "standin"
+vpc: "standin"              # for example: "projects/<PROJECT_NAME>/global/networks/default"
+regional_network: "standin" # for example: "projects/<PROJECT_NAME>/regions/us-west2/subnetworks/default"
+---
+ensemble:
+    server:
+        node.count: 3
+        provisioner:
+            name: gke
+            properties:
+                project: {{gke_project}}
+                region: us-west2
+                machine.type: n1-standard-2
+                create.extra_args: |
+                    --cluster-version "1.15" \
+                    --image-type "COS" \
+                    --enable-ip-alias \
+                    --no-enable-basic-auth \
+                    --network "{{vpc}}" \
+                    --subnetwork "{{regional_network}}"
+        configuration_manager:
+            - name: kubernetes_manifest
+              properties:
+                  namespace: {{namespace}}
+                  manifest: <<file:gke-storage.yaml>>
+                  wait.strategy: FIXED_DURATION
+                  wait.timeout: 30s
+            - name: nosqlbench
+              properties:
+                  namespace: {{namespace}}
+                  replicas: 3
+            - name: ds_cass_operator
+              properties:
+                  namespace: {{namespace}}
+                  operator.manifest: <<file:ds-cass-operator-v1.yaml>>
+                  datacenter.manifest: <<file:size-templated-minimal-cass-3.11.6-dc.yaml>>
+                  datacenter.template_params:
+                      size: 3
+        local_files: # required for kubernetes manifests
+            - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/gke-storage-class.yaml
+              path: gke-storage.yaml
+            - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/ds-cass-operator-v1.yaml
+              path: ds-cass-operator-v1.yaml
+            - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/size-templated-minimal-cass-3.11.6-dc.yaml
+              path: size-templated-minimal-cass-3.11.6-dc.yaml
+    client: server
+workload:
+    phases:
+        - init_schema:
+              module: nosqlbench
+              properties:
+                  num_clients: 1
+                  args:
+                      - run
+                      - type=cql
+                      - yaml={{cql_iot}}
+                      - tags=phase:schema
+                      - rf=2
+        - warm_up:
+              module: nosqlbench
+              properties:
+                  cycles: {{warm_up_cycles}}
+                  args:
+                      - run
+                      - type=cql
+                      - yaml={{cql_iot}}
+                      - tags=phase:main
+                      - errors=histogram
+        - benchmark:
+              module: nosqlbench
+              properties:
+                  cycles: {{benchmark_cycles}}
+                  args:
+                      - run
+                      - type=cql
+                      - yaml={{cql_iot}}
+                      - tags=phase:main
+                      - errors=histogram
+    checkers:
+        nofail:
+            checker: nofail
+    artifact_checkers:
+        hdr:
+            artifact_checker: hdrtool

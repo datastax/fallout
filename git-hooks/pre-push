@@ -1,0 +1,9 @@
+#!/bin/bash -e
+
+. git-hooks/hook-lib.sh
+
+stage Checking
+
+checking gradle spotlessCheck compile
+./gradlew -q spotlessCheck compile
+ok

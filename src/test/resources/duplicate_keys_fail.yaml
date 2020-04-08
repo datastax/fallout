@@ -1,0 +1,18 @@
+ensemble:
+    server:
+        node.count: 1
+        provisioner:
+            name: local
+        configuration_manager:
+            name: noop
+    client: server
+
+workload:
+    phases:
+        - noop:
+              module: noop
+    checkers:
+        checker1:
+            checker: nofail
+        checker1:
+            checker: nofail

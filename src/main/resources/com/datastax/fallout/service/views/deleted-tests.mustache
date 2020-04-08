@@ -1,0 +1,103 @@
+{{> partials/header}}
+
+{{> partials/menus }}
+
+<script src="{{mainView.assetsRoot}}/js/testruns.js"></script>
+
+<!-- Page Content -->
+<div id="page-wrapper">
+    <div class="container-fluid">
+
+        <div class="row">
+            <h2>Trash Bin</h2>
+        </div>
+        <!-- /.row -->
+        {{> partials/message-area}}
+
+        <div class="row">
+            <h3>Deleted Tests</h3>
+            {{^deletedTests.tests.empty}}
+                {{> partials/test/table}}
+            {{/deletedTests.tests.empty}}
+            {{#deletedTests.tests.empty}}
+                <p>No tests found<p>
+            {{/deletedTests.tests.empty}}
+        </div>
+
+        <!-- /.row -->
+
+        <div class="row">
+            <h3>Deleted Test Runs</h3>
+            {{^deletedTestRuns.testRuns.empty}}
+                {{#deletedTestRuns}}
+                    {{> partials/testrun/table}}
+                {{/deletedTestRuns}}
+            {{/deletedTestRuns.testRuns.empty}}
+        </div>
+
+        <!-- /.row -->
+    </div>
+    <!-- /.container-fluid -->
+</div>
+<!-- /#page-wrapper -->
+
+
+<script>
+function toggleInfo(testName) {
+var escapedName = "#" + escapeTestName(testName) + "-toggle";
+$(escapedName).toggleClass('hidden');
+}
+
+function restoreTest(userEmail, testName){
+    $.ajax({
+        url: "/tests/deleted/" + userEmail + "/" + testName + "/restore/api",
+        type: "POST",
+
+        success: function (data) {
+            location.reload();
+        },
+        error: function (data) {
+            showErrorMessage("There is a problem restoring test:<br>" + data.responseText);
+        }
+    });
+}
+
+function restoreTestRun(userEmail, testName, testRunId) {
+    $.ajax({
+        url: "/tests/deleted/" + userEmail + "/" + testName + "/runs/" + testRunId + "/restore/api",
+        type: "POST",
+
+        success: function(data){
+            location.reload();
+        },
+        error: function(data){
+            showErrorMessage("There is a problem restoring testRun: <br>" + data.responseText)
+        }
+    });
+}
+
+function deleteDeletedTestForever(userEmail, testName){
+    if (!confirm("Delete test " + testName + " forever?"))
+        return;
+
+    $.ajax({
+        url: "/tests/deleted/" + userEmail + "/" + testName + "/api",
+        type: "DELETE",
+
+        success: function (data) {
+            //reload
+            window.location.reload();
+        },
+        error: function (data) {
+
+            if (data.responseJSON != null && data.responseJSON["error"] != null) {
+                showErrorMessage(data.responseJSON["error"]);
+            } else {
+                showErrorMessage("<pre>" + JSON.stringify(data, null, 2) + "</pre>");
+            }
+        }
+    });
+}
+</script>
+
+{{> partials/footer }}

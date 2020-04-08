@@ -1,0 +1,41 @@
+ensemble:
+   server:
+      node.count: 1
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+
+workload:
+  phases:
+    - text1:
+        module: text
+        properties:
+          text: a
+    - text2:
+        module: text
+        properties:
+          text: b
+    - text3:
+        module: text
+        properties:
+          text: c
+    - text4:
+        module: text
+        properties:
+          text: d
+    - text5:
+        module: text
+        properties:
+          text: e
+  checkers:
+      verify_success:
+        checker: regex
+        properties:
+          regex: abcde

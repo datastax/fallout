@@ -1,0 +1,25 @@
+plugins {
+    id "com.diffplug.gradle.spotless"
+}
+
+task tox(type: Exec) {
+    description = "Run python tests using tox"
+    group = "verification"
+    dependsOn ":installDist"
+
+    executable "ci-tools/tox-bootstrap"
+
+    if (rootProject.hasProperty("toxArgs")) {
+        args rootProject.toxArgs.split()
+    }
+}
+
+check.dependsOn(tox)
+
+spotless {
+    format 'python', {
+        target "fallout/**/*.py", "*.py"
+        licenseHeaderFile "${project.rootDir}/gradle/license_header.py",
+            '(import|from|__all__|""")'
+    }
+}

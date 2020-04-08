@@ -1,0 +1,75 @@
+ensemble:
+   server:
+      node.count: 1
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+
+workload:
+  phases:
+    - subphases:
+        - text1:
+            module: text
+            properties:
+              text: a
+          text1.1:
+            module: text
+            properties:
+              text: 1
+          subphase:
+            - text2:
+                module: text
+                properties:
+                  text: b
+              text2.1:
+                module: text
+                properties:
+                  text: 2
+              sub2phase:
+                - text3:
+                    module: text
+                    properties:
+                      text: c
+                  text3.1:
+                    module: text
+                    properties:
+                      text: 3
+        - text4:
+            module: text
+            properties:
+              text: d
+          text4.1:
+            module: text
+            properties:
+              text: 4
+          sub3phase:
+            - text5:
+                module: text
+                properties:
+                  text: e
+              text3.1: # Invalid module name, we have another module with this name
+                module: text
+                properties:
+                  text: 5
+              sub4phase:
+                - text6:
+                    module: text
+                    properties:
+                      text: f
+                  text6.1:
+                    module: text
+                    properties:
+                      text: 6
+  checkers:
+    verify_success:
+      checker: regex
+      properties:
+        forbid.duplicate_characters: true
+        regex: "[a1b2c3]{6}[d4e5f6]{6}"

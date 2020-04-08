@@ -1,0 +1,14 @@
+ensemble:
+    server:
+        node.count: 1
+        runlevel.final: STARTED_SERVICES_UNCONFIGURED
+        mark_for_reuse: true
+        provisioner:
+            name: local
+        configuration_manager:
+            name: noop
+    client: server
+workload:
+    phases:
+        - noop:
+              module: noop

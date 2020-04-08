@@ -1,0 +1,28 @@
+ensemble:
+  server:
+    node.count: THIS SHOULDN'T WORK
+    provisioner:
+        name: local
+    configuration_manager:
+        - name: noop
+    local_files:
+        - path: foo.txt
+          data: hello!
+
+  client: server
+
+workload:
+  phases:
+    - noop:
+        module: noop
+  checkers:
+    nofail:
+        checker: nofail
+  artifact_checkers:
+    regex:
+      artifact_checker: regex
+      properties:
+        node_group: server
+        file_path: managed_files/foo.txt
+        required:
+          - "h.+ll"

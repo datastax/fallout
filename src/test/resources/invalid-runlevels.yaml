@@ -1,0 +1,38 @@
+ensemble:
+   server:
+      node.count: 3
+      runlevel: STARTED_SERVICES_UNCONFIGURED
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+workload:
+    phases:
+    - transition_running:
+            module: runlevel
+            properties:
+              runlevel: STARTED_SERVICES_RUNNING
+              role: SERVER
+    - transition_configured:
+            module: runlevel
+            properties:
+              runlevel: STARTED_SERVICES_CONFIGURED
+              role: SERVER
+    - transition_unconfigured: # Should fail because this operation would wipe all artifacts.
+            module: runlevel
+            properties:
+              runlevel: STARTED_SERVICES_UNCONFIGURED
+              role: SERVER
+    checkers:
+      verify_runlevels:
+        checker: runlevel
+        properties:
+          runlevels: STARTED_SERVICES_RUNNING,STARTED_SERVICES_CONFIGURED
+      verify_success:
+        checker: nofail

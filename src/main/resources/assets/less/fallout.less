@@ -1,0 +1,75 @@
+@import "sb-admin-2.less";
+@import "timeline.less";
+@import "tags.less";
+
+.dataTables_wrapper {
+    position: relative;
+    clear: both;
+}
+
+.new-lines {
+    white-space: pre-wrap;
+}
+
+.highlighted-radio-label {
+    border: 2px solid red;
+}
+
+.table > thead > tr > th {
+    vertical-align: top;
+}
+
+.table > tbody > tr.processing {
+    background-color: rgb(194, 255, 193);
+}
+
+.table > tbody > tr.processing:first-child {
+    border-top: 3px solid green;
+}
+
+#toggle-template-params-display {
+    margin: 2ex 0;
+}
+
+.toggle-template-params {
+    &.hide-template-params-list {
+        .template-params-list {
+            display: none;
+        }
+    }
+    &.hide-template-params-table {
+        .template-params-table {
+            display: none;
+        }
+    }
+}
+
+.accordion-heading h4:after {
+   font-family: 'Glyphicons Halflings';
+   content: "\e114";
+   float: right;
+   transition: all 0.5s;
+   color: white
+}
+
+.accordion-heading.collapsed h4:after {
+   content: "\e080";
+}
+
+.artifactViewer .controls {
+    display: flex;
+    height: 4ex;
+    span {
+        margin-left: auto;
+    }
+}
+
+.run-now-controls {
+    display: flex;
+    .notification-controls {
+        margin-left: auto;
+        .form-group {
+            margin-left: 2em;
+        }
+    }
+}

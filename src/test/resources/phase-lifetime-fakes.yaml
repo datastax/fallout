@@ -1,0 +1,21 @@
+# Test the fake provisioner, provider and module
+
+ensemble:
+  server:
+    node.count: 1
+    provisioner:
+      name: fake
+    configuration_manager:
+      - name: fake
+
+  client: server
+
+workload:
+  phases:
+    - dummy1:
+        module: fake
+      dummy2:
+        module: phase-lifetime-fake
+  checkers:
+    nofail:
+      checker: nofail

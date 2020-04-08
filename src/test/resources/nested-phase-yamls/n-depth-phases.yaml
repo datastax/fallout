@@ -1,0 +1,52 @@
+ensemble:
+   server:
+      node.count: 1
+      provisioner:
+        name: Local
+      configuration_manager:
+         name: Test Configuration Manager
+         properties:
+           foo: abc
+   client: server
+   controller: local
+   observer: none
+
+
+workload:
+  phases:
+    - parallel:
+        - text1:
+            module: text
+            properties:
+              text: a
+          subphase:
+            - text2:
+                module: text
+                properties:
+                  text: b
+              sub2phase:
+                - text3:
+                    module: text
+                    properties:
+                      text: c
+                  sub3phase:
+                    - text4:
+                        module: text
+                        properties:
+                          text: d
+                      sub4phase:
+                        - text5:
+                            module: text
+                            properties:
+                              text: e
+                          sub5phase:
+                            - text6:
+                                module: text
+                                properties:
+                                  text: f
+  checkers:
+      verify_success:
+        checker: regex
+        properties:
+          forbid.duplicate_characters: true
+          regex: "[abcdef]{6}"

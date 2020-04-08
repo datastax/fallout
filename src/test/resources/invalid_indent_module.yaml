@@ -1,0 +1,6 @@
+workload:
+    phases:
+    - my_module:
+        module: fail
+        module_with_wrong_indent:
+          module: fail
