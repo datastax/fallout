@@ -27,7 +27,7 @@ ensemble:
     local_files: # required for kubernetes manifests
       - git:
           repo: https://github.com/datastax/cass-operator
-      - url: https://raw.githubusercontent.com/datastax/fallout/oss-fallout/examples/kubernetes/datastax-cass-operator-resources/kind-default-dc.yaml
+      - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/kind-default-dc.yaml
         path: kind-default-dc.yaml
   client: server
 workload:

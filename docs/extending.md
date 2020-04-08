@@ -204,11 +204,11 @@ ensemble:
     server:
         node.count: 1
         local_files: # required for kubernetes manifests
-            - url: https://raw.githubusercontent.com/datastax/fallout/oss-fallout/examples/kubernetes/datastax-cass-operator-resources/ds-cass-operator-v1.yaml
+            - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/ds-cass-operator-v1.yaml
               path: ds-cass-operator.yaml
-            - url: https://raw.githubusercontent.com/datastax/fallout/oss-fallout/examples/kubernetes/datastax-cass-operator-resources/kind-default-dc.yaml
+            - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/kind-default-dc.yaml
               path: kind-cass-dc.yaml
-            - url: https://raw.githubusercontent.com/datastax/fallout/oss-fallout/examples/kubernetes/datastax-cass-operator-resources/rancher-local-path-storage.yaml
+            - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/rancher-local-path-storage.yaml
               path: rancher-local-storage.yaml
         provisioner:
             name: kind
@@ -268,11 +268,11 @@ ensemble:
     server:
         node.count: 1
         local_files: # required for kubernetes manifests
-            - url: https://raw.githubusercontent.com/datastax/fallout/oss-fallout/examples/kubernetes/datastax-cass-operator-resources/ds-cass-operator-v1.yaml
+            - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/ds-cass-operator-v1.yaml
               path: ds-cass-operator.yaml
-            - url: https://raw.githubusercontent.com/datastax/fallout/oss-fallout/examples/kubernetes/datastax-cass-operator-resources/kind-default-dc.yaml
+            - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/kind-default-dc.yaml
               path: kind-cass-dc.yaml
-            - url: https://raw.githubusercontent.com/datastax/fallout/oss-fallout/examples/kubernetes/datastax-cass-operator-resources/rancher-local-path-storage.yaml
+            - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/rancher-local-path-storage.yaml
               path: rancher-local-storage.yaml
         provisioner:
             name: MyCustomProvisioner
