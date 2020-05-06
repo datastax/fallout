@@ -1071,7 +1071,7 @@ task unpackHelm(type: Copy, dependsOn: downloadHelm) {
     }
 }
 
-task getExternalTools(dependsOn: [downloadKubectl, unpackGcloud, unpackHelm]) {
+task getExternalTools(dependsOn: [unpackKubectl, unpackGcloud, unpackHelm]) {
     outputs.dir externalToolsDir
 }
 
