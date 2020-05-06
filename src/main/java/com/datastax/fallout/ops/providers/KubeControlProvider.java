@@ -19,8 +19,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -248,9 +250,11 @@ public class KubeControlProvider extends Provider
             return Arrays.asList(getPodContainers.getStdout().split(" "));
         }
 
-        public void captureContainerLogs(String pod, String container, Path logArtifact)
+        public void captureContainerLogs(String pod, Optional<String> container, Path logArtifact)
         {
-            FullyBufferedNodeResponse getContainerLog = execute(String.format("logs %s %s", pod, container)).buffered();
+            String containerArg = container.map(container_ -> " " + container_).orElse("");
+            FullyBufferedNodeResponse getContainerLog =
+                execute(String.format("logs %s%s", pod, containerArg)).buffered();
             if (!getContainerLog.waitForSuccess())
             {
                 throw new RuntimeException(String.format("Error while getting log from pod %s container %s",
@@ -258,7 +262,8 @@ public class KubeControlProvider extends Provider
             }
             if (getContainerLog.getStdout().isEmpty())
             {
-                logger().info("Empty log for pod {} container {}", pod, container);
+                logger().info("Empty log for pod {}{}", pod,
+                    container.map(container_ -> String.format(" container %s", container_)).orElse(""));
             }
             Utils.writeStringToFile(logArtifact.toFile(), getContainerLog.getStdout());
         }
@@ -351,6 +356,38 @@ public class KubeControlProvider extends Provider
                 .map(n -> String.format(waitOnPodCmdBase, conditionAndTimeout, n))
                 .map(this::execute)
                 .collect(Collectors.toList()));
+        }
+
+        public boolean installHelmChart(Path helmChart, Map<String, String> flags, Optional<Path> optionsFile)
+        {
+            String name = helmChart.getFileName().toString();
+            StringBuilder install = new StringBuilder(String.format("helm install %s %s", name, helmChart));
+            namespace.ifPresent(ns -> install.append(" --namespace=").append(ns));
+            flags.forEach((key, value) -> install.append(String.format(" --set %s=%s", key, value)));
+            optionsFile.ifPresent(p -> install.append(String.format(" -f %s", p)));
+            return kubernetesProvisioner.executeInKubernetesEnv(install.toString(), logger()).waitForSuccess();
+        }
+
+        public boolean uninstallHelmChart(Path helmChart)
+        {
+            return kubernetesProvisioner
+                .executeInKubernetesEnv(String.format("helm uninstall %s%s", helmChart.getFileName().toString(),
+                    namespace.map(ns -> String.format(" --namespace %s", ns)).orElse("")))
+                .waitForSuccess();
+        }
+
+        public Optional<Boolean> executeIfNodeHasPod(String action, String labelSelector,
+            BiFunction<NamespacedKubeCtl, String, Boolean> f)
+        {
+            return node.getProvider(KubeControlProvider.class).inNamespace(namespace, namespacedKubeCtl -> {
+                List<String> podNames = namespacedKubeCtl.findPodNames(labelSelector, true);
+                if (!podNames.isEmpty())
+                {
+                    return Optional.of(f.apply(namespacedKubeCtl, podNames.get(0)));
+                }
+                node.logger().info("No pod with label {} was found, will not {}", labelSelector, action);
+                return Optional.empty();
+            });
         }
     }
 }

@@ -18,6 +18,7 @@ package com.datastax.fallout.ops.configmanagement.kubernetes;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -178,7 +179,7 @@ public class DataStaxCassOperatorConfigurationManager extends ConfigurationManag
                     {
                         Path logArtifact = node.getLocalArtifactPath().resolve(
                             String.format("%s_%s_container.log", podName, container));
-                        namespacedKubeCtl.captureContainerLogs(podName, container, logArtifact);
+                        namespacedKubeCtl.captureContainerLogs(podName, Optional.of(container), logArtifact);
                     }
                 }
                 return true;

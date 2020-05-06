@@ -81,6 +81,12 @@ public class Utils
         final List<TimeoutCheck> additionalTimeoutChecks = new ArrayList<>();
 
         public AwaitConditionOptions(Logger logger, Supplier<Boolean> condition, Duration timeout,
+            HashedWheelTimer timer)
+        {
+            this(logger, condition, timeout, timer, Duration.seconds(1L));
+        }
+
+        public AwaitConditionOptions(Logger logger, Supplier<Boolean> condition, Duration timeout,
             HashedWheelTimer timer, Duration interval)
         {
             this.logger = logger;
@@ -98,6 +104,11 @@ public class Utils
         public void addTestRunAbortTimeout(Node node)
         {
             addTestRunAbortTimeout(node.getNodeGroup(), node.logger());
+        }
+
+        public void addTestRunAbortTimeout(NodeGroup nodeGroup)
+        {
+            addTestRunAbortTimeout(nodeGroup, nodeGroup.logger());
         }
 
         private void addTestRunAbortTimeout(NodeGroup nodeGroup, Logger logger)

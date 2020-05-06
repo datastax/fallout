@@ -1,0 +1,78 @@
+namespace: cass-operator
+nosqlbench_yaml: cql-iot.yaml
+---
+ensemble:
+  server:
+    node.count: 4
+    local_files: # required for kubernetes manifests
+      - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/ds-cass-operator-v1.yaml
+        path: ds-cass-operator-v1.yaml
+      - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/size-templated-minimal-cass-3.11.6-dc.yaml
+        path: cass-dc.yaml
+      - git:
+          repo: https://github.com/datastax/cass-operator
+
+      # The chaos mesh manifest can also be found under ../resources/pod-chaos.yaml
+      - url: https://gist.githubusercontent.com/smccarthy788/36b67e4c2c5a8e6e21b21a707610f17e/raw/65df9e5a42b978b2a33ef2cdaf6cd4fdf594f606/pod-chaos.yaml
+        path: pod-chaos.yaml
+
+    provisioner:
+      name: kind
+      properties:
+        kind.config: <<file:cass-operator/operator/k8s-flavors/kind/kind-example-config.yaml>>
+    configuration_manager:
+      - name: kubernetes_manifest
+        properties:
+          manifest: <<file:cass-operator/operator/k8s-flavors/kind/rancher-local-path-storage.yaml>>
+          wait.strategy: FIXED_DURATION
+          wait.timeout: 1m
+      - name: ds_cass_operator
+        properties:
+          namespace: {{namespace}}
+          operator.manifest: <<file:ds-cass-operator-v1.yaml>>
+          datacenter.manifest: <<file:cass-dc.yaml>>
+          datacenter.template_params:
+            size: 3
+      - name: nosqlbench
+        properties:
+          replicas: 1
+          namespace: {{namespace}}
+
+      - name: chaos_mesh # deploys into an isolated namespace
+
+  client: server
+
+workload:
+  phases:
+    - init_schema:
+        module: nosqlbench
+        properties:
+          num_clients: 1
+          args:
+            - run
+            - type=cql
+            - yaml={{nosqlbench_yaml}}
+            - tags=phase:schema
+    - benchmark:
+        module: nosqlbench
+        properties:
+          cycles: 1M
+          args:
+            - run
+            - type=cql
+            - yaml={{nosqlbench_yaml}}
+            - tags=phase:main
+            - errors=histogram
+
+      pod_failure_chaos:
+        module: chaos_mesh
+        properties:
+          namespace: {{namespace}} # namespace where the chaos experiment should act
+          experiment: <<file:pod-chaos.yaml>>
+
+  checkers:
+    nofail:
+      checker: nofail
+  artifact_checkers:
+    hdr:
+      artifact_checker: hdrtool

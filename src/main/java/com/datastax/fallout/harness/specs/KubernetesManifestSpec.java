@@ -234,7 +234,7 @@ public class KubernetesManifestSpec
             this.imageName = imageName;
         }
 
-        private static ManifestWaitOptions fixedDuration(Duration timeout)
+        public static ManifestWaitOptions fixedDuration(Duration timeout)
         {
             return new ManifestWaitOptions(ManifestWaitStrategy.FIXED_DURATION, timeout, null, null, null, null, null);
         }
