@@ -1016,11 +1016,17 @@ task downloadGcloud(type: Download) {
     outputs.cacheIf { true }
 }
 
-def createGcloudSymlink(targetDir) {
+def createToolSymlink(tool, source, targetDir) {
+    // Regenerate the symlink, because the gradle copy task
+    // dereferences symlinks
     exec {
-        commandLine "ln", "-fs", "../google-cloud-sdk/bin/gcloud",
-            "${targetDir}/bin/gcloud"
+        commandLine "ln", "-fs", "../${source}",
+            "${targetDir}/bin/${tool}"
     }
+}
+
+def createGcloudSymlink(targetDir) {
+    createToolSymlink("gcloud", "google-cloud-sdk/bin/gcloud", targetDir)
 }
 
 task unpackGcloud(type: Copy, dependsOn: downloadGcloud) {
@@ -1033,13 +1039,39 @@ task unpackGcloud(type: Copy, dependsOn: downloadGcloud) {
     into externalToolsDir
 
     doLast {
-        // Regenerate the symlink, because the gradle copy task
-        // dereferences symlinks
         createGcloudSymlink(externalToolsDir)
     }
 }
 
-task getExternalTools(dependsOn: [downloadKubectl, unpackGcloud]) {
+task downloadHelm(type: Download) {
+    ext.version = "3.2.0"
+
+    src "https://get.helm.sh/helm-v${version}-linux-amd64.tar.gz"
+    dest buildDir
+    overwrite false
+
+    outputs.cacheIf {true}
+}
+
+def createHelmSymlink(targetDir) {
+    createToolSymlink("helm", "linux-amd64/helm", targetDir)
+}
+
+task unpackHelm(type: Copy, dependsOn: downloadHelm) {
+    from tarTree(resources.gzip(downloadHelm.outputs.files.singleFile))
+
+    def helmSymlink = file("${externalToolsDir}/bin/helm")
+    outputs.dir file("${externalToolsDir}/linux-amd64")
+    outputs.file helmSymlink
+
+    into externalToolsDir
+
+    doLast{
+        createHelmSymlink(externalToolsDir)
+    }
+}
+
+task getExternalTools(dependsOn: [downloadKubectl, unpackGcloud, unpackHelm]) {
     outputs.dir externalToolsDir
 }
 
@@ -1058,6 +1090,7 @@ installExternalToolsDist {
         // Regenerate the symlink, because the gradle copy task
         // dereferences symlinks
         createGcloudSymlink(installExternalToolsDist.destinationDir)
+        createHelmSymlink(installExternalToolsDist.destinationDir)
     }
 }
 
