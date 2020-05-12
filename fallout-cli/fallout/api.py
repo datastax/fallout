@@ -79,8 +79,8 @@ class FalloutAPI:
             requests_log.propagate = True
 
     @staticmethod
-    def __urlappend(l, r):
-        return urljoin(l.rstrip('/') + '/', r)
+    def __urlappend(left, right):
+        return urljoin(left.rstrip('/') + '/', right)
 
     def __path(self, path_components):
         return reduce(
