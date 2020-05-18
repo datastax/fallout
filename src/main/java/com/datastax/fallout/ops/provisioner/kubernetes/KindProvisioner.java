@@ -21,6 +21,7 @@ import java.util.List;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
+import com.datastax.fallout.ops.ClusterNames;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
@@ -30,12 +31,14 @@ import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
 import com.datastax.fallout.ops.providers.FileProvider;
 import com.datastax.fallout.runner.CheckResourcesResult;
+import com.datastax.fallout.service.core.TestRun;
+import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.util.YamlUtils;
 
 @AutoService(Provisioner.class)
 public class KindProvisioner extends AbstractKubernetesProvisioner
 {
-    private final static String KIND_VERSION = "0.7";
+    private final static String KIND_VERSION = "0.8";
     private final static String prefix = "fallout.provisioner.kubernetes.kind.";
 
     private final static PropertySpec<String> kindConfigSpec =
@@ -86,12 +89,18 @@ public class KindProvisioner extends AbstractKubernetesProvisioner
         {
             throw new PropertySpec.ValidationException("Could not look up the version of KIND. Is it installed?");
         }
-        if (!getKindVersion.getStderr().contains(KIND_VERSION))
+        if (!getKindVersion.getStdout().contains(KIND_VERSION))
         {
             throw new PropertySpec.ValidationException(String.format(
                 "Incorrect version of KIND installed. Fallout requires v%s, but found %s",
-                KIND_VERSION, getKindVersion.getStderr()));
+                KIND_VERSION, getKindVersion.getStdout()));
         }
+    }
+
+    @Override
+    public String generateClusterName(NodeGroup nodeGroup, String testRunName, TestRun testRun, User user)
+    {
+        return ClusterNames.generateGCEClusterName(nodeGroup, testRunName, testRun, user);
     }
 
     @Override
