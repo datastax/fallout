@@ -22,10 +22,10 @@ public class DataStaxCassOperatorProvider extends Provider
 {
     private final String clusterService;
 
-    public DataStaxCassOperatorProvider(Node node, String clusterName, String datacenterName)
+    public DataStaxCassOperatorProvider(Node node, String clusterService)
     {
         super(node);
-        this.clusterService = String.format("%s-%s-service", clusterName, datacenterName);
+        this.clusterService = clusterService;
     }
 
     @Override

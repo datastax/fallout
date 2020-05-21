@@ -202,15 +202,7 @@ public abstract class KubernetesDeploymentConfigurationManager extends Configura
         BiFunction<KubeControlProvider.NamespacedKubeCtl, String, Boolean> f)
     {
         return node.getProvider(KubeControlProvider.class).inNamespace(namespaceSpec.optionalValue(node),
-            namespacedKubeCtl -> {
-                List<String> podNames = namespacedKubeCtl.findPodNames(getPodLabelSelector(), true);
-                if (!podNames.isEmpty())
-                {
-                    return Optional.of(f.apply(namespacedKubeCtl, podNames.get(0)));
-                }
-                node.logger().info("No pod with label {} was found, will not {}", getPodLabelSelector(), action);
-                return Optional.empty();
-            });
+            namespacedKubeCtl -> namespacedKubeCtl.executeIfNodeHasPod(action, getPodLabelSelector(), f));
     }
 
     /** A deployment where containers will not terminate without being deleted by running tail -f /dev/null

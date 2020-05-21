@@ -18,14 +18,15 @@ package com.datastax.fallout.ops.configmanagement.kubernetes;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.auto.service.AutoService;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.apache.commons.lang3.tuple.Pair;
 
 import com.datastax.fallout.harness.specs.KubernetesManifestSpec;
 import com.datastax.fallout.ops.ConfigurationManager;
@@ -130,9 +131,8 @@ public class DataStaxCassOperatorConfigurationManager extends ConfigurationManag
     {
         if (datacenterManifestSpec.isPresent(getNodeGroup().getProperties()))
         {
-            Pair<String, String> clusterAndDatacenter =
-                getClusterAndDatacenter(datacenterManifestSpec.getManifestContent(getNodeGroup()));
-            new DataStaxCassOperatorProvider(node, clusterAndDatacenter.getLeft(), clusterAndDatacenter.getRight());
+            new DataStaxCassOperatorProvider(node,
+                getClusterService(datacenterManifestSpec.getManifestContent(getNodeGroup())));
         }
         return true;
     }
@@ -179,7 +179,7 @@ public class DataStaxCassOperatorConfigurationManager extends ConfigurationManag
                     {
                         Path logArtifact = node.getLocalArtifactPath().resolve(
                             String.format("%s_%s_container.log", podName, container));
-                        namespacedKubeCtl.captureContainerLogs(podName, container, logArtifact);
+                        namespacedKubeCtl.captureContainerLogs(podName, Optional.of(container), logArtifact);
                     }
                 }
                 return true;
@@ -208,44 +208,44 @@ public class DataStaxCassOperatorConfigurationManager extends ConfigurationManag
             });
     }
 
-    private static String getServerImage(String clusterManifest)
+    @VisibleForTesting
+    public static String getServerImage(String clusterManifest)
     {
-        Map<String, Object> dataCenterManifestMap = YamlUtils.loadYaml(clusterManifest);
-        String serverImage = (String) ((Map<String, Object>) dataCenterManifestMap.get("spec")).get("serverImage");
-        if (serverImage == null)
+        JsonNode serverImage = YamlUtils.loadYamlDocument(clusterManifest, "/spec/serverImage");
+        if (serverImage.isMissingNode())
         {
             throw new RuntimeException("serverImage is required to be present in the CassandraDatacenter definition");
         }
-        return serverImage;
+        return serverImage.asText();
     }
 
-    private static Pair<String, String> getClusterAndDatacenter(String clusterManifest)
+    @VisibleForTesting
+    public static String getClusterService(String clusterManifest)
     {
-        Map<String, Object> dataCenterManifestMap = YamlUtils.loadYaml(clusterManifest);
-        String cluster = ((Map<String, Object>) dataCenterManifestMap.get("spec")).get("clusterName").toString();
-        String datacenter = ((Map<String, Object>) dataCenterManifestMap.get("metadata")).get("name").toString();
-        return Pair.of(cluster, datacenter);
-    }
-
-    private static String getOperatorImage(String operatorManifest)
-    {
-        String[] documents = operatorManifest.split("---");
-        for (String document : documents)
+        JsonNode cluster = YamlUtils.loadYamlDocument(clusterManifest);
+        JsonNode clusterName = cluster.at("/spec/clusterName");
+        JsonNode datacenter = cluster.at("/metadata/name");
+        if (clusterName.isMissingNode() || datacenter.isMissingNode())
         {
-            Map<String, Object> documentYaml = YamlUtils.loadYaml(document);
-            if (documentYaml == null)
+            throw new RuntimeException(
+                "clusterName and datacenter name are required in the CassandraDatacenter definition");
+        }
+        return String.format("%s-%s-service", clusterName.asText(), datacenter.asText());
+    }
+
+    @VisibleForTesting
+    public static String getOperatorImage(String operatorManifest)
+    {
+        for (JsonNode document : YamlUtils.loadYamlDocuments(operatorManifest))
+        {
+            if (document.at("/kind").asText().equals("Deployment"))
             {
-                // empty document
-                continue;
-            }
-            String kind = documentYaml.get("kind").toString();
-            if (kind != null && kind.equals("Deployment"))
-            {
-                Map<String, Object> spec = (Map<String, Object>) documentYaml.get("spec");
-                Map<String, Object> template = (Map<String, Object>) spec.get("template");
-                Map<String, Object> templateSpec = (Map<String, Object>) template.get("spec");
-                List<Map<String, Object>> containers = (List<Map<String, Object>>) templateSpec.get("containers");
-                return containers.get(0).get("image").toString();
+                JsonNode image = document.at("/spec/template/spec/containers/0/image");
+                if (image.isMissingNode())
+                {
+                    break;
+                }
+                return image.asText();
             }
         }
         throw new RuntimeException("Could not get operator image from manifest");
