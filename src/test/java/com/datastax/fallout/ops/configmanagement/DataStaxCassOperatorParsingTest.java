@@ -32,7 +32,7 @@ public class DataStaxCassOperatorParsingTest extends WithTestResources
     public void operator_image_can_be_parsed_from_operator_deployment()
     {
         assertThat(getOperatorImage(getTestClassResource("ds-cass-operator.yaml")))
-            .isEqualTo("datastax/cass-operator:1.0.0");
+            .isEqualTo("datastax/cass-operator:1.1.0");
     }
 
     @Test

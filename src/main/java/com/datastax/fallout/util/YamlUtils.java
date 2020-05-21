@@ -15,15 +15,17 @@
  */
 package com.datastax.fallout.util;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.google.common.base.Splitter;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -84,7 +86,12 @@ public class YamlUtils
 
     public static List<JsonNode> loadYamlDocuments(String yamlMultiDoc)
     {
-        return Arrays.stream(yamlMultiDoc.split("---"))
+        return StreamSupport.stream(
+            Splitter.on(Pattern.compile("^---", Pattern.MULTILINE))
+                .omitEmptyStrings()
+                .split(yamlMultiDoc)
+                .spliterator(),
+            false)
             .map(YamlUtils::loadYamlDocument)
             .filter(n -> !n.isEmpty())
             .collect(Collectors.toList());
