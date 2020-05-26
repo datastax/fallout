@@ -124,10 +124,10 @@ If you encounter any bugs, please file a GitHub issue.
 
 Active Maintainers:
 * [Jake Luciani](https://github.com/tjake)
-* [Philip Thompson](https://github.com/ptnapoleon)
 * [Guy Bolton King](https://github.com/guyboltonking)
 * [James Trevino](https://github.com/JamesATrevino)
 * [Sean McCarthy](https://github.com/smccarthy788)
 
 Special thanks to:
 * [Joel Knighton](https://github.com/jkni)
+* [Philip Thompson](https://github.com/ptnapoleon)
