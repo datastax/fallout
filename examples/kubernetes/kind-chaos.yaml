@@ -24,12 +24,16 @@ ensemble:
         properties:
           namespace: {{namespace}}
           replicas: 1
+      - name: chaos_mesh # deploys into an isolated namespace
+
     local_files: # required for kubernetes manifests
       - git:
           repo: https://github.com/datastax/cass-operator
           branch: v1.1.0
       - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/kind-default-dc.yaml
         path: kind-default-dc.yaml
+      - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/chaos-mesh/resources/pod-chaos.yaml
+        path: pod-chaos.yaml
 
   client: server
 
@@ -53,6 +57,11 @@ workload:
             - type=cql
             - yaml={{cql_iot_yaml}}
             - tags=phase:main
+      pod_failure_chaos:
+        module: chaos_mesh
+        properties:
+          namespace: {{namespace}} # namespace where the chaos experiment should act
+          experiment: <<file:pod-chaos.yaml>>
 
   checkers:
     nofail:

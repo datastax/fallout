@@ -1,4 +1,3 @@
-# Here's an example test yaml to get you started:
 cql_iot_yaml: cql-iot.yaml
 namespace: cass-operator
 cql_iot_cycles: 200k
@@ -31,7 +30,9 @@ ensemble:
           branch: v1.1.0
       - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/kind-default-dc.yaml
         path: kind-default-dc.yaml
+
   client: server
+
 workload:
   phases:
     - set_schema:
@@ -64,9 +65,11 @@ workload:
             - type=cql
             - yaml={{cql_iot_yaml}}
             - tags=phase:main
+
   checkers:
     nofail:
       checker: nofail
+
   artifact_checkers:
     hdr:
       artifact_checker: hdrtool
