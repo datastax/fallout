@@ -304,7 +304,11 @@ public class HdrHistogramChecker extends ArtifactChecker
             String runTitle = simpleFilename + (tag == null ? "" : ":" + tag);
 
             // Write the aggregated histogram to a textual file
-            aggregatedHistogramConsumer.accept(runTitle.replace(':', '.'), sum);
+            aggregatedHistogramConsumer.accept(
+                runTitle
+                    .replace(':', '.')
+                    .replace('/', '.'),
+                sum);
 
             moreThanOneGroup = outputMoreThanOneSeparator(htmlOutput, jsonOutput, moreThanOneGroup);
             outputBytes.writeTo(htmlOutput);
