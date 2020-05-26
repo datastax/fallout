@@ -1,6 +1,7 @@
 # Here's an example test yaml to get you started:
-cql_iot_gist: cql-iot.yaml
+cql_iot_yaml: cql-iot.yaml
 namespace: cass-operator
+cql_iot_cycles: 200k
 ---
 ensemble:
   server:
@@ -27,6 +28,7 @@ ensemble:
     local_files: # required for kubernetes manifests
       - git:
           repo: https://github.com/datastax/cass-operator
+          branch: v1.1.0
       - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/kind-default-dc.yaml
         path: kind-default-dc.yaml
   client: server
@@ -39,28 +41,16 @@ workload:
           args:
             - run
             - type=cql
-            - yaml={{cql_iot_gist}}
+            - yaml={{cql_iot_yaml}}
             - tags=phase:schema
-    - add_new_node:
-        module: kubectl
-        properties:
-          namespace: {{namespace}}
-          iterations: 1
-          command: |
-            patch cassdc dc1 --patch '{"spec": {"size": 2}}' --type merge
-      show-pods:
-        module: kubectl
-        properties:
-          namespace: {{namespace}}
-          command: get pods
-      run_workload_while_bootstrapping:
+    - run_workload:
         module: nosqlbench
         properties:
-          cycles: 1m
+          cycles: {{cql_iot_cycles}}
           args:
             - run
             - type=cql
-            - yaml={{cql_iot_gist}}
+            - yaml={{cql_iot_yaml}}
             - tags=phase:main
   checkers:
     nofail:
