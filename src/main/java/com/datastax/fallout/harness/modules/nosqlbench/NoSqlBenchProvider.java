@@ -61,7 +61,7 @@ public class NoSqlBenchProvider extends Provider
         return node.getProvider(KubeControlProvider.class).inNamespace(namespace, namespacedKubeCtl -> {
             String podName = namespacedKubeCtl.findPodNames(podLabel, true).get(0);
             return namespacedKubeCtl.execute(String.format(
-                "exec --container=nosqlbench %s -- ash -c 'java -jar /target/nb.jar %s 2>&1 | tee %s'",
+                "exec --container=nosqlbench %s -- ash -c 'java -jar nb.jar %s 2>&1 | tee %s'",
                 podName, nosqlBenchArgs, log));
         });
     }
