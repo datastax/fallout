@@ -4,7 +4,7 @@ cql_iot_cycles: 200k
 ---
 ensemble:
   server:
-    node.count: 4
+    node.count: 4 # Reflects kubernetes nodes in kind-example-config.yaml
     provisioner:
       name: kind
       properties:
@@ -19,20 +19,20 @@ ensemble:
         properties:
           namespace: {{namespace}}
           operator.manifest: <<file:cass-operator/docs/user/cass-operator-manifests.yaml>>
-          datacenter.manifest: <<file:kind-default-dc.yaml>>
+          datacenter.manifest: <<file:size-templated-dc.yaml>>
+          datacenter.template_params:
+            size: 3 # Total number of C* pods
       - name: nosqlbench
         properties:
           namespace: {{namespace}}
           replicas: 1
-    local_files: # required for kubernetes manifests
+    local_files:
       - git:
           repo: https://github.com/datastax/cass-operator
           branch: v1.1.0
-      - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/kind-default-dc.yaml
-        path: kind-default-dc.yaml
-
+      - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/size-templated-minimal-cass-3.11.6-dc.yaml
+        path: size-templated-dc.yaml
   client: server
-
 workload:
   phases:
     - set_schema:
@@ -44,6 +44,7 @@ workload:
             - type=cql
             - yaml={{cql_iot_yaml}}
             - tags=phase:schema
+            - rf=3
     - run_workload:
         module: nosqlbench
         properties:
@@ -53,11 +54,9 @@ workload:
             - type=cql
             - yaml={{cql_iot_yaml}}
             - tags=phase:main
-
   checkers:
     nofail:
       checker: nofail
-
   artifact_checkers:
     hdr:
       artifact_checker: hdrtool

@@ -19,20 +19,20 @@ ensemble:
         properties:
           namespace: {{namespace}}
           operator.manifest: <<file:cass-operator/docs/user/cass-operator-manifests.yaml>>
-          datacenter.manifest: <<file:kind-default-dc.yaml>>
+          datacenter.manifest: <<file:size-templated-dc.yaml>>
+          datacenter.template_params:
+            size: 2 # Start with 2 C* pods so we can scale up to a third on the remaining worker node
       - name: nosqlbench
         properties:
           namespace: {{namespace}}
           replicas: 1
-    local_files: # required for kubernetes manifests
+    local_files:
       - git:
           repo: https://github.com/datastax/cass-operator
           branch: v1.1.0
-      - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/kind-default-dc.yaml
-        path: kind-default-dc.yaml
-
+      - url: https://raw.githubusercontent.com/datastax/fallout/master/examples/kubernetes/datastax-cass-operator-resources/size-templated-minimal-cass-3.11.6-dc.yaml
+        path: size-templated-dc.yaml
   client: server
-
 workload:
   phases:
     - set_schema:
@@ -44,19 +44,20 @@ workload:
             - type=cql
             - yaml={{cql_iot_yaml}}
             - tags=phase:schema
+            - rf=3
     - add_new_node:
         module: kubectl
         properties:
           namespace: {{namespace}}
           iterations: 1
           command: |
-            patch cassdc dc1 --patch '{"spec": {"size": 2}}' --type merge
+            patch cassdc dc1 --patch '{"spec": {"size": 3}}' --type merge
       show-pods:
         module: kubectl
         properties:
           namespace: {{namespace}}
           command: get pods
-      run_workload_while_bootstrapping:
+      run_workload:
         module: nosqlbench
         properties:
           cycles: {{cql_iot_cycles}}
@@ -65,11 +66,9 @@ workload:
             - type=cql
             - yaml={{cql_iot_yaml}}
             - tags=phase:main
-
   checkers:
     nofail:
       checker: nofail
-
   artifact_checkers:
     hdr:
       artifact_checker: hdrtool
