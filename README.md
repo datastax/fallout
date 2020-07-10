@@ -4,7 +4,7 @@ Fallout is a tool for running local or large scale remote based distributed corr
 
 This is a preview release of the Fallout project, intended to gauge external interest. The core framework and application are present, but many of the components used at DataStax have been removed due to their reliance on internal infrastructure. The components contained in this release are focused on the Kubernetes integration with Fallout for performance testing DataStax Kubernetes operator managed clusters.
 
-You can learn more about Fallout by reading the [docs](docs). Example tests can be found under [examples](examples).
+You can learn more about Fallout by reading the [docs](docs). Example tests can be found under [examples](examples). There is also a [recorded workshop](https://www.youtube.com/watch?v=45iTmTBjU0M) which covers the project's intent, architecture, and simple examples.
 
 Getting Started
 ------------------
@@ -120,7 +120,7 @@ SSH_AUTH_SOCK=/run/host-services/ssh-auth.sock docker-compose up
 
 Contributions are welcome, please see [CONTRIBUTING](CONTRIBUTING.md) for guidance.
 
-If you encounter any bugs, please file a GitHub issue. 
+If you encounter any bugs, please file a GitHub issue.
 
 Active Maintainers:
 * [Jake Luciani](https://github.com/tjake)
