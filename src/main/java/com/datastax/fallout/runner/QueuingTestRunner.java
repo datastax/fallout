@@ -64,7 +64,7 @@ public class QueuingTestRunner implements AutoCloseable, Managed
     private final AbortableRunnableExecutorFactory abortableTestRunExecutorFactory;
     private final TestRunQueueProcessor testRunQueueProcessor;
     private final ExecutorService testRunQueueProcessorExecutor =
-        Executors.newSingleThreadExecutor(new NamedThreadFactory("TestRunQueueProcessor"));
+        Executors.newSingleThreadExecutor(new NamedThreadFactory("TestRunQueue"));
     private final ResourceLimiter resourceLimiter;
     private Function<TestRun, Set<ResourceRequirement>> getResourceRequirements = testRun -> Set.of();
 

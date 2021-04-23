@@ -89,13 +89,13 @@ public class JobFileLoggers implements Closeable, JobLoggers
     }
 
     private static final String THREAD_PATTERN =
-        "%-21replace(" +
+        "%-17replace(" +
             "%replace([%thread]){'ForkJoinPool\\.commonPool-worker-', 'FJP:'}" +
             "){'clojure-agent-send-off-pool-', 'clojure:'}";
     public static final String FALLOUT_PATTERN =
         "%-41(%date " +
             THREAD_PATTERN +
-            " %-5level %-20.-20logger{0}) - %msg%n";
+            " %-5level %-14.-14logger{0}) - %msg%n";
 
     private OutputStreamAppender<ILoggingEvent> withThresholdFilter(OutputStreamAppender<ILoggingEvent> appender,
         Level level)

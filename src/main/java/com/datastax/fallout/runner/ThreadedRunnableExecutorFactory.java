@@ -42,7 +42,7 @@ public class ThreadedRunnableExecutorFactory implements RunnableExecutorFactory
 {
     private static final ScopedLogger logger = ScopedLogger.getLogger(ThreadedRunnableExecutorFactory.class);
     private final ExecutorService executorService =
-        Executors.newCachedThreadPool(new NamedThreadFactory("ThreadedExecutor"));
+        Executors.newCachedThreadPool(new NamedThreadFactory("TestRunExec"));
     private final FalloutConfiguration configuration;
 
     private final JobLoggersFactory loggersFactory;
