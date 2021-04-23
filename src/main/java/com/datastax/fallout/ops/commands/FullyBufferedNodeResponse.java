@@ -125,9 +125,9 @@ public class FullyBufferedNodeResponse extends NodeResponse
     }
 
     @Override
-    public String maybeAppendCommandOutputToLogMessage(String logMsg)
+    public String getFormattedCommandOutput()
     {
-        String res = logMsg;
+        String res = "";
         if (!getStdout().isEmpty())
         {
             res += "\nSTDOUT:\n" + getStdout();

@@ -182,9 +182,14 @@ public abstract class NodeResponse
             this.exitCodeIsError = n -> false;
         }
 
-        public Optional<Logger> outputLogger(NodeResponse response)
+        public Optional<Logger> outputLineLogger(NodeResponse response)
         {
-            return outputLogging ? Optional.of(logger(response)) : Optional.empty();
+            if (response instanceof FullyBufferedNodeResponse || !outputLogging)
+            {
+                // FBNR will log everything once cmd finishes, so no need to log every line
+                return Optional.empty();
+            }
+            return Optional.of(logger(response));
         }
 
         public Logger logger(NodeResponse response)
@@ -520,10 +525,10 @@ public abstract class NodeResponse
                             String trimmedLine = line.trim();
                             if (!trimmedLine.isEmpty() && !trimmedLine.equals("\n"))
                             {
-                                final Optional<Logger> outputLogger = waitOptions.outputLogger(this);
-                                if (outputLogger.isPresent())
+                                Optional<Logger> outputLineLogger = waitOptions.outputLineLogger(this);
+                                if (outputLineLogger.isPresent())
                                 {
-                                    outputLogger.get().info("{}: {}", ctx.type, line);
+                                    outputLineLogger.get().info("{}: {}", ctx.type, line);
                                 }
                                 ctx.handleLine(line);
                             }
@@ -606,33 +611,48 @@ public abstract class NodeResponse
                     }
                 }
 
+                if (!completedWithoutTimeout)
+                {
+                    // need to kill before potentially fetching fully buffered output from FBNR
+                    this.kill();
+                }
+
+                String outputToLog = waitOptions.outputLogging ? getFormattedCommandOutput() : "";
                 if (completedWithoutTimeout)
                 {
                     int exitCode = getExitCode();
                     if (exitCode == 0)
                     {
-                        logger.info("Command{} completed with exit code {}: {}", nodeInfo, exitCode, command);
+                        logger.info("Command{} completed with exit code {}: {}{}", nodeInfo, exitCode, command,
+                            outputToLog);
                     }
                     else
                     {
-                        String logMsg = "Command{} completed with non-zero exit code {}: {}";
+                        String logMsg = "Command{} completed with non-zero exit code {}: {}{}";
                         if (waitOptions.exitCodeIsError.test(exitCode))
                         {
-                            String rawErrorMsg = CMD_FAIL_LOG_PREFIX + logMsg;
-                            String errorMsg = maybeAppendCommandOutputToLogMessage(rawErrorMsg);
-                            boolean didNotAppendOutput = errorMsg.length() == rawErrorMsg.length();
-                            if (didNotAppendOutput)
+                            String errorMsg = CMD_FAIL_LOG_PREFIX + logMsg;
+                            if (outputToLog.isEmpty())
                             {
-                                for (Context ctx : streams)
+                                String cmdOutput = getFormattedCommandOutput();
+                                if (cmdOutput.isEmpty())
                                 {
-                                    errorMsg = ctx.appendLastLines(errorMsg);
+                                    for (Context ctx : streams)
+                                    {
+                                        outputToLog = ctx.appendLastLines(outputToLog);
+                                    }
+                                }
+                                else
+                                {
+                                    // on error we log the full output even when outputLogging was false
+                                    outputToLog = cmdOutput;
                                 }
                             }
-                            logger.error(errorMsg, nodeInfo, exitCode, command);
+                            logger.error(errorMsg, nodeInfo, exitCode, command, outputToLog);
                         }
                         else
                         {
-                            logger.info(logMsg, nodeInfo, exitCode, command);
+                            logger.info(logMsg, nodeInfo, exitCode, command, outputToLog);
                         }
                     }
                 }
@@ -640,25 +660,23 @@ public abstract class NodeResponse
                 {
                     if (wasNoOutputTimeout.get())
                     {
-                        String errorMsg = CMD_FAIL_LOG_PREFIX + "Command{} timed out due to no output after {}: {}";
-                        logger.error(errorMsg, nodeInfo, waitOptions.noOutputTimeout.get(), command);
+                        String errorMsg = CMD_FAIL_LOG_PREFIX + "Command{} timed out due to no output after {}: {}{}";
+                        logger.error(errorMsg, nodeInfo, waitOptions.noOutputTimeout.get(), command, outputToLog);
                     }
                     else
                     {
-                        String errorMsg = CMD_FAIL_LOG_PREFIX + "Command{} timed out after {}: {}";
-                        logger.error(errorMsg, nodeInfo, timeout, command);
+                        String errorMsg = CMD_FAIL_LOG_PREFIX + "Command{} timed out after {}: {}{}";
+                        logger.error(errorMsg, nodeInfo, timeout, command, outputToLog);
                     }
-
-                    this.kill();
                 }
 
                 return completedWithoutTimeout;
             });
     }
 
-    protected String maybeAppendCommandOutputToLogMessage(String logMsg)
+    protected String getFormattedCommandOutput()
     {
-        return logMsg;
+        return "";
     }
 
     public FullyBufferedNodeResponse buffered()
