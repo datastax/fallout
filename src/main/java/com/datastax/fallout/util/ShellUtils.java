@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,8 +28,6 @@ public class ShellUtils
 
     private static final Escaper POWERSHELL_QUOTE_ESCAPER;
 
-    private static final Escaper JSON_ESCAPER;
-
     static
     {
         Escapers.Builder builder = Escapers.builder();
@@ -39,11 +37,6 @@ public class ShellUtils
         builder = Escapers.builder();
         builder.addEscape('\'', "''");
         POWERSHELL_QUOTE_ESCAPER = builder.build();
-
-        builder = Escapers.builder();
-        builder.addEscape('"', "\\\"");
-        builder.addEscape('\\', "\\\\");
-        JSON_ESCAPER = builder.build();
     }
 
     // This is from http://stackoverflow.com/a/20725050/322152.  We're not using org.apache.commons.exec.CommandLine
@@ -107,15 +100,6 @@ public class ShellUtils
         return forceQuote || escapedQuotesParam.contains(" ") ?
             "'" + escapedQuotesParam + "'" :
             escapedQuotesParam;
-    }
-
-    /**
-     * Ensure that @param, when embedded in an existing JSON string, will not make that string invalid.
-     * It does this by escaping any characters that could terminate the string early.
-     */
-    public static String escapeJSON(String param)
-    {
-        return JSON_ESCAPER.escape(param);
     }
 
     public static String escapePowershell(String param)

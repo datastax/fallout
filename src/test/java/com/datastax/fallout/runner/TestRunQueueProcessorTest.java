@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 package com.datastax.fallout.runner;
 
-import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -25,45 +24,37 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import com.google.common.util.concurrent.Uninterruptibles;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.datastax.fallout.harness.ActiveTestRun;
-import com.datastax.fallout.harness.ExceptionHandler;
 import com.datastax.fallout.harness.TestRunStatus;
 import com.datastax.fallout.runner.queue.ReadOnlyTestRunQueue;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.util.NamedThreadFactory;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
+@ExtendWith(MockitoExtension.class)
 public class TestRunQueueProcessorTest
 {
     private SingleShotTestRunQueue testRunQueue;
     private ExecutorService jobQueueProcessorExecutor;
     private TestRunQueueProcessor testRunQueueProcessor;
-    private Supplier<Optional<ActiveTestRun>> activator;
-
-    @Rule
-    public MockitoRule rule = MockitoJUnit.rule();
 
     @Mock
-    private ExceptionHandler exceptionHandler;
+    private ReadOnlyTestRunQueue.UnprocessedHandler unprocessedHandler;
 
     @Mock
     private TestRunStatus testRunStatus;
@@ -74,32 +65,25 @@ public class TestRunQueueProcessorTest
     private AtomicBoolean willRequeueJob;
     private AtomicReference<Runnable> requeueJobCallback;
 
-    private static class SingleShotTestRunQueue implements ReadOnlyTestRunQueue
+    private class SingleShotTestRunQueue implements ReadOnlyTestRunQueue
     {
         private CompletableFuture<TestRun> queuedJobFuture = new CompletableFuture<>();
         private CompletableFuture<TestRun> takenJobFuture = new CompletableFuture<>();
-        private AtomicBoolean jobWasRequeued = new AtomicBoolean(false);
 
         private void addAndWaitForProcessing()
         {
             takenJobFuture = new CompletableFuture<>();
-            jobWasRequeued.set(false);
             queuedJobFuture.complete(new TestRun());
             takenJobFuture.join();
         }
 
-        private boolean jobWasRequeued()
-        {
-            return jobWasRequeued.get();
-        }
-
         @Override
-        public void take(BiConsumer<TestRun, Consumer<TestRun>> consumer)
+        public void take(BiConsumer<TestRun, UnprocessedHandler> consumer)
         {
             try
             {
                 TestRun completedJob = queuedJobFuture.thenApplyAsync(job -> {
-                    consumer.accept(job, requeuedJob_ -> jobWasRequeued.set(true));
+                    consumer.accept(job, unprocessedHandler);
                     return job;
                 }).join();
                 takenJobFuture.complete(completedJob);
@@ -119,7 +103,7 @@ public class TestRunQueueProcessorTest
         }
     }
 
-    @Before
+    @BeforeEach
     public void setUp()
     {
         willRequeueJob = new AtomicBoolean(false);
@@ -131,6 +115,19 @@ public class TestRunQueueProcessorTest
         })
             .given(testRunStatus).addResourcesUnavailableCallback(any());
 
+        testRunQueue = new SingleShotTestRunQueue();
+        jobQueueProcessorExecutor = Executors.newSingleThreadExecutor(new NamedThreadFactory("TestRunQueueProcessor"));
+
+        final UserCredentialsFactory nullUserCredentialsFactory = testRun -> null;
+        final RunnableExecutorFactory testRunExecutorFactory = (testRun, userCredentials) -> executor;
+
+        testRunQueueProcessor = new TestRunQueueProcessor(testRunQueue, nullUserCredentialsFactory,
+            testRunExecutorFactory, new ResourceReservationLocks());
+        jobQueueProcessorExecutor.execute(testRunQueueProcessor);
+    }
+
+    public void executorRunWillPause()
+    {
         // Make run() pause; if shutdown() fails to wait for all tasks to finish, then this will trigger race
         // failures in the form of missing activeTestRun.close and exceptionHandler calls.
         willAnswer(ignored -> {
@@ -142,19 +139,9 @@ public class TestRunQueueProcessorTest
             return null;
         })
             .given(executor).run();
-
-        testRunQueue = new SingleShotTestRunQueue();
-        jobQueueProcessorExecutor = Executors.newSingleThreadExecutor(new NamedThreadFactory("TestRunQueueProcessor"));
-
-        final UserCredentialsFactory nullUserCredentialsFactory = testRun -> null;
-        final RunnableExecutorFactory testRunExecutorFactory = (testRun, userCredentials) -> executor;
-
-        testRunQueueProcessor = new TestRunQueueProcessor(testRunQueue, nullUserCredentialsFactory, exceptionHandler,
-            testRunExecutorFactory, new ResourceReservationLocks());
-        jobQueueProcessorExecutor.execute(testRunQueueProcessor);
     }
 
-    @After
+    @AfterEach
     public void shutdown() throws InterruptedException
     {
         testRunQueueProcessor.shutdown();
@@ -175,17 +162,17 @@ public class TestRunQueueProcessorTest
 
     private void thenHandledExceptionsAre(int handledExceptions)
     {
-        then(exceptionHandler).should(times(handledExceptions)).accept(any(), any());
+        then(unprocessedHandler).should(times(handledExceptions)).handleException(any());
     }
 
     private void thenTheJobIsRequeued()
     {
-        assertThat(testRunQueue.jobWasRequeued()).isTrue();
+        then(unprocessedHandler).should(times(1)).requeue();
     }
 
     private void thenTheJobIsNotRequeued()
     {
-        assertThat(testRunQueue.jobWasRequeued()).isFalse();
+        then(unprocessedHandler).should(never()).requeue();
     }
 
     @Test
@@ -200,6 +187,7 @@ public class TestRunQueueProcessorTest
     @Test
     public void normal_processing_is_successful() throws InterruptedException
     {
+        executorRunWillPause();
         whenJobIsProcessed();
         thenHandledExceptionsAre(0);
         thenTheJobIsNotRequeued();
@@ -208,6 +196,7 @@ public class TestRunQueueProcessorTest
     @Test
     public void requeue_callbacks_are_handled() throws InterruptedException
     {
+        executorRunWillPause();
         givenJobWillCallRequeue();
         whenJobIsProcessed();
         thenHandledExceptionsAre(0);

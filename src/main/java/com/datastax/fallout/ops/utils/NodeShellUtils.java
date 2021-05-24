@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
  */
 package com.datastax.fallout.ops.utils;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import com.datastax.fallout.ops.Node;
@@ -39,8 +37,8 @@ public class NodeShellUtils
         if (!contents.waitForSuccess())
         {
             node.logger().error("Couldn't list directory contents {}", dir);
-            return Collections.emptyList();
+            return List.of();
         }
-        return Arrays.asList(contents.getStdout().split("\\s+"));
+        return List.of(contents.getStdout().split("\\s+"));
     }
 }

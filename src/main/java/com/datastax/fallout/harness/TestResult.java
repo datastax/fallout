@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 package com.datastax.fallout.harness;
 
 import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -62,14 +62,14 @@ public class TestResult
     public Map results()
     {
         return Optional.ofNullable((Map) jepsenTestMap.get(Keyword.intern("results")))
-            .orElse(Collections.emptyMap());
+            .orElse(Map.of());
     }
 
-    public Collection<Operation> history()
+    public List<Operation> history()
     {
         return Optional.ofNullable(((Collection<APersistentMap>) jepsenTestMap.get(Keyword.intern("history"))).stream()
             .map(Operation::fromOpMap)
             .collect(Collectors.toList()))
-            .orElse(Collections.emptyList());
+            .orElse(List.of());
     }
 }

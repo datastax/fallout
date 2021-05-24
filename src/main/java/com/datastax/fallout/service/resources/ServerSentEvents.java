@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -98,8 +98,8 @@ public class ServerSentEvents implements Managed
         {
             if (eventName(getEventType()).equals(event.getName()))
             {
-                getConsumer().accept(logger.resultDebug(() -> event.readData(getEventType()),
-                    "readEvent({})", event));
+                getConsumer().accept(
+                    logger.withResultDebug("readEvent({})", event).get(() -> event.readData(getEventType())));
                 return true;
             }
             logger.trace("readEvent({}): no matching consumers", event);
@@ -129,10 +129,10 @@ public class ServerSentEvents implements Managed
     {
         synchronized (activeSinks)
         {
-            logger.doWithScopedInfo(() -> {
+            logger.withScopedInfo("Closing active SSE connections").run(() -> {
                 activeSinks.forEach(EventSink::close);
                 activeSinks.clear();
-            }, "Closing active SSE connections");
+            });
         }
     }
 

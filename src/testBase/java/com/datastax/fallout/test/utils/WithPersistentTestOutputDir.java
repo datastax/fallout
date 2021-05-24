@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,49 +15,47 @@
  */
 package com.datastax.fallout.test.utils;
 
-import java.nio.file.Files;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
+import java.util.Optional;
 
-import org.junit.BeforeClass;
-import org.junit.runner.Description;
+import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.BeforeAll;
 
-import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.ops.utils.FileUtils;
 
 public abstract class WithPersistentTestOutputDir extends WithTestResources
 {
-    @BeforeClass
+    @BeforeAll
     public static void setTestBaseOutputDir()
     {
         TestOutputDir.setTestBaseOutputDir();
     }
 
-    public static Path persistentTestOutputDir(Description description)
+    private static Path persistentTestOutputDir(String currentTestClassName,
+        Optional<String> currentTestShortName)
     {
-        Path classOutputDir = TestOutputDir.getTestBaseOutputDir()
-            .resolve(currentTestClassName(description));
+        return FileUtils.createDirs(
+            TestOutputDir.getTestBaseOutputDir()
+                .resolve(currentTestClassName)
+                .resolve(currentTestShortName.orElse("class"))
+                .toAbsolutePath().toAbsolutePath());
+    }
 
-        return Exceptions.getUncheckedIO(() -> Files.createDirectories(
-            currentTestShortName(description)
-                .map(classOutputDir::resolve)
-                .orElse(classOutputDir)
-                .toAbsolutePath()));
+    public static Path persistentTestOutputDir(Class<?> testClass, Optional<Pair<Method, String>> testMethod)
+    {
+        return persistentTestOutputDir(testClassName(testClass),
+            testMethod.map(testMethodAndDisplayName -> WithTestNames.fileNameFromTestRunName(
+                testMethodAndDisplayName.getLeft(), testMethodAndDisplayName.getRight())));
     }
 
     protected Path persistentTestOutputDir()
     {
-        return Exceptions.getUncheckedIO(() -> Files.createDirectories(
-            TestOutputDir.getTestBaseOutputDir()
-                .resolve(currentTestClassName())
-                .resolve(currentTestShortName())
-                .toAbsolutePath()));
+        return persistentTestOutputDir(currentTestClassName(), Optional.of(currentTestShortName()));
     }
 
     protected static Path persistentTestClassOutputDir()
     {
-        return Exceptions.getUncheckedIO(() -> Files.createDirectories(
-            TestOutputDir.getTestBaseOutputDir()
-                .resolve(currentTestClassName())
-                .resolve("class")
-                .toAbsolutePath()));
+        return persistentTestOutputDir(currentTestClassName(), Optional.empty());
     }
 }

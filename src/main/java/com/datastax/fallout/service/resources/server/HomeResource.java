@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,30 +23,35 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
 
 import java.net.URI;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import io.dropwizard.auth.Auth;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.FalloutVersion;
-import com.datastax.fallout.ops.ResourceRequirement;
 import com.datastax.fallout.runner.QueuingTestRunner;
+import com.datastax.fallout.runner.ResourceLimit;
 import com.datastax.fallout.service.FalloutConfiguration;
+import com.datastax.fallout.service.core.GrafanaTenantUsageData;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.service.db.TestRunDAO;
 import com.datastax.fallout.service.db.UserDAO;
+import com.datastax.fallout.service.db.UserGroupMapper;
 import com.datastax.fallout.service.views.FalloutView;
 import com.datastax.fallout.service.views.LinkedTestRuns;
 import com.datastax.fallout.service.views.MainView;
+import com.datastax.fallout.service.views.ResourceUsageSummary.ResourceLimitUsage;
+import com.datastax.fallout.service.views.ResourceUsageSummary.ResourceUsage;
 
 import static com.datastax.fallout.service.views.LinkedTestRuns.TableDisplayOption.*;
+import static com.datastax.fallout.service.views.ResourceUsageSummary.summarizeResourceUsage;
 
 @Path("/")
 @Produces(MediaType.TEXT_HTML)
@@ -57,17 +62,22 @@ public class HomeResource
     private final UserDAO userDAO;
     private final TestRunDAO testRunDAO;
     private final QueuingTestRunner testRunner;
+    private final List<ResourceLimit> resourceLimits;
     private final MainView mainView;
+    private final UserGroupMapper userGroupMapper;
 
     public HomeResource(FalloutConfiguration configuration, UserDAO userDAO, TestRunDAO testRunDAO,
         QueuingTestRunner testRunner,
-        MainView mainView)
+        List<ResourceLimit> resourceLimits, MainView mainView,
+        UserGroupMapper userGroupMapper)
     {
         this.configuration = configuration;
         this.userDAO = userDAO;
         this.testRunDAO = testRunDAO;
         this.testRunner = testRunner;
+        this.resourceLimits = resourceLimits;
         this.mainView = mainView;
+        this.userGroupMapper = userGroupMapper;
     }
 
     @GET
@@ -105,8 +115,7 @@ public class HomeResource
             super("directory.mustache", user, mainView);
 
             this.allUsers = userDAO.getAllUsers();
-            Collections.sort(this.allUsers, Comparator.comparing(userMap -> userMap.get("name")));
-
+            this.allUsers.sort(Comparator.comparing(userMap -> userMap.get("name")));
         }
     }
 
@@ -122,8 +131,8 @@ public class HomeResource
         final LinkedTestRuns runningTestRuns;
         final LinkedTestRuns queuedTestRuns;
         final LinkedTestRuns recentTestRuns;
-        final List<ResourceRequirement> activeResources;
-        final List<ResourceRequirement> requestedResources;
+        final List<Pair<Optional<ResourceLimitUsage>, List<ResourceUsage>>> resourceUsageGroupedByLimits;
+        final List<GrafanaTenantUsageData> grafanaTenantUsageData;
 
         public CurrentTestsView(Optional<User> user)
         {
@@ -131,17 +140,25 @@ public class HomeResource
             List<ReadOnlyTestRun> runningTestRuns = testRunner.getRunningTestRunsOrderedByDuration();
             List<ReadOnlyTestRun> queuedTestRuns = testRunner.getQueuedTestRuns();
 
-            this.runningTestRuns = new LinkedTestRuns(user, runningTestRuns)
-                .hide(FINISHED_AT, RESULTS, TEMPLATE_PARAMS, DEFINITION, RESTORE_ACTIONS, SIZE_ON_DISK);
-            this.queuedTestRuns = new LinkedTestRuns(user, true, queuedTestRuns)
-                .hide(FINISHED_AT, RESULTS, TEMPLATE_PARAMS, DEFINITION, RESTORE_ACTIONS, DELETE_MANY, SIZE_ON_DISK);
+            this.runningTestRuns = new LinkedTestRuns(userGroupMapper, user, runningTestRuns)
+                .hide(FINISHED_AT, RESULTS, TEMPLATE_PARAMS, RESTORE_ACTIONS, SIZE_ON_DISK);
+            this.queuedTestRuns = new LinkedTestRuns(userGroupMapper, user, true, queuedTestRuns)
+                .hide(FINISHED_AT, RESULTS, TEMPLATE_PARAMS, RESTORE_ACTIONS, DELETE_MANY, SIZE_ON_DISK);
 
-            recentTestRuns = new LinkedTestRuns(user, testRunDAO.getRecentFinishedTestRuns())
-                .hide(RESULTS, TEMPLATE_PARAMS, DEFINITION, MUTATION_ACTIONS, RESTORE_ACTIONS, DELETE_MANY,
+            recentTestRuns = new LinkedTestRuns(userGroupMapper, user, testRunDAO.getRecentFinishedTestRuns())
+                .hide(RESULTS, TEMPLATE_PARAMS, MUTATION_ACTIONS, RESTORE_ACTIONS, DELETE_MANY,
                     SIZE_ON_DISK);
 
-            activeResources = TestRun.getResourceRequirementsForTestRuns(runningTestRuns);
-            requestedResources = TestRun.getResourceRequirementsForTestRuns(queuedTestRuns);
+            resourceUsageGroupedByLimits = summarizeResourceUsage(resourceLimits,
+                TestRun.getResourceRequirementsForTestRuns(runningTestRuns),
+                TestRun.getResourceRequirementsForTestRuns(queuedTestRuns));
+
+            grafanaTenantUsageData = configuration.getGrafanaTenantUsageData();
+        }
+
+        public boolean resourceLimitsAreInUse()
+        {
+            return resourceUsageGroupedByLimits.size() > 1;
         }
     }
 

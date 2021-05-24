@@ -11,58 +11,116 @@
         {{> partials/message-area}}
 
         <div class="row">
-            <div class="col-lg-6">
-                <h3>Active Resources</h3>
-                <table class="table table-bordered table-striped">
-                    <thead>
-                        <tr>
-                            <th>Provider</th>
-                            <th>Tenant</th>
-                            <th>Instance Type</th>
-                            <th>Cluster Name</th>
-                            <th>Count</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{#activeResources}}
-                            <tr>
-                                <td>{{resourceType.provider}}</td>
-                                <td>{{resourceType.tenant}}</td>
-                                <td>{{resourceType.instanceType}}</td>
-                                <td>{{resourceType.uniqueName}}</td>
-                                <td>{{nodeCount}}</td>
-                            </tr>
-                        {{/activeResources}}
-                    </tbody>
-                </table>
+            <h3>Available Resources</h3>
+            <form>
+                <div class="form-group">
+                    <label>Nebula Project:</label>
+                    <select class="div-selector" id="grafana-tenant-selector" data-target="#grafana-tenant-panels">
+                        {{#grafanaTenantUsageData}}
+                            <option value="{{name}}" data-show="#grafana-tenant-panel-{{name}}">{{name}}</option>
+                        {{/grafanaTenantUsageData}}
+                    </select>
+                </div>
+            </form>
+
+            <div id="grafana-tenant-panels">
+                {{#grafanaTenantUsageData}}
+                    <div class="hide" id="grafana-tenant-panel-{{name}}">
+                        <div class="col-lg-4">
+                            <img data-src="{{baseUrl}}{{instanceUrl}}&width=450&height=250" width=450 height=250>
+                        </div>
+                        <div class="col-lg-4">
+                            <img data-src="{{baseUrl}}{{ramUrl}}&width=450&height=250" width=450 height=250>
+                        </div>
+                        <div class="col-lg-4">
+                            <img data-src="{{baseUrl}}{{coresUrl}}&width=450&height=250" width=450 height=250>
+                        </div>
+                    </div>
+                {{/grafanaTenantUsageData}}
+            </div>
+        </div>
+        <!-- /.row -->
+
+        <div class="row">
+            <h3>Resources</h3>
+            {{#resourceLimitsAreInUse}}
+
+                <p>
+                    <a class="btn btn-primary btn-xs"
+                       data-toggle="collapse" href="#resourceLimitsHelp"
+                       role="button"><i class="fa fa-question-circle"></i>
+                        About resource limits</a>
+                </p>
+
+
+            <div class="collapse" id="resourceLimitsHelp">
+
+                <p>Any limits are applied by Fallout itself; they are in
+                addition to any limits imposed by backend services.  Note
+                that named resources are excluded from the limit calculation
+                when <em>requesting</em> resources, since Fallout currently
+                has no way to <em>quickly</em> check whether a named resource
+                already exists (we can see if it's in-use, but that's not
+                the same as existing), so instead we assume it exists, and
+                that it isn't subject to limiting.  In-use named resources on
+                the other hand <em>do</em> contribute towards in-use counts.
+
             </div>
 
-            <div class="col-lg-6">
-                <h3>Requested Resources</h3>
-                <table class="table table-bordered table-striped">
-                    <thead>
-                        <tr>
-                            <th>Provider</th>
-                            <th>Tenant</th>
-                            <th>Instance Type</th>
-                            <th>Cluster Name</th>
-                            <th>Count</th>
-                        </tr>
-                    </thead>
+            {{/resourceLimitsAreInUse}}
+            <table class="table table-bordered table-striped resource-usage">
+                <thead>
+                <tr>
+                    <th>Provider</th>
+                    <th>Project/Tenant</th>
+                    <th>Instance Type</th>
+                    <th>Cluster Name</th>
+                    <th>Active</th>
+                    <th>Requested</th>
+                    {{#resourceLimitsAreInUse}}
+                        <th>Limit</th>
+                    {{/resourceLimitsAreInUse}}
+                </tr>
+                </thead>
+                {{#resourceUsageGroupedByLimits}}
                     <tbody>
-                        {{#requestedResources}}
-                            <tr>
-                                <td>{{resourceType.provider}}</td>
-                                <td>{{resourceType.tenant}}</td>
-                                <td>{{resourceType.instanceType}}</td>
-                                <td>{{resourceType.uniqueName}}</td>
-                                <td>{{nodeCount}}</td>
-                            </tr>
-                        {{/requestedResources}}
+                    <tr class="limit">
+                        {{#left}}
+                            {{#limit}}
+                                <th>{{provider}}</th>
+                                <th>{{tenant}}</th>
+                                <th>{{instancetype}}</th>
+                                <th></th>
+                                <th>{{inUseWithZeroAsBlank}}</th>
+                                <th>{{requestedWithZeroAsBlank}}</th>
+                                <th>{{nodeLimit}}</th>
+                            {{/limit}}
+                        {{/left}}
+                        {{^left}}
+                            {{#resourceLimitsAreInUse}}
+                                <th colspan="7">Not limited by Fallout</th>
+                            {{/resourceLimitsAreInUse}}
+                        {{/left}}
+                    </tr>
+                    {{#right}}
+                        <tr>
+                            {{#type}}
+                                <td>{{provider}}</td>
+                                <td>{{tenant}}</td>
+                                <td>{{instanceType}}</td>
+                                <td>{{uniqueName}}</td>
+                            {{/type}}
+                            <td>{{inUseWithZeroAsBlank}}</td>
+                            <td>{{requestedWithZeroAsBlank}}</td>
+                            {{#resourceLimitsAreInUse}}
+                                <td></td>
+                            {{/resourceLimitsAreInUse}}
+                        </tr>
+                    {{/right}}
                     </tbody>
-                </table>
-            </div>
-
+                {{/resourceUsageGroupedByLimits}}
+                </tbody>
+            </table>
         </div>
         <!-- /.row -->
 
@@ -160,6 +218,29 @@
 
 
 <script>
+$(document).on('change', '.div-selector', function() {
+    var target = $(this).data('target');
+    var show = $("option:selected", this).data('show');
+
+    localStorage.setItem('selected-grafana-tenant', this.value);
+    $(target).children().addClass('hide');
+
+    $(show).removeClass('hide');
+    $(show).find('img[data-src]').each((index, element) => {
+        $(element).attr('src', $(element).attr('data-src'));
+        $(element).removeAttr('data-src')
+    });
+});
+
+$(document).ready(function() {
+    var selectedDiv = localStorage.getItem('selected-grafana-tenant');
+    if (selectedDiv)
+    {
+        $('#grafana-tenant-selector').val(selectedDiv);
+    }
+	$('.div-selector').trigger('change');
+});
+
 $("#toggleFilterOptions").click(function(){
     $("#filterSearchOptions").toggle();
 });

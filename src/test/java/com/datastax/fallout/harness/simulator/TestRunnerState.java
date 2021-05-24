@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import java.util.Set;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.harness.simulator.Simulator.SYNCHRONIZATION_TIMEOUT;
 import static com.datastax.fallout.harness.simulator.Simulator.debug;
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Controls and senses the state of the TestRunner.  Methods prefixed with simulator_ are called by the simulator to

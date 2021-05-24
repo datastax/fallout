@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,20 +20,21 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.ImmutableSet;
-import org.junit.Before;
-import org.junit.Test;
+import com.google.common.primitives.Ints;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.ops.ResourceRequirement;
 import com.datastax.fallout.service.core.Fakes;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
+import static com.datastax.fallout.ops.ResourceRequirementHelpers.req;
 
 public class PrioritizedPendingQueueTest
 {
@@ -44,7 +45,7 @@ public class PrioritizedPendingQueueTest
     private List<TestRun> runningTestRuns;
     private PrioritizedPendingQueue queue;
 
-    @Before
+    @BeforeEach
     public void setup()
     {
         nextInstant = () -> {
@@ -65,8 +66,7 @@ public class PrioritizedPendingQueueTest
 
     private TestRun createTestRun(String owner)
     {
-        TestRun testRun = new TestRun()
-        {
+        TestRun testRun = new TestRun() {
             @Override
             public String toString()
             {
@@ -100,7 +100,7 @@ public class PrioritizedPendingQueueTest
         List<Integer> takenIndicies = new ArrayList<>();
         testRunsByPriority.forEach(testRun -> takenIndicies.add(testRuns.indexOf(testRun)));
 
-        assertThat(takenIndicies.toArray()).isEqualTo(indices);
+        assertThat(Ints.toArray(takenIndicies)).isEqualTo(indices);
     }
 
     @Test
@@ -175,11 +175,10 @@ public class PrioritizedPendingQueueTest
     @Test
     public void test_runs_which_require_in_use_clusters_are_filtered_out()
     {
-        ResourceRequirement resourceRequirement = new ResourceRequirement(
-            new ResourceRequirement.ResourceType("foo", "bar", "instance1", Optional.of("bravo")), 2);
+        ResourceRequirement resourceRequirement = req("foo", "bar", "instance1", "bravo", 2);
 
         TestRun testRun = createTestRun("tokyo");
-        testRun.setResourceRequirements(ImmutableSet.of(resourceRequirement));
+        testRun.setResourceRequirements(Set.of(resourceRequirement));
         runningTestRuns.add(testRun);
 
         queue.add(testRun);
@@ -190,11 +189,10 @@ public class PrioritizedPendingQueueTest
     @Test
     public void test_runs_with_unique_names_can_be_dequeued()
     {
-        ResourceRequirement aClusterForReuse = new ResourceRequirement(
-            new ResourceRequirement.ResourceType("foo", "bar", "instance1", Optional.of("bravo")), 2);
+        ResourceRequirement aClusterForReuse = req("foo", "bar", "instance1", "bravo", 2);
 
         TestRun testRun = createTestRun("tokyo");
-        testRun.setResourceRequirements(ImmutableSet.of(aClusterForReuse));
+        testRun.setResourceRequirements(Set.of(aClusterForReuse));
 
         queue.add(testRun);
 

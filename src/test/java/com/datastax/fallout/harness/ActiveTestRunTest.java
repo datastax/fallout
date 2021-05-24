@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
  */
 package com.datastax.fallout.harness;
 
-import org.junit.After;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
 
 import com.datastax.fallout.runner.CheckResourcesResult;
 
@@ -32,18 +32,17 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.quality.Strictness.STRICT_STUBS;
 
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = STRICT_STUBS)
 public class ActiveTestRunTest
 {
-    @Rule
-    public MockitoRule rule = MockitoJUnit.rule().strictness(STRICT_STUBS);
-
     @Mock
     ActiveTestRun activeTestRun;
 
     @Mock
     ExceptionHandler logger;
 
-    @After
+    @AfterEach
     public void theActiveTestRunIsAlwaysClosed()
     {
         verify(activeTestRun).close();
@@ -74,25 +73,52 @@ public class ActiveTestRunTest
         verify(activeTestRun, never()).runWorkload();
     }
 
+    private void thenArtifactsAreDownloaded()
+    {
+        verify(activeTestRun, times(1)).downloadArtifacts();
+    }
+
+    private void thenArtifactsAreNotDownloaded()
+    {
+        verify(activeTestRun, never()).downloadArtifacts();
+    }
+
     private void thenTheEnsembleIsTornDown()
     {
-        verify(activeTestRun, times(1)).tearDown();
+        verify(activeTestRun, times(1)).tearDownEnsemble();
     }
 
     private void thenTheEnsembleIsNotTornDown()
     {
-        verify(activeTestRun, never()).tearDown();
+        verify(activeTestRun, never()).tearDownEnsemble();
+    }
+
+    private void thenArtifactsAreChecked()
+    {
+        verify(activeTestRun, times(1)).checkArtifacts();
+    }
+
+    private void thenArtifactsAreNotChecked()
+    {
+        verify(activeTestRun, never()).checkArtifacts();
     }
 
     private void thenTheActiveTestRunIsFailed()
     {
         verify(activeTestRun, times(1)).failTest(any(), any());
+        verify(activeTestRun, never()).failTestTemporarily(any());
+    }
+
+    private void thenTheActiveTestRunIsFailedTemporarily()
+    {
+        verify(activeTestRun, never()).failTest(any(), any());
+        verify(activeTestRun, times(1)).failTestTemporarily(any());
     }
 
     private void thenTheActiveTestRunIsNotFailed()
     {
-        verify(activeTestRun, never()).failTest(any());
         verify(activeTestRun, never()).failTest(any(), any());
+        verify(activeTestRun, never()).failTestTemporarily(any());
     }
 
     private void thenLastResortHandledExceptionsAre(int loggedExceptions)
@@ -104,11 +130,84 @@ public class ActiveTestRunTest
     public void exceptions_cannot_escape_from_checkResources()
     {
         given(activeTestRun.checkResources()).willThrow(new RuntimeException());
+
         whenActiveTestRunIsRun();
 
         thenTheEnsembleIsNotSetup();
         thenTheWorkloadIsNotRun();
+        thenArtifactsAreNotDownloaded();
         thenTheEnsembleIsNotTornDown();
+        thenArtifactsAreNotChecked();
+
+        thenLastResortHandledExceptionsAre(0);
+        thenTheActiveTestRunIsFailed();
+    }
+
+    @Test
+    public void checkResources_unavailable_is_treated_as_temporary()
+    {
+        given(activeTestRun.checkResources()).willReturn(CheckResourcesResult.UNAVAILABLE);
+
+        whenActiveTestRunIsRun();
+
+        thenTheEnsembleIsNotSetup();
+        thenTheWorkloadIsNotRun();
+        thenArtifactsAreNotDownloaded();
+        thenTheEnsembleIsNotTornDown();
+        thenArtifactsAreNotChecked();
+
+        thenLastResortHandledExceptionsAre(0);
+        thenTheActiveTestRunIsFailedTemporarily();
+    }
+
+    @Test
+    public void checkResources_fail_is_treated_as_fail()
+    {
+        given(activeTestRun.checkResources()).willReturn(CheckResourcesResult.FAILED);
+
+        whenActiveTestRunIsRun();
+
+        thenTheEnsembleIsNotSetup();
+        thenTheWorkloadIsNotRun();
+        thenArtifactsAreNotDownloaded();
+        thenTheEnsembleIsNotTornDown();
+        thenArtifactsAreNotChecked();
+
+        thenLastResortHandledExceptionsAre(0);
+        thenTheActiveTestRunIsFailed();
+    }
+
+    @Test
+    public void setup_unavailable_is_treated_as_temporary()
+    {
+        given(activeTestRun.checkResources()).willReturn(CheckResourcesResult.AVAILABLE);
+        given(activeTestRun.setup()).willReturn(CheckResourcesResult.UNAVAILABLE);
+
+        whenActiveTestRunIsRun();
+
+        thenTheEnsembleIsSetup();
+        thenTheWorkloadIsNotRun();
+        thenArtifactsAreNotDownloaded();
+        thenTheEnsembleIsTornDown();
+        thenArtifactsAreNotChecked();
+
+        thenLastResortHandledExceptionsAre(0);
+        thenTheActiveTestRunIsFailedTemporarily();
+    }
+
+    @Test
+    public void setup_fail_is_treated_as_fail()
+    {
+        given(activeTestRun.checkResources()).willReturn(CheckResourcesResult.AVAILABLE);
+        given(activeTestRun.setup()).willReturn(CheckResourcesResult.FAILED);
+
+        whenActiveTestRunIsRun();
+
+        thenTheEnsembleIsSetup();
+        thenTheWorkloadIsNotRun();
+        thenArtifactsAreDownloaded();
+        thenTheEnsembleIsTornDown();
+        thenArtifactsAreNotChecked();
 
         thenLastResortHandledExceptionsAre(0);
         thenTheActiveTestRunIsFailed();
@@ -119,11 +218,14 @@ public class ActiveTestRunTest
     {
         given(activeTestRun.checkResources()).willReturn(CheckResourcesResult.AVAILABLE);
         given(activeTestRun.setup()).willThrow(new RuntimeException());
+
         whenActiveTestRunIsRun();
 
         thenTheEnsembleIsSetup();
         thenTheWorkloadIsNotRun();
+        thenArtifactsAreDownloaded();
         thenTheEnsembleIsTornDown();
+        thenArtifactsAreNotChecked();
 
         thenLastResortHandledExceptionsAre(0);
         thenTheActiveTestRunIsFailed();
@@ -133,13 +235,16 @@ public class ActiveTestRunTest
     public void exceptions_cannot_escape_from_runWorkload()
     {
         given(activeTestRun.checkResources()).willReturn(CheckResourcesResult.AVAILABLE);
-        given(activeTestRun.setup()).willReturn(true);
-        willThrow(new RuntimeException()).given(activeTestRun).runWorkload();
+        given(activeTestRun.setup()).willReturn(CheckResourcesResult.AVAILABLE);
+        given(activeTestRun.runWorkload()).willThrow(new RuntimeException());
+
         whenActiveTestRunIsRun();
 
         thenTheEnsembleIsSetup();
         thenTheWorkloadIsRun();
+        thenArtifactsAreDownloaded();
         thenTheEnsembleIsTornDown();
+        thenArtifactsAreNotChecked();
 
         thenLastResortHandledExceptionsAre(0);
         thenTheActiveTestRunIsFailed();
@@ -149,13 +254,18 @@ public class ActiveTestRunTest
     public void exceptions_cannot_escape_from_tearDown()
     {
         given(activeTestRun.checkResources()).willReturn(CheckResourcesResult.AVAILABLE);
-        given(activeTestRun.setup()).willReturn(true);
-        willThrow(new RuntimeException()).given(activeTestRun).tearDown();
+        given(activeTestRun.setup()).willReturn(CheckResourcesResult.AVAILABLE);
+        given(activeTestRun.runWorkload()).willReturn(true);
+
+        willThrow(new RuntimeException()).given(activeTestRun).tearDownEnsemble();
+
         whenActiveTestRunIsRun();
 
         thenTheEnsembleIsSetup();
         thenTheWorkloadIsRun();
+        thenArtifactsAreDownloaded();
         thenTheEnsembleIsTornDown();
+        thenArtifactsAreChecked();
 
         thenLastResortHandledExceptionsAre(0);
         thenTheActiveTestRunIsFailed();
@@ -165,13 +275,18 @@ public class ActiveTestRunTest
     public void exceptions_cannot_escape_from_close()
     {
         given(activeTestRun.checkResources()).willReturn(CheckResourcesResult.AVAILABLE);
-        given(activeTestRun.setup()).willReturn(true);
+        given(activeTestRun.setup()).willReturn(CheckResourcesResult.AVAILABLE);
+        given(activeTestRun.runWorkload()).willReturn(true);
+
         willThrow(new RuntimeException()).given(activeTestRun).close();
+
         whenActiveTestRunIsRun();
 
         thenTheEnsembleIsSetup();
         thenTheWorkloadIsRun();
+        thenArtifactsAreDownloaded();
         thenTheEnsembleIsTornDown();
+        thenArtifactsAreChecked();
 
         thenLastResortHandledExceptionsAre(1);
         // We don't fail the test run on close failures:
@@ -184,14 +299,18 @@ public class ActiveTestRunTest
     public void exceptions_cannot_escape_from_failTest()
     {
         given(activeTestRun.checkResources()).willReturn(CheckResourcesResult.AVAILABLE);
-        given(activeTestRun.setup()).willReturn(true);
-        willThrow(new RuntimeException()).given(activeTestRun).runWorkload();
+        given(activeTestRun.setup()).willReturn(CheckResourcesResult.AVAILABLE);
+        given(activeTestRun.runWorkload()).willThrow(new RuntimeException());
+
         willThrow(new RuntimeException()).given(activeTestRun).failTest(any(), any());
+
         whenActiveTestRunIsRun();
 
         thenTheEnsembleIsSetup();
         thenTheWorkloadIsRun();
+        thenArtifactsAreDownloaded();
         thenTheEnsembleIsTornDown();
+        thenArtifactsAreNotChecked();
 
         thenLastResortHandledExceptionsAre(1);
         thenTheActiveTestRunIsFailed();

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,19 +25,17 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.test.utils.WithPersistentTestOutputDir;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.util.ShellUtils.escape;
 import static com.datastax.fallout.util.ShellUtils.expandVars;
 import static com.datastax.fallout.util.ShellUtils.split;
-import static org.assertj.core.api.Assertions.assertThat;
 
 // Tests for ShellUtils, initially lifted from https://gist.github.com/raymyers/8077031
 public class ShellUtilsTest extends WithPersistentTestOutputDir
@@ -90,13 +88,13 @@ public class ShellUtilsTest extends WithPersistentTestOutputDir
             Files.setPosixFilePermissions(scriptPath, PosixFilePermissions.fromString("rwxr-xr-x"));
         });
 
-        return run(ImmutableList.of(scriptPath.toString()), extraEnv, Duration.ofSeconds(5));
+        return run(List.of(scriptPath.toString()), extraEnv, Duration.ofSeconds(5));
     }
 
     private String[] showArgs(String args, Map<String, String> extraEnv)
     {
         return runScript(
-            ImmutableList.of(
+            List.of(
                 "#!/bin/bash",
                 "function show_args() { for arg in \"$@\"; do echo \"$arg\"; done }",
                 String.format("show_args %s", args)),
@@ -203,7 +201,7 @@ public class ShellUtilsTest extends WithPersistentTestOutputDir
     @Test
     public void show_args_shows_separate_args()
     {
-        assertThat(showArgs("a b 'c' 'd e' 'f ' \"$FOO\"", ImmutableMap.of("FOO", "foo bar")))
+        assertThat(showArgs("a b 'c' 'd e' 'f ' \"$FOO\"", Map.of("FOO", "foo bar")))
             .containsExactly("a", "b", "c", "d e", "f ", "foo bar");
     }
 
@@ -212,7 +210,7 @@ public class ShellUtilsTest extends WithPersistentTestOutputDir
     {
         assertThat(
             showArgs(escape("-Dfoo=$BAR/baz -server"),
-                ImmutableMap.of("BAR", "bungo")))
+                Map.of("BAR", "bungo")))
                     .containsExactly("-Dfoo=$BAR/baz -server");
     }
 
@@ -221,7 +219,7 @@ public class ShellUtilsTest extends WithPersistentTestOutputDir
     {
         assertThat(
             showArgs(expandVars(escape("-Dfoo=$BAR/baz -server")),
-                ImmutableMap.of("BAR", "bungo")))
+                Map.of("BAR", "bungo")))
                     .containsExactly("-Dfoo=bungo/baz -server");
     }
 }

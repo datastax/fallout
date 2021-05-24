@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,34 +15,37 @@
  */
 package com.datastax.fallout.harness;
 
-import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import org.junit.Test;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.datastax.fallout.components.fakes.FakeConfigurationManager;
+import com.datastax.fallout.components.fakes.FakeProvider;
+import com.datastax.fallout.components.fakes.FakeProvisioner;
 import com.datastax.fallout.ops.ConfigurationManager;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.Provisioner;
-import com.datastax.fallout.ops.configmanagement.FakeConfigurationManager;
-import com.datastax.fallout.ops.providers.FakeProvider;
-import com.datastax.fallout.ops.provisioner.FakeProvisioner;
+import com.datastax.fallout.service.FalloutConfiguration;
+import com.datastax.fallout.service.core.TestRun;
+import com.datastax.fallout.util.Exceptions;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.awaitility.Awaitility.await;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
-public class ClusterReuseTest extends EnsembleFalloutTest
+public class ClusterReuseTest extends EnsembleFalloutTest<FalloutConfiguration>
 {
+    private final static Logger logger = LoggerFactory.getLogger(ClusterReuseTest.class);
+
     @Test
     public void reusing_a_cluster_that_depends_on_a_provider_registered_in_a_non_reused_cluster_works()
     {
         performTestRunWithMockedComponents("reused_depends_on_non_reused.yaml",
             mockedComponentFactory -> mockedComponentFactory
-                .mockNamed(Provisioner.class, "reused", () -> new FakeProvisioner()
-                {
+                .mockNamed(Provisioner.class, "reused", () -> new FakeProvisioner() {
                     @Override
                     protected NodeGroup.State checkStateImpl(NodeGroup nodeGroup)
                     {
@@ -50,8 +53,7 @@ public class ClusterReuseTest extends EnsembleFalloutTest
                     }
                 })
 
-                .mockNamed(ConfigurationManager.class, "reused", () -> new FakeConfigurationManager()
-                {
+                .mockNamed(ConfigurationManager.class, "reused", () -> new FakeConfigurationManager() {
                     @Override
                     protected NodeGroup.State checkStateImpl(NodeGroup nodeGroup)
                     {
@@ -61,15 +63,14 @@ public class ClusterReuseTest extends EnsembleFalloutTest
                     @Override
                     public boolean registerProviders(Node node)
                     {
-                        ensemble.getObserverGroup().getNodes().get(0).waitForProvider(FakeProvider.class);
+                        getEnsemble().getObserverGroup().getNodes().get(0).waitForProvider(FakeProvider.class);
                         return true;
                     }
                 })
 
                 .mockNamed(Provisioner.class, "not-reused", () -> new FakeProvisioner())
 
-                .mockNamed(ConfigurationManager.class, "not-reused", () -> new FakeConfigurationManager()
-                {
+                .mockNamed(ConfigurationManager.class, "not-reused", () -> new FakeConfigurationManager() {
                     @Override
                     public boolean registerProviders(Node node)
                     {
@@ -79,54 +80,93 @@ public class ClusterReuseTest extends EnsembleFalloutTest
                 }));
     }
 
-    @Test
+    // Run multiple times in an attempt to provoke a race
+    @RepeatedTest(10)
     public void post_check_state_actions_finish_before_attempting_to_transition_the_reused_cluster()
     {
-        var startImplCalled = new CompletableFuture<Void>();
-        var continueRegisterProviders = new CompletableFuture<Void>();
+        final var nodeGroupCalls = new LinkedBlockingQueue<String>();
 
-        var performTestRun = CompletableFuture
-            .supplyAsync(() -> performTestRunWithMockedComponents("providers_registered_before_transition.yaml",
-                mockingComponentFactory -> mockingComponentFactory
-                    .mockNamed(Provisioner.class, "reused", () -> new FakeProvisioner()
+        performTestRunWithMockedComponents("providers_registered_before_transition.yaml",
+            mockingComponentFactory -> mockingComponentFactory
+                .mockNamed(Provisioner.class, "reused", () -> new FakeProvisioner() {
+                    @Override
+                    protected NodeGroup.State checkStateImpl(NodeGroup nodeGroup)
                     {
-                        @Override
-                        protected NodeGroup.State checkStateImpl(NodeGroup nodeGroup)
-                        {
-                            return NodeGroup.State.STARTED_SERVICES_UNCONFIGURED;
-                        }
-                    })
+                        logger.debug("P.checkState({})", getNodeGroup().getName());
+                        return NodeGroup.State.STARTED_SERVICES_UNCONFIGURED;
+                    }
+                })
 
-                    .mockNamed(ConfigurationManager.class, "reused", () -> new FakeConfigurationManager()
+                .mockNamed(ConfigurationManager.class, "reused", () -> new FakeConfigurationManager() {
+                    @Override
+                    protected NodeGroup.State checkStateImpl(NodeGroup nodeGroup)
                     {
-                        @Override
-                        protected NodeGroup.State checkStateImpl(NodeGroup nodeGroup)
-                        {
-                            return NodeGroup.State.STARTED_SERVICES_CONFIGURED;
-                        }
+                        logger().debug("CM.checkState({})", getNodeGroup().getName());
+                        return NodeGroup.State.STARTED_SERVICES_CONFIGURED;
+                    }
 
-                        @Override
-                        protected boolean startImpl(NodeGroup nodeGroup)
-                        {
-                            startImplCalled.complete(null);
-                            return true;
-                        }
+                    @Override
+                    protected boolean startImpl(NodeGroup nodeGroup)
+                    {
+                        nodeGroupCalls.add("startImpl");
+                        return true;
+                    }
 
-                        @Override
-                        public boolean registerProviders(Node node)
-                        {
-                            continueRegisterProviders.join();
-                            return true;
-                        }
-                    })));
+                    @Override
+                    public boolean registerProviders(Node node)
+                    {
+                        return logger().withScopedDebug("registerProviders({})", node.getNodeGroup().getName())
+                            .get(() -> {
+                                if (node.getNodeGroup().getName().equals("server"))
+                                {
+                                    // Make the server call delay for a short period: if we're not waiting for
+                                    // all post-check-state actions to complete, then this _should_ make some
+                                    // of the startImpl calls appear before registerProviders completes.
+                                    Exceptions.runUnchecked(() -> Thread.sleep(100));
+                                }
+                                nodeGroupCalls.add("registerProviders");
+                                return true;
+                            });
+                    }
+                }));
 
-        assertThatThrownBy(() -> startImplCalled.get(5, TimeUnit.SECONDS))
-            .isInstanceOf(TimeoutException.class);
+        assertThat(nodeGroupCalls)
+            .as("All the registerProviders calls made as part of post check-state " +
+                "actions must complete before startImpl is called")
+            .containsExactly("registerProviders", "registerProviders", "startImpl", "startImpl");
+    }
 
-        continueRegisterProviders.complete(null);
+    @Test
+    public void failure_during_setup_does_not_cause_an_assertion_during_teardown()
+    {
+        final var markFailedWithReasonCalls = new AtomicInteger();
 
-        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(startImplCalled).isCompleted());
+        final var testDefinition = getTestClassResource("mark_for_reuse.yaml");
+        final var activeTestRun = createActiveTestRunBuilder()
+            .withTestDefinitionFromYaml(testDefinition)
+            .withTestRunStatusUpdater(
+                new TestRunAbortedStatusUpdater(new InMemoryTestRunStateStorage(TestRun.State.CREATED)) {
+                    @Override
+                    public synchronized void markFailedWithReason(TestRun.State finalState)
+                    {
+                        markFailedWithReasonCalls.incrementAndGet();
+                        super.markFailedWithReason(finalState);
+                    }
+                })
+            .withComponentFactory(new TestRunnerTestHelpers.MockingComponentFactory()
+                .mockAll(Provisioner.class, () -> new FakeProvisioner() {
+                    @Override
+                    protected boolean prepareImpl(NodeGroup nodeGroup)
+                    {
+                        return false;
+                    }
+                }))
+            .build();
 
-        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(performTestRun).isCompleted());
+        activeTestRun.run(logger::error);
+
+        // There should be only two errors: one because of the failed prepare on the
+        // nodegroup, and one for overall setup failures.
+        assertThat(markFailedWithReasonCalls).hasValue(2);
     }
 }

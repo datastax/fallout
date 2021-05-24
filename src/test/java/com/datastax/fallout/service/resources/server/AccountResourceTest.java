@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,24 +23,33 @@ import javax.ws.rs.core.Response;
 
 import java.util.UUID;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import com.datastax.fallout.service.FalloutService;
 import com.datastax.fallout.service.resources.AccountClient;
-import com.datastax.fallout.service.resources.FalloutServiceTest;
+import com.datastax.fallout.service.resources.FalloutAppExtension;
 import com.datastax.fallout.service.resources.RestApiBuilder;
 
-import static javax.ws.rs.core.ResponseAssert.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
-public class AccountResourceTest extends FalloutServiceTest
+public class AccountResourceTest extends WithFalloutAppExtension<FalloutAppExtension>
 {
     private RestApiBuilder apiWithoutAuth;
 
-    @Before
+    @RegisterExtension
+    public static final FalloutAppExtension FALLOUT_SERVICE = new FalloutAppExtension();
+
+    protected AccountResourceTest()
+    {
+        super(FALLOUT_SERVICE);
+    }
+
+    @BeforeEach
     public void setupRestApi()
     {
-        apiWithoutAuth = FALLOUT_SERVICE_RESET_RULE.anonApi();
+        apiWithoutAuth = getFalloutServiceResetExtension().anonApi();
     }
 
     @Test
@@ -152,7 +161,7 @@ public class AccountResourceTest extends FalloutServiceTest
         assertThat(response).hasStatus(200);
 
         // Grab the oauthId from the C* table
-        UUID oauthId = AccountClient.getOAuthId(FALLOUT_SERVICE_RULE.getSession(), "user@site.tld");
+        UUID oauthId = AccountClient.getOAuthId(FALLOUT_SERVICE.getSession(), "user@site.tld");
 
         // Check we can grab data via the Oauth token
         response = tryGetAccount(FalloutService.OAUTH_BEARER_TOKEN_TYPE + " " + oauthId);

@@ -1,0 +1,31 @@
+#!/bin/bash -e
+
+tool_dir=${1?No tool dir specified}
+run_dir=${2?No run dir specified}
+
+python=python3.7
+
+tool="$(basename "$tool_dir")"
+category="$(basename "$(dirname "$tool_dir")")"
+
+venv_dir="$run_dir/tools/$category/venvs/$tool"
+bin_dir="$run_dir/tools/$category/bin"
+
+echo "Installing $run_dir/tools/$category/bin/$tool"
+
+mkdir -p "$venv_dir"
+virtualenv \
+    --quiet \
+    --python "$python" \
+    --clear \
+    --download \
+    "$venv_dir"
+(
+    # shellcheck disable=SC1090
+    . "$venv_dir/bin/activate"
+    cd "$tool_dir"
+    # Use poetry to install so that we get the locked dependencies
+    poetry install --quiet --no-interaction --remove-untracked --no-dev
+)
+mkdir -p "$bin_dir"
+ln -fs "../venvs/$tool/bin/$tool" "$bin_dir/$tool"

@@ -51,15 +51,34 @@
         <a class="btn btn-primary btn-xs" data-toggle="collapse" href="#queueHelp" role="button"><i class="fa fa-question-circle"></i> About the fallout queue</a>
     </p>
     <div class="collapse" id="queueHelp">
-        <p> This table lists test runs from lowest to highest priority: the test run at the bottom will be the next to be attempted.  Test runs in the queue are prioritized as follows:
+
+        <p> This table lists test runs from lowest to highest
+        priority: the test run at the bottom will be the next
+        to be attempted, subject to the availability criteria
+        below.  Test runs in the queue are prioritized
+        in the following order:
+
         <ol>
-            <li> The more running tests owned by a user, the lower the priority of all that user's queued tests.
-            <li> The longer a test has been in the queue, the higher the priority.
+
+            <li> The more running tests owned by a user, the lower
+            the priority of all that user's queued test runs.
+
+            <li> The longer since a test run was last tried (or created
+            if it's never been tried), the higher the priority.
+
         </ol>
-        <p> Processing the queue:
+
+        <p> A test run is available if:
+
         <ol>
-            <li> First, a snapshot is taken of all the pending tests:
-            <li> Then, that snapshot is sorted by priority and the highest priority test is processed.
+
+            <li> No other test runs are RESERVING_RESOURCES
+            for any of its resources;
+
+            <li> it has not been tried in the last minute;
+
+            <li> it is not using a named instance
+            that is being used by a running test run.
 
         </ol>
     </div>
@@ -111,7 +130,10 @@
             <th rowspan="2" class="template-params-list">Params</th>
         {{/show.TEMPLATE_PARAMS}}
         <th rowspan="2">Created at</th>
-        <th rowspan="2">Started at</th>
+        <th rowspan="2">
+            {{#areQueued}}Last tried at{{/areQueued}}
+            {{^areQueued}}Started at{{/areQueued}}
+        </th>
         {{#show.FINISHED_AT}}
             <th rowspan="2">Finished at</th>
         {{/show.FINISHED_AT}}
@@ -170,7 +192,10 @@
                     </td>
                 {{/show.TEMPLATE_PARAMS}}
                 <td>{{createdAtUtc}}</td>
-                <td>{{startedAtUtc}}</td>
+                <td>
+                    {{#areQueued}}{{lastTriedAtUtc}}{{/areQueued}}
+                    {{^areQueued}}{{startedAtUtc}}{{/areQueued}}
+                </td>
                 {{#show.FINISHED_AT}}
                     <td>{{finishedAtUtc}}</td>
                 {{/show.FINISHED_AT}}
@@ -215,13 +240,6 @@
                                 <i class="fa fa-info"></i>
                             </a>
                         {{/show.RESULTS}}
-
-                        {{#show.DEFINITION}}
-                            <a title="Show test run yaml" class="btn btn-success btn-xs"
-                                onclick="$('#{{testRunId}}-definition-toggle').toggleClass('hidden'); return false;" href="#">
-                                <i class="fa fa-list"></i>
-                            </a>
-                        {{/show.DEFINITION}}
 
                         <div class="btn-group btn-group-xs">
                             {{#show.ARTIFACTS_LINK}}<a title="View artifacts" class="btn btn-info btn-xs"
@@ -271,7 +289,7 @@
                                 <div>
                                   <strong>Grafana: </strong>
                                   {{#grafanaDashboardLinks}}
-                                    <a href="{{url}}" target="_blank">{{name}}  </a>
+                                    <a href="{{value}}" target="_blank">{{key}}  </a>
                                   {{/grafanaDashboardLinks}}
                                 </div>
                             </td>
@@ -286,13 +304,6 @@
                     {{/results}}
                 </tr>
             {{/show.RESULTS}}
-            {{#show.DEFINITION}}
-                <tr id="{{testRunId}}-definition-toggle" class="hidden">
-                    <td colspan="999">
-                        <pre>{{definition}}</pre>
-                    </td>
-                </tr>
-            {{/show.DEFINITION}}
         {{/testRun}}
     </tr>
     {{/testRuns}}

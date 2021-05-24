@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,17 @@
  */
 package com.datastax.fallout.service.core;
 
-import com.google.common.collect.ImmutableSet;
+import java.util.Set;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
 public class DeletedTestTest
 {
-    @org.junit.Test
+    @org.junit.jupiter.api.Test
     public void test_runs_and_deleted_tests_are_equal()
     {
         Test test = Test.createTest("moonunit@example.com", "dweezil", "nope");
-        test.setTags(ImmutableSet.of("flaky", "best"));
+        test.setTags(Set.of("flaky", "best"));
 
         DeletedTest deletedTest = DeletedTest.fromTest(test);
         assertThat(deletedTest.getOwner()).isEqualTo(test.getOwner());

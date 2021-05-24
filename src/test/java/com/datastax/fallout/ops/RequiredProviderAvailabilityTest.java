@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,18 +15,18 @@
  */
 package com.datastax.fallout.ops;
 
+import java.util.List;
 import java.util.Set;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.TestHelpers;
-import com.datastax.fallout.ops.provisioner.LocalProvisioner;
+import com.datastax.fallout.components.common.provisioner.LocalProvisioner;
+import com.datastax.fallout.service.FalloutConfiguration;
 
-import static com.datastax.fallout.runner.CheckResourcesResultAssert.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
-public class RequiredProviderAvailabilityTest extends TestHelpers.FalloutTest
+public class RequiredProviderAvailabilityTest extends TestHelpers.FalloutTest<FalloutConfiguration>
 {
     static class ProvidingConfigurationManager extends ConfigurationManager
     {
@@ -51,7 +51,7 @@ public class RequiredProviderAvailabilityTest extends TestHelpers.FalloutTest
         @Override
         public Set<Class<? extends Provider>> getAvailableProviders(PropertyGroup properties)
         {
-            return ImmutableSet.of(TestProvider.class);
+            return Set.of(TestProvider.class);
         }
 
         @Override
@@ -104,7 +104,7 @@ public class RequiredProviderAvailabilityTest extends TestHelpers.FalloutTest
         @Override
         public Set<Class<? extends Provider>> getRequiredProviders(PropertyGroup properties)
         {
-            return ImmutableSet.of(TestProvider.class);
+            return Set.of(TestProvider.class);
         }
 
         @Override
@@ -119,7 +119,7 @@ public class RequiredProviderAvailabilityTest extends TestHelpers.FalloutTest
     public void configuration_managers_can_use_functionality_of_available_providers()
     {
         MultiConfigurationManager mcm = new MultiConfigurationManager(
-            ImmutableList.of(new ProvidingConfigurationManager(), new RequiringConfigurationManager()),
+            List.of(new ProvidingConfigurationManager(), new RequiringConfigurationManager()),
             new WritablePropertyGroup());
         NodeGroup testGroup = NodeGroupBuilder.create()
             .withProvisioner(new LocalProvisioner())
@@ -128,6 +128,7 @@ public class RequiredProviderAvailabilityTest extends TestHelpers.FalloutTest
             .withName("test-group")
             .withNodeCount(1)
             .withTestRunArtifactPath(testRunArtifactPath())
+            .withTestRunScratchSpace(persistentTestScratchSpace())
             .build();
         assertThat(testGroup.transitionState(NodeGroup.State.STARTED_SERVICES_CONFIGURED).join()).wasSuccessful();
     }

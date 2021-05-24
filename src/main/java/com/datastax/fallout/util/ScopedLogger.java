@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package com.datastax.fallout.util;
 
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
-import java.util.function.Supplier;
 
 import com.google.common.base.Strings;
 import org.slf4j.Logger;
@@ -67,6 +66,21 @@ public class ScopedLogger
         return logger;
     }
 
+    private enum ResultExpectation
+    {
+        WITH_RESULT, WITHOUT_RESULT
+    }
+
+    private <T> Optional<Object> loggableResult(T result)
+    {
+        return Optional.of(result == null ? "<null>" : result);
+    }
+
+    private static String indent()
+    {
+        return Strings.repeat(" ", indent.get());
+    }
+
     public class Scoped implements AutoCloseable
     {
         private final LogMethod logMethod;
@@ -74,11 +88,13 @@ public class ScopedLogger
         private final String msg;
         private final Object[] args;
         private Optional<Object> result = Optional.empty();
+        private ResultExpectation resultExpectation;
 
         private Scoped(LogMethod logMethod, LogEnabled logEnabled, String msg, Object[] args)
         {
             this.logMethod = logMethod;
             this.logEnabled = logEnabled;
+            this.resultExpectation = ResultExpectation.WITHOUT_RESULT;
             this.msg = msg;
             this.args = args;
             if (logEnabled.getAsBoolean())
@@ -88,10 +104,15 @@ public class ScopedLogger
             }
         }
 
-        public <T> T setResult(T result)
+        private <T> T completedNormallyWithResult(T result)
         {
             this.result = loggableResult(result);
             return result;
+        }
+
+        private void completedNormally()
+        {
+            this.result = Optional.of(true);
         }
 
         @Override
@@ -100,86 +121,125 @@ public class ScopedLogger
             if (logEnabled.getAsBoolean())
             {
                 indent.set(indent.get() - INDENT_INCREMENT);
-                result(logMethod, result, msg + "...done", args);
+                final var doneMsg = indent() + this.msg + "...done" + (result.isEmpty() ? " (exception thrown)" : "");
+                final var resultMsg = result
+                    .filter(ignored -> resultExpectation == ResultExpectation.WITH_RESULT)
+                    .map(r -> " -> [" + r + "]")
+                    .orElse("");
+                logMethod.log(logger, doneMsg + resultMsg, args);
+            }
+        }
+
+        public void expectResult()
+        {
+            resultExpectation = ResultExpectation.WITH_RESULT;
+        }
+    }
+
+    // Public API
+
+    public interface ThrowingSupplier<T, E extends Throwable>
+    {
+        T get() throws E;
+    }
+
+    public interface ThrowingRunnable<E extends Throwable>
+    {
+        void run() throws E;
+    }
+
+    public static class ScopedInvocation
+    {
+        private final Scoped scoped;
+
+        private ScopedInvocation(Scoped scoped)
+        {
+            this.scoped = scoped;
+        }
+
+        public <E extends Throwable> void run(ThrowingRunnable<E> runnable) throws E
+        {
+            try (var scoped_ = scoped)
+            {
+                runnable.run();
+                scoped.completedNormally();
+            }
+        }
+
+        public <T, E extends Throwable> T get(ThrowingSupplier<T, E> supplier) throws E
+        {
+            try (var scoped_ = scoped)
+            {
+                scoped.expectResult();
+                return scoped.completedNormallyWithResult(supplier.get());
             }
         }
     }
 
-    private <T> Optional<Object> loggableResult(T result)
+    public ScopedInvocation withScopedInfo(String msg, Object... args)
     {
-        return Optional.of(result == null ? "<null>" : result);
-    }
-
-    private void result(LogMethod logMethod, Optional<Object> result, String msg, Object... args)
-    {
-        logMethod.log(logger, msg + result.map(r -> " -> [" + r + "]").orElse(""), args);
-    }
-
-    private <T> T result(LogMethod logMethod, LogEnabled logEnabled, Supplier<T> supplier, String msg, Object... args)
-    {
-        final var result = supplier.get();
-        if (logEnabled.getAsBoolean())
-        {
-            result(logMethod, loggableResult(result), msg, args);
-        }
-        return result;
-    }
-
-    public <T> T resultDebug(Supplier<T> supplier, String msg, Object... args)
-    {
-        return result(Logger::debug, logger::isDebugEnabled, supplier, msg, args);
-    }
-
-    public <T> T doWithScopedInfo(Supplier<T> supplier, String msg, Object... args)
-    {
-        try (Scoped scoped = scopedInfo(msg, args))
-        {
-            return scoped.setResult(supplier.get());
-        }
-    }
-
-    public void doWithScopedInfo(Runnable runnable, String msg, Object... args)
-    {
-        try (Scoped ignored = scopedInfo(msg, args))
-        {
-            runnable.run();
-        }
-    }
-
-    public Scoped scopedInfo(String msg, Object... args)
-    {
-        return new Scoped(
+        return new ScopedInvocation(new Scoped(
             (logger_, msg_, args_) -> logger.info(msg_, args_),
-            logger::isInfoEnabled, msg, args);
+            logger::isInfoEnabled, msg, args));
     }
 
-    public <T> T doWithScopedDebug(Supplier<T> supplier, String msg, Object... args)
+    public ScopedInvocation withScopedDebug(String msg, Object... args)
     {
-        try (Scoped scoped = scopedDebug(msg, args))
-        {
-            return scoped.setResult(supplier.get());
-        }
-    }
-
-    public void doWithScopedDebug(Runnable runnable, String msg, Object... args)
-    {
-        try (Scoped ignored = scopedDebug(msg, args))
-        {
-            runnable.run();
-        }
-    }
-
-    public Scoped scopedDebug(String msg, Object... args)
-    {
-        return new Scoped(
+        return new ScopedInvocation(new Scoped(
             (logger_, msg_, args_) -> logger.debug(msg_, args_),
-            logger::isDebugEnabled, msg, args);
+            logger::isDebugEnabled, msg, args));
     }
 
-    private static String indent()
+    // Non-scoped logging methods that log the result of a call
+
+    public class ResultInvocation
     {
-        return Strings.repeat(" ", indent.get());
+        private final LogMethod logMethod;
+        private final LogEnabled logEnabled;
+        private final String msg;
+        private final Object[] args;
+
+        private ResultInvocation(LogMethod logMethod, LogEnabled logEnabled, String msg, Object... args)
+        {
+            this.logMethod = logMethod;
+            this.logEnabled = logEnabled;
+            this.msg = msg;
+            this.args = args;
+        }
+
+        public <T, E extends Throwable> T get(ThrowingSupplier<T, E> supplier) throws E
+        {
+            Optional<Object> completedWithResult = Optional.empty();
+
+            try
+            {
+                final var result = supplier.get();
+                completedWithResult = loggableResult(result);
+                return result;
+            }
+            finally
+            {
+                if (logEnabled.getAsBoolean())
+                {
+                    logMethod.log(logger, indent() + msg + " -> " + completedWithResult
+                        .map(r -> "[" + r + "]")
+                        .orElse("<exception thrown>"), args);
+                }
+            }
+        }
     }
+
+    public ResultInvocation withResultInfo(String msg, Object... args)
+    {
+        return new ResultInvocation(Logger::info, logger::isInfoEnabled, msg, args);
+    }
+
+    public ResultInvocation withResultDebug(String msg, Object... args)
+    {
+        return new ResultInvocation(Logger::debug, logger::isDebugEnabled, msg, args);
+    }
+
+    // Logger API methods, so we can just switch to using ScopedLogger
 
     public void trace(String msg, Object... args)
     {

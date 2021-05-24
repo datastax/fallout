@@ -1,5 +1,11 @@
 -- if you change this file you need to update CassandraDriverManager.maybeMigrateSchema
 
+CREATE TYPE IF NOT EXISTS nebulaAppCred (
+    project text,
+    id text,
+    secret text
+);
+
 CREATE TYPE IF NOT EXISTS resourceType (
     provider text,
     tenant text,
@@ -20,19 +26,55 @@ CREATE TYPE IF NOT EXISTS googleCloudServiceAccount (
     keyFileJson text
 );
 
+CREATE TYPE IF NOT EXISTS astraServiceAccount (
+    clientId text,
+    clientName text,
+    clientSecret text
+);
+
+CREATE TYPE IF NOT EXISTS backupServiceCred (
+    name text,
+    s3AccessKey text,
+    s3SecretKey text,
+);
+
+CREATE TYPE IF NOT EXISTS dockerRegistryCredential (
+    dockerRegistry text,
+    username text,
+    password text,
+);
+
 CREATE TABLE IF NOT EXISTS users (
     email text PRIMARY KEY,
     name text,
     encpass blob,
     salt    blob,
     admin   boolean,
+    group text,
+    automatonSharedHandle text,
+    publicSshKey text,
+    ec2AccessKey text,
+    ec2SecretKey text,
     oauthId uuid,
     resetToken uuid,
+    openstackusername text,
+    openstackpassword text,
+    openstacktenantname text,
+    ironictenantname text,
+    nebulaProjectName text,
+    nebulaAppCreds set<frozen<nebulaAppCred>>,
     defaultGoogleCloudServiceAccountEmail text,
     googleCloudServiceAccounts set<frozen<googleCloudServiceAccount>>,
+    defaultAstraServiceAccountName text,
+    astraServiceAccounts set<frozen<astraServiceAccount>>,
+    s3fsCreds set<frozen<backupServiceCred>>,
+    defaultBackupServiceCred text,
+    dockerRegistryCredentials set<frozen<dockerRegistryCredential>>,
     emailPref text,
     slackPref text
 );
+
+CREATE INDEX IF NOT EXISTS userByGroup ON users( group );
 
 CREATE TABLE IF NOT EXISTS sessions (
     tokenId uuid PRIMARY KEY,
@@ -72,6 +114,7 @@ CREATE TABLE IF NOT EXISTS test_runs (
     emailPref text,
     slackPref text,
     resourceRequirements set<frozen<resourceRequirement>>,
+    links frozen<map<text,text>>,
     PRIMARY KEY ((owner,testName), testRunId)
 );
 
@@ -125,6 +168,7 @@ CREATE TABLE IF NOT EXISTS deleted_test_runs (
         emailPref text,
         slackPref text,
         resourceRequirements set<frozen<resourceRequirement>>,
+        links frozen<map<text,text>>,
         PRIMARY KEY ((owner,testName), testRunId)
 )
 WITH default_time_to_live = 2592000;

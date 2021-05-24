@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,13 +23,13 @@ import java.util.List;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
-import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.filter.ThresholdFilter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.ConsoleAppender;
 import ch.qos.logback.core.FileAppender;
 import ch.qos.logback.core.OutputStreamAppender;
-import com.google.common.collect.ImmutableList;
+
+import static com.datastax.fallout.runner.UserCredentialsFactory.UserCredentials;
 
 public class JobFileLoggers implements Closeable, JobLoggers
 {
@@ -53,17 +53,15 @@ public class JobFileLoggers implements Closeable, JobLoggers
      * </ul>
      */
     private final LoggerContext loggerContext;
-    private final PatternLayoutEncoder patternLayoutEncoder;
+    private final CredentialsMaskingLayoutEncoder layoutEncoder;
 
-    public JobFileLoggers(Path base, boolean logTestRunsToConsole)
+    public JobFileLoggers(Path base, boolean logTestRunsToConsole, UserCredentials userCredentials)
     {
         loggerContext = new LoggerContext();
         loggerContext.start();
 
-        patternLayoutEncoder = new PatternLayoutEncoder();
-        patternLayoutEncoder.setContext(loggerContext);
-        patternLayoutEncoder.setPattern(FALLOUT_PATTERN);
-        patternLayoutEncoder.start();
+        layoutEncoder = new CredentialsMaskingLayoutEncoder(loggerContext, userCredentials);
+        layoutEncoder.start();
 
         this.base = base;
         this.shared = createSharedLogger(logTestRunsToConsole);
@@ -72,7 +70,7 @@ public class JobFileLoggers implements Closeable, JobLoggers
     public org.slf4j.Logger create(String name, Path relFile)
     {
         return createLogger(SHARED_LOGGER_NAME + "." + name,
-            ImmutableList.of(withThresholdFilter(createFileAppender(name, base.resolve(relFile)), Level.INFO)));
+            List.of(withThresholdFilter(createFileAppender(name, base.resolve(relFile)), Level.INFO)));
     }
 
     @Override
@@ -97,7 +95,7 @@ public class JobFileLoggers implements Closeable, JobLoggers
     public static final String FALLOUT_PATTERN =
         "%-41(%date " +
             THREAD_PATTERN +
-            " %-5level %-20logger{0}) - %msg%n";
+            " %-5level %-20.-20logger{0}) - %msg%n";
 
     private OutputStreamAppender<ILoggingEvent> withThresholdFilter(OutputStreamAppender<ILoggingEvent> appender,
         Level level)
@@ -118,7 +116,7 @@ public class JobFileLoggers implements Closeable, JobLoggers
         fileAppender.setFile(logFilePath.toFile().getAbsolutePath());
         fileAppender.setName(name);
         fileAppender.setContext(loggerContext);
-        fileAppender.setEncoder(patternLayoutEncoder);
+        fileAppender.setEncoder(layoutEncoder);
         fileAppender.start();
 
         return fileAppender;
@@ -144,7 +142,7 @@ public class JobFileLoggers implements Closeable, JobLoggers
         {
             ConsoleAppender<ILoggingEvent> consoleAppender = new ConsoleAppender<>();
             consoleAppender.setContext(loggerContext);
-            consoleAppender.setEncoder(patternLayoutEncoder);
+            consoleAppender.setEncoder(layoutEncoder);
             consoleAppender.start();
             appenders.add(consoleAppender);
         }

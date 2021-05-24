@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 package com.datastax.fallout.runner;
 
 import java.time.Duration;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
@@ -66,7 +65,8 @@ public class QueuingTestRunner implements AutoCloseable, Managed
     private final TestRunQueueProcessor testRunQueueProcessor;
     private final ExecutorService testRunQueueProcessorExecutor =
         Executors.newSingleThreadExecutor(new NamedThreadFactory("TestRunQueueProcessor"));
-    private Function<TestRun, Set<ResourceRequirement>> getResourceRequirements = testRun -> Collections.emptySet();
+    private final ResourceLimiter resourceLimiter;
+    private Function<TestRun, Set<ResourceRequirement>> getResourceRequirements = testRun -> Set.of();
 
     private enum ShutdownState
     {
@@ -122,15 +122,21 @@ public class QueuingTestRunner implements AutoCloseable, Managed
         AbortableRunnableExecutorFactory abortableTestRunExecutorFactory,
         Function<TestRun, Set<ResourceRequirement>> getResourceRequirements,
         ResourceReservationLocks resourceReservationLocks,
+        List<ResourceLimit> resourceLimits,
         boolean startPaused)
     {
         this.testRunUpdater = testRunUpdater;
         this.testUpdater = testUpdater;
         this.abortableTestRunExecutorFactory = abortableTestRunExecutorFactory;
         this.getResourceRequirements = getResourceRequirements;
+        resourceLimiter = new ResourceLimiter(
+            () -> TestRun.getResourceRequirementsForTestRuns(getRunningTestRuns()), resourceLimits);
 
-        testRunQueue = new TestRunQueue(pendingQueue, this::getRunningTestRuns, Duration.ofMinutes(1),
-            resourceReservationLocks::couldAcquire);
+        testRunQueue = new TestRunQueue(pendingQueue,
+            this::handleProcessingException,
+            this::getRunningTestRuns,
+            Duration.ofMinutes(1),
+            resourceLimiter.and(resourceReservationLocks::couldAcquire));
         testRunQueueProcessor =
             new TestRunQueueProcessor(testRunQueue, userCredentialsFactory, abortableTestRunExecutorFactory,
                 resourceReservationLocks);
@@ -153,6 +159,8 @@ public class QueuingTestRunner implements AutoCloseable, Managed
         this.testUpdater = testRun -> {};
         abortableTestRunExecutorFactory = new AbortableRunnableExecutorFactory(executorFactory);
         this.getResourceRequirements = getResourceRequirements;
+        resourceLimiter = new ResourceLimiter(
+            () -> TestRun.getResourceRequirementsForTestRuns(getRunningTestRuns()), List.of());
 
         this.testRunQueue = testRunQueue;
         testRunQueueProcessor =
@@ -271,6 +279,19 @@ public class QueuingTestRunner implements AutoCloseable, Managed
         testUpdater.accept(testRun);
         testRunQueue.add(testRun);
         return true;
+    }
+
+    private void handleProcessingException(TestRun testRun, Throwable ex)
+    {
+        final var message = String.format("Unexpected exception processing %s", testRun.getShortName());
+        logger.error(message, ex);
+
+        testRun.setFinishedAt(new Date());
+        testRun.setFailedDuring(testRun.getState());
+        testRun.setState(TestRun.State.FAILED);
+        testRun.setResults(message + "; see server log for details: " + ex.getMessage());
+
+        testRunUpdater.accept(testRun);
     }
 
     public boolean abortTestRun(TestRun testRun)

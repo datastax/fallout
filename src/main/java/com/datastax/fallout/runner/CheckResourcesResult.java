@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 package com.datastax.fallout.runner;
 
+import java.util.function.Supplier;
+
 public enum CheckResourcesResult
 {
     // Note that best-to-worst ordering is depended upon by the current worstCase() implementation
@@ -26,6 +28,14 @@ public enum CheckResourcesResult
     public CheckResourcesResult worstCase(CheckResourcesResult other)
     {
         return CheckResourcesResult.values()[Math.max(this.ordinal(), other.ordinal())];
+    }
+
+    /** Executes thenDo if this was successful */
+    public CheckResourcesResult ifSuccessful(Supplier<CheckResourcesResult> thenDo)
+    {
+        return wasSuccessful() ?
+            thenDo.get() :
+            this;
     }
 
     /** Return if this is AVAILABLE */

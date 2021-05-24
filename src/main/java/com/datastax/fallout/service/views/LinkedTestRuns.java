@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package com.datastax.fallout.service.views;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -30,6 +31,7 @@ import com.datastax.fallout.harness.ActiveTestRun;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.User;
+import com.datastax.fallout.service.db.UserGroupMapper;
 import com.datastax.fallout.service.resources.server.TestResource;
 import com.datastax.fallout.util.DateUtils;
 
@@ -45,15 +47,17 @@ public class LinkedTestRuns
         final boolean canCancel;
         final boolean canDelete;
         final Set<Map.Entry<String, Object>> templateParamValues;
+        final Set<Map.Entry<String, String>> grafanaDashboardLinks;
 
-        LinkedTestRun(Optional<User> currentUser, Set<String> templateParamColumns, ReadOnlyTestRun testRun)
+        LinkedTestRun(UserGroupMapper userGroupMapper, Optional<User> currentUser,
+            Set<String> templateParamColumns, ReadOnlyTestRun testRun)
         {
             ownerLink = TestResource.linkForShowTests(testRun);
             testLink = TestResource.linkForShowTestRuns(testRun);
             testRunLink = TestResource.linkForShowTestRunArtifacts(testRun);
             this.testRun = testRun;
-            canCancel = TestResource.canCancel(currentUser, testRun);
-            canDelete = TestResource.canDelete(currentUser, testRun);
+            canCancel = TestResource.canCancel(userGroupMapper, currentUser, testRun);
+            canDelete = TestResource.canDelete(userGroupMapper, currentUser, testRun);
 
             final Map<String, Object> templateParams = testRun.getTemplateParamsMap();
             final Map<String, Object> allTemplateParams = new LinkedHashMap<>();
@@ -68,6 +72,15 @@ public class LinkedTestRuns
             });
 
             templateParamValues = allTemplateParams.entrySet();
+
+            if (testRun.getState().equals(TestRun.State.RUNNING))
+            {
+                grafanaDashboardLinks = testRun.getLinks().entrySet();
+            }
+            else
+            {
+                grafanaDashboardLinks = new HashSet<>();
+            }
         }
 
         public String getStateAlertType()
@@ -121,6 +134,13 @@ public class LinkedTestRuns
             return DateUtils.formatUTCDate(testRun.getCreatedAt());
         }
 
+        /** Unconditionally format {@link TestRun#getFinishedAt} so that we can see the last time the
+         *  testrun was tried. */
+        public String getLastTriedAtUtc()
+        {
+            return DateUtils.formatUTCDate(testRun.getFinishedAt());
+        }
+
         /** Show {@link TestRun#getFinishedAt} only if a {@link TestRun} is actually finished
          *
          *  <p>Rationale: finishedAt will be populated when {@link ActiveTestRun} is done
@@ -144,7 +164,6 @@ public class LinkedTestRuns
         DURATION,
         RESULTS,
         TEMPLATE_PARAMS,
-        DEFINITION,
         ARTIFACTS_LINK,
         MUTATION_ACTIONS,
         RESTORE_ACTIONS,
@@ -166,12 +185,13 @@ public class LinkedTestRuns
     final Set<String> templateParamColumns = new LinkedHashSet<>();
     String tableClass = "table-striped";
 
-    public LinkedTestRuns(Optional<User> currentUser, Collection<? extends ReadOnlyTestRun> testRuns)
+    public LinkedTestRuns(UserGroupMapper userGroupMapper, Optional<User> currentUser,
+        Collection<? extends ReadOnlyTestRun> testRuns)
     {
-        this(currentUser, false, testRuns);
+        this(userGroupMapper, currentUser, false, testRuns);
     }
 
-    public LinkedTestRuns(Optional<User> currentUser,
+    public LinkedTestRuns(UserGroupMapper userGroupMapper, Optional<User> currentUser,
         boolean areQueued, Collection<? extends ReadOnlyTestRun> testRuns)
     {
         testRuns.stream()
@@ -179,11 +199,11 @@ public class LinkedTestRuns
             .forEach(templateParamColumns::add);
 
         this.testRuns = testRuns.stream()
-            .map(tr -> new LinkedTestRun(currentUser, templateParamColumns, tr))
+            .map(tr -> new LinkedTestRun(userGroupMapper, currentUser, templateParamColumns, tr))
             .collect(Collectors.toList());
 
         this.areQueued = areQueued;
-        this.canDeleteAny = testRuns.stream().anyMatch(tr -> TestResource.canDelete(currentUser, tr));
+        this.canDeleteAny = testRuns.stream().anyMatch(tr -> TestResource.canDelete(userGroupMapper, currentUser, tr));
 
         Stream.of(TableDisplayOption.values()).forEach(v -> show.put(v.toString(), true));
         hide();
@@ -199,7 +219,7 @@ public class LinkedTestRuns
         Stream.of(options).map(TableDisplayOption::toString).forEach(show::remove);
 
         boolean hasStateColoring = testRuns.stream().anyMatch(x -> !x.getStateAlertType().isEmpty());
-        if (shows(TableDisplayOption.DEFINITION) || hasStateColoring)
+        if (hasStateColoring)
         {
             tableClass = "";
         }

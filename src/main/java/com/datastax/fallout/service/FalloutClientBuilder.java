@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,10 @@ package com.datastax.fallout.service;
 import javax.ws.rs.client.Client;
 
 import java.time.Duration;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import io.dropwizard.jackson.Jackson;
 import io.dropwizard.jersey.jackson.JacksonFeature;
 import io.dropwizard.setup.Environment;
 import org.glassfish.jersey.CommonProperties;
@@ -32,60 +29,71 @@ import org.glassfish.jersey.client.ClientProperties;
 import org.glassfish.jersey.client.JerseyClientBuilder;
 import org.glassfish.jersey.logging.LoggingFeature;
 
+import com.datastax.fallout.util.JacksonUtils;
+import com.datastax.fallout.util.NamedThreadFactory;
+
 public class FalloutClientBuilder
 {
     private final JerseyClientBuilder jerseyClientBuilder;
 
-    private static final ObjectMapper OBJECT_MAPPER = Jackson.newObjectMapper()
-        .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
-
-    public static ObjectMapper getObjectMapper()
+    private FalloutClientBuilder(JerseyClientBuilder jerseyClientBuilder)
     {
-        return OBJECT_MAPPER;
+        this.jerseyClientBuilder = jerseyClientBuilder;
     }
 
-    private FalloutClientBuilder(String name)
+    private static String loggerName(String name)
     {
-        jerseyClientBuilder = createDefaultClientBuilder(name);
-    }
-
-    private FalloutClientBuilder(Environment environment)
-    {
-        jerseyClientBuilder = createDefaultClientBuilder(environment.getName());
+        return FalloutClientBuilder.class.getName() + "." + name + "-client";
     }
 
     public static FalloutClientBuilder named(String name)
     {
-        return new FalloutClientBuilder(name);
+        return new FalloutClientBuilder(createDefaultClientBuilder(loggerName(name), name));
     }
 
     public static FalloutClientBuilder forEnvironment(Environment environment)
     {
-        return new FalloutClientBuilder(environment);
+        return new FalloutClientBuilder(createDefaultClientBuilder(
+            loggerName(environment.getName()), environment.getName()));
     }
 
-    public FalloutClientBuilder withExecutorService(ExecutorService executorService)
+    public static FalloutClientBuilder forComponent(Class<?> componentClass)
     {
-        jerseyClientBuilder.executorService(executorService);
-        return this;
+        return new FalloutClientBuilder(createDefaultClientBuilder(
+            componentClass.getName() + "." + "client", componentClass.getSimpleName()));
     }
 
-    private static JerseyClientBuilder createDefaultClientBuilder(String name)
+    private static JerseyClientBuilder createDefaultClientBuilder(String loggerName, String threadName)
     {
         /* Note that this is a {@link java.util.logging.Logger}; Dropwizard automatically
          * installs the {@link org.slf4j.bridge.SLF4JBridgeHandler} to redirect all j.u.l.
          * logging to logback.  We just need to initialise this logger with a non-restrictive
-         * log-level, then all the Jersey client logging will be controllable by Dropwizard. */
-        final Logger logger = Logger.getLogger(FalloutClientBuilder.class.getName() + "." + name + "-client");
+         * log-level, then all the Jersey client logging will be controllable by
+         * Dropwizard.   Note that all the _useful_ logging only appears at TRACE level. */
+        final Logger logger = Logger.getLogger(loggerName);
         logger.setLevel(Level.ALL);
 
-        return new JerseyClientBuilder()
+        final var builder = new JerseyClientBuilder()
             // Prevent accidental inclusion of dependencies modifying client behaviour
             .property(CommonProperties.FEATURE_AUTO_DISCOVERY_DISABLE, true)
             .property(ClientProperties.CONNECT_TIMEOUT, (int) Duration.ofMinutes(1).toMillis())
             .property(ClientProperties.READ_TIMEOUT, (int) Duration.ofMinutes(1).toMillis())
-            .register(new JacksonFeature(OBJECT_MAPPER))
+            .register(new JacksonFeature(JacksonUtils.getObjectMapper()))
             .register(new LoggingFeature(logger, Level.ALL, LoggingFeature.Verbosity.PAYLOAD_ANY, null));
+
+        // Provide our own ExecutorServices to this instance so that a) we can name the threads and b) we can
+        // ensure they're daemon threads (so that anything that fails to close a client won't hold up graceful
+        // shutdown; the default jersey executors use non-daemon threads).
+        final var executorService = Executors.newCachedThreadPool(
+            new NamedThreadFactory(threadName + "-client-async"));
+        final var scheduledExecutorService = Executors.newScheduledThreadPool(
+            Runtime.getRuntime().availableProcessors(),
+            new NamedThreadFactory(threadName + "-client-background"));
+
+        builder.executorService(executorService);
+        builder.scheduledExecutorService(scheduledExecutorService);
+
+        return builder;
     }
 
     public Client build()

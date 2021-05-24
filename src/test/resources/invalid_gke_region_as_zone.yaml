@@ -1,0 +1,18 @@
+ensemble:
+  server:
+    node.count: 3
+    provisioner:
+      name: gke
+      properties:
+        project: eng-test-tools
+        zone: us-west2 # us-west2 is a region, not a zone
+        machine.type: n1-standard-2
+
+  client: server
+workload:
+  phases:
+    - noop:
+        module: noop
+  checkers:
+    nofail:
+      checker: nofail

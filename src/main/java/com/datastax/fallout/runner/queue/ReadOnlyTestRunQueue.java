@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,28 @@
 package com.datastax.fallout.runner.queue;
 
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import com.datastax.fallout.service.core.TestRun;
 
 public interface ReadOnlyTestRunQueue
 {
+    interface UnprocessedHandler
+    {
+        void requeue();
+
+        void handleException(Throwable ex);
+    }
+
     /**
      * Remove one {@link TestRun} from the queue and feed it to consumer.  Blocks on empty queue,
-     * and possibly other implementation-specific conditions.  If the {@link TestRun} should be requeued, consumer
-     * should pass it to its second parameter.
+     * and possibly other implementation-specific conditions.  If the {@link TestRun} should
+     * be requeued or an unexpected exception occurred, consumer is required to call {@link
+     * UnprocessedHandler#requeue()} or {@link UnprocessedHandler#handleException} respectively.
      */
-    public void take(BiConsumer<TestRun, Consumer<TestRun>> consumer);
+    void take(BiConsumer<TestRun, UnprocessedHandler> consumer);
 
     /**
      * Forcibly unblock any current call to {@link #take}
      */
-    public void unblock();
+    void unblock();
 }

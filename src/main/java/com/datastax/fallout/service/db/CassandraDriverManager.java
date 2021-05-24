@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.KeyspaceMetadata;
+import com.datastax.driver.core.Metadata;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
@@ -91,8 +92,7 @@ public class CassandraDriverManager implements Managed
             .withClusterName(this.getClass().getSimpleName())
             .addContactPoint(host)
             .withPort(port)
-            .withRetryPolicy(new RetryPolicy()
-            {
+            .withRetryPolicy(new RetryPolicy() {
                 private RetryPolicy defaultRetryPolicy = DefaultRetryPolicy.INSTANCE;
 
                 @Override
@@ -200,7 +200,9 @@ public class CassandraDriverManager implements Managed
         {
             InputStream cql = CassandraDriverManager.class.getClassLoader().getResourceAsStream("schema.cql");
             if (cql == null)
+            {
                 throw new RuntimeException("Missing schema cql file.");
+            }
 
             executeCqlFile(new InputStreamReader(cql));
         }
@@ -214,10 +216,22 @@ public class CassandraDriverManager implements Managed
     private void maybeMigrateSchema()
     {
         Map<String, String> usersColumns = new HashMap<>();
+        usersColumns.put("openstackusername", "text");
+        usersColumns.put("openstackpassword", "text");
+        usersColumns.put("openstacktenantname", "text");
+        usersColumns.put("ironictenantname", "text");
+        usersColumns.put("nebulaProjectName", "text");
+        usersColumns.put("nebulaAppCreds", "set<frozen<nebulaAppCred>>");
+        usersColumns.put("automatonSharedHandle", "text");
         usersColumns.put("emailPref", "text");
         usersColumns.put("slackPref", "text");
         usersColumns.put("defaultGoogleCloudServiceAccountEmail", "text");
         usersColumns.put("googleCloudServiceAccounts", "set<frozen<googleCloudServiceAccount>>");
+        usersColumns.put("defaultAstraServiceAccountName", "text");
+        usersColumns.put("astraServiceAccounts", "set<frozen<astraServiceAccount>>");
+        usersColumns.put("defaultBackupServiceCred", "text");
+        usersColumns.put("backupServiceCreds", "set<frozen<backupServiceCred>>");
+        usersColumns.put("dockerRegistryCredentials", "set<frozen<dockerRegistryCredential>>");
 
         Map<String, String> testRunsColumns = new HashMap<>();
         testRunsColumns.put("parsedloginfo", "text");
@@ -230,6 +244,7 @@ public class CassandraDriverManager implements Managed
         testRunsColumns.put("resourceRequirements", "set<frozen<resourceRequirement>>");
         testRunsColumns.put("artifacts", "frozen<map<text,bigint>>");
         testRunsColumns.put("artifactsLastUpdated", "timestamp");
+        testRunsColumns.put("links", "frozen<map<text,text>>");
 
         Map<String, String> deletedTestRunsColumns = new HashMap<>();
         deletedTestRunsColumns.put("emailPref", "text");
@@ -237,6 +252,7 @@ public class CassandraDriverManager implements Managed
         deletedTestRunsColumns.put("resourceRequirements", "set<frozen<resourceRequirement>>");
         deletedTestRunsColumns.put("artifacts", "frozen<map<text,bigint>>");
         deletedTestRunsColumns.put("artifactsLastUpdated", "timestamp");
+        deletedTestRunsColumns.put("links", "frozen<map<text,text>>");
 
         Map<String, String> finishedTestRunsColumns = new HashMap<>();
         finishedTestRunsColumns.put("resourceRequirements", "set<frozen<resourceRequirement>>");
@@ -297,6 +313,14 @@ public class CassandraDriverManager implements Managed
             session.execute(String.format("ALTER TYPE %s.resourceType ADD uniqueName text;", keyspace));
         }
 
+        Map<String, String> dropUsersColumns = new HashMap<>();
+        dropUsersColumns.put("defaultCaasUsername", "text");
+        dropUsersColumns.put("caasCreds", "set<frozen<caasCred>>");
+        dropUsersColumns.put("rightscaleEmail", "text");
+        dropUsersColumns.put("rightscalePassword", "text");
+        dropUsersColumns.put("rightscaleAccountId", "int");
+        dropUsersColumns.put("privateRightscaleKey", "text");
+
         Map<String, String> dropTestRunsColumns = new HashMap<>();
         dropTestRunsColumns.put("deletedAt", "timestamp");
 
@@ -304,6 +328,7 @@ public class CassandraDriverManager implements Managed
         dropTestsColumns.put("deletedAt", "timestamp");
 
         Map<String, Map<String, String>> dropMigrations = new HashMap<>();
+        dropMigrations.put("users", dropUsersColumns);
         dropMigrations.put("test_runs", dropTestRunsColumns);
         dropMigrations.put("tests", dropTestsColumns);
 
@@ -360,10 +385,16 @@ public class CassandraDriverManager implements Managed
             session.execute(String.format("DROP TABLE IF EXISTS \"%s\".\"%s\";", keyspace, "cluster"));
         }
 
+        UserType caasCredsType = keyspaceMeta.getUserType("caasCred");
+        if (caasCredsType != null)
+        {
+            dropUserType(session, caasCredsType);
+        }
+
         UserType oldNodeType = keyspaceMeta.getUserType("node");
         if (oldNodeType != null)
         {
-            session.execute(String.format("DROP TYPE \"%s\".\"%s\";", keyspace, "node"));
+            dropUserType(session, oldNodeType);
         }
 
         TableMetadata oldRegressionsTable = keyspaceMeta.getTable("regression_tests");
@@ -381,7 +412,7 @@ public class CassandraDriverManager implements Managed
         UserType testRunDataType = keyspaceMeta.getUserType("testrundata");
         if (testRunDataType != null)
         {
-            session.execute(String.format("DROP TYPE \"%s\".\"%s\";", keyspace, "testrundata"));
+            dropUserType(session, testRunDataType);
         }
 
         TableMetadata testsMeta = keyspaceMeta.getTable("tests");
@@ -447,6 +478,13 @@ public class CassandraDriverManager implements Managed
             session.execute("ALTER TABLE performance_reports DROP reportTests");
             logger.info("Successfully migrated performance_reports");
         }
+    }
+
+    private void dropUserType(Session session, UserType userType)
+    {
+        String quotedTypeName = Metadata.quoteIfNecessary(userType.getKeyspace()) + "." +
+            Metadata.quoteIfNecessary(userType.getTypeName());
+        session.execute(String.format("DROP TYPE %s;", quotedTypeName));
     }
 
     private void executeCqlFile(InputStreamReader cqlStream) throws IOException

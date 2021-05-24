@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@ package com.datastax.fallout.service.db;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.base.Preconditions;
 import io.dropwizard.lifecycle.Managed;
 
 import com.datastax.driver.core.BatchStatement;
@@ -51,6 +53,7 @@ public class UserDAO implements Managed
     private Mapper<User> userMapper;
     private UserAccessor userAccessor;
     private final SecurityUtil securityUtil;
+    private final UserGroupMapper userGroupMapper;
 
     @Accessor
     private interface UserAccessor
@@ -71,11 +74,13 @@ public class UserDAO implements Managed
     }
 
     public UserDAO(CassandraDriverManager driverManager, SecurityUtil securityUtil,
-        Optional<FalloutConfiguration.UserCreds> adminUserCreds)
+        Optional<FalloutConfiguration.UserCreds> adminUserCreds,
+        UserGroupMapper userGroupMapper)
     {
         this.driverManager = driverManager;
         this.securityUtil = securityUtil;
         this.adminUserCreds = adminUserCreds;
+        this.userGroupMapper = userGroupMapper;
     }
 
     public Session getSession(String token)
@@ -121,7 +126,7 @@ public class UserDAO implements Managed
     public List<Map<String, String>> getAllUsers()
     {
         return userAccessor.getAllNamesAndEmails().all().stream()
-            .map(r -> ImmutableMap.of("name", r.getString("name"), "email", r.getString("email")))
+            .map(r -> Map.of("name", r.getString("name"), "email", r.getString("email")))
             .collect(Collectors.toList());
     }
 
@@ -144,24 +149,23 @@ public class UserDAO implements Managed
         }
     }
 
-    public User createUserIfNotExists(String name, String email, String password)
+    public User createUserIfNotExists(String name, String email, String password, String group)
     {
-        try (ScopedLogger.Scoped ignored = logger.scopedDebug("Creating new user"))
-        {
-            User user = makeUser(name, email, password);
-            logger.doWithScopedInfo(() -> createUserIfNotExists(user), "addUser");
+        return logger.withScopedDebug("Creating new user").get(() -> {
+            User user = makeUser(name, email, password, group);
+            logger.withScopedInfo("addUser").run(() -> createUserIfNotExists(user));
 
             return user;
-        }
+        });
     }
 
-    private User makeUser(String name, String email, String password)
+    private User makeUser(String name, String email, String password, String group)
     {
         User user = new User();
 
         user.setEmail(email);
         user.setName(name);
-
+        user.setGroup(group);
         user.setSalt(securityUtil.generateSalt());
         user.setEncryptedPassword(securityUtil.getEncryptedPassword(password, user.getSalt()));
         return user;
@@ -170,11 +174,6 @@ public class UserDAO implements Managed
     public void updateUserCredentials(User user)
     {
         userMapper.save(user);
-    }
-
-    public void updateUserCredentials(User user, Mapper.Option option)
-    {
-        userMapper.save(user, option);
     }
 
     public void updateUserOauthId(User user)
@@ -191,10 +190,41 @@ public class UserDAO implements Managed
         driverManager.getSession().execute(batchStatement);
     }
 
+    public Optional<User> getCIUserByUser(User user)
+    {
+        Preconditions.checkNotNull(user);
+        if (userGroupMapper.isCIUser(user))
+        {
+            return Optional.of(user);
+        }
+        return userGroupMapper.findGroup(user.getGroup())
+            .flatMap(userGroup -> Optional.ofNullable(getUser(userGroup.getUserGroupEmail())))
+            .map(ciUser -> {
+                Preconditions.checkState(userGroupMapper.isCIUser(ciUser));
+                return ciUser;
+            });
+    }
+
+    private void useGeneratedAutomatonSharedHandlesWherePossible()
+    {
+        logger.withScopedInfo("Looking for explicit User.automatonSharedHandles that could be default-generated")
+            .run(() -> StreamSupport.stream(userAccessor.getAll().spliterator(), false)
+                .filter(
+                    user -> (user.getAutomatonSharedHandle() != null && user.getAutomatonSharedHandle().isEmpty()) ||
+                        Objects.equals(user.getAutomatonSharedHandle(), user.getOrGenerateAutomatonSharedHandle()))
+                .forEach(user -> {
+                    logger.info("  {}: '{}'",
+                        user.getEmail(), user.getAutomatonSharedHandle());
+                    user.throwOrSetValidAutomatonSharedHandle(null);
+                    userMapper.save(user);
+                }));
+    }
+
     private void maybeCreateAdminUser()
     {
         adminUserCreds.ifPresent(userCreds -> {
-            var user = makeUser(userCreds.getName(), userCreds.getEmail(), userCreds.getPassword());
+            var user = makeUser(userCreds.getName(), userCreds.getEmail(), userCreds.getPassword(),
+                UserGroupMapper.UserGroup.OTHER);
             user.setAdmin(true);
             createUserIfNotExists(user);
         });
@@ -213,6 +243,7 @@ public class UserDAO implements Managed
 
         if (driverManager.isSchemaCreator())
         {
+            useGeneratedAutomatonSharedHandlesWherePossible();
             maybeCreateAdminUser();
         }
     }

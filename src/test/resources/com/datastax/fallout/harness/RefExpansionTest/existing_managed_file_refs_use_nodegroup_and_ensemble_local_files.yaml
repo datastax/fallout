@@ -1,0 +1,44 @@
+use_ensemble_local_files: false
+use_server_local_files: false
+use_client_local_files: false
+---
+ensemble:
+
+  {{#use_ensemble_local_files}}
+  local_files:
+    - path: hello-world.txt
+      data: Hello World!
+  {{/use_ensemble_local_files}}
+
+  server:
+    node.count: 1
+    provisioner:
+      name: local
+
+    {{#use_server_local_files}}
+    local_files:
+      - path: hello-world.txt
+        data: Hello World!
+    {{/use_server_local_files}}
+
+  client:
+    node.count: 1
+    provisioner:
+      name: local
+
+    {{#use_client_local_files}}
+    local_files:
+      - path: hello-world.txt
+        data: Hello World!
+    {{/use_client_local_files}}
+
+workload:
+  phases:
+    - write-file:
+        module: fake
+        properties:
+          file: <<file:hello-world.txt>>
+
+  checkers:
+    nofail:
+      checker: nofail

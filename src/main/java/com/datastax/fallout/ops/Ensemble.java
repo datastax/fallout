@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import com.datastax.fallout.harness.ActiveTestRunBuilder;
+import com.datastax.fallout.harness.TestRunLinkUpdater;
+import com.datastax.fallout.harness.WorkloadComponent;
+import com.datastax.fallout.ops.TestRunScratchSpaceFactory.LocalScratchSpace;
 import com.datastax.fallout.runner.CheckResourcesResult;
 
 /**
@@ -42,8 +47,6 @@ import com.datastax.fallout.runner.CheckResourcesResult;
  */
 public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
 {
-    static final Logger logger = LoggerFactory.getLogger(Ensemble.class);
-
     public enum Role
     {
         SERVER, //Represents a service like Cassandra
@@ -52,22 +55,30 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
         CONTROLLER //Represents an external controller like Jepsen
     }
 
-    final String testRunId;
+    final UUID testRunId;
     final List<NodeGroup> serverGroups;
     final List<NodeGroup> clientGroups;
     final NodeGroup observerGroup;
     final NodeGroup controllerGroup;
-    private final LocalScratchSpace localScratchSpace;
+    private final TestRunLinkUpdater testRunLinkUpdater;
+    private final LocalScratchSpace workloadScratchSpace;
+    private final Logger logger;
+    private final LocalFilesHandler localFilesHandler;
 
-    protected Ensemble(String testRunId, List<NodeGroup> serverGroups, List<NodeGroup> clientGroups,
-        NodeGroup observerGroup, NodeGroup controllerGroup)
+    protected Ensemble(UUID testRunId, List<NodeGroup> serverGroups, List<NodeGroup> clientGroups,
+        NodeGroup observerGroup, NodeGroup controllerGroup, TestRunLinkUpdater testRunLinkUpdater,
+        LocalScratchSpace workloadScratchSpace, Logger logger,
+        LocalFilesHandler localFilesHandler)
     {
         this.testRunId = testRunId;
         this.serverGroups = serverGroups;
         this.clientGroups = clientGroups;
         this.controllerGroup = controllerGroup;
         this.observerGroup = observerGroup;
-        localScratchSpace = new LocalScratchSpace("ensemble-scratch");
+        this.testRunLinkUpdater = testRunLinkUpdater;
+        this.workloadScratchSpace = workloadScratchSpace;
+        this.logger = logger;
+        this.localFilesHandler = localFilesHandler;
 
         for (NodeGroup nodeGroup : getUniqueNodeGroupInstances())
         {
@@ -76,14 +87,18 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
         }
     }
 
+    public Logger logger()
+    {
+        return logger;
+    }
+
     @Override
     public void close()
     {
         getAllNodeGroups().forEach(NodeGroup::close);
-        localScratchSpace.close();
     }
 
-    public String getTestRunId()
+    public UUID getTestRunId()
     {
         return this.testRunId;
     }
@@ -107,6 +122,11 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
     public NodeGroup getNodeGroupByAlias(String name)
     {
         return getNodeGroup(getAllNodeGroups(), name, name);
+    }
+
+    public Optional<NodeGroup> maybeGetNodeGroupByAlias(String name)
+    {
+        return maybeGetNodeGroup(getAllNodeGroups(), name, name);
     }
 
     public NodeGroup getServerGroup(PropertySpec<String> serverGroupSpec, PropertyGroup properties)
@@ -141,9 +161,21 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
 
     private static NodeGroup getNodeGroup(List<NodeGroup> nodeGroups, String name, String alias)
     {
+        Optional<NodeGroup> nodeGroup = maybeGetNodeGroup(nodeGroups, name, alias);
+        return nodeGroup.orElseThrow(() -> {
+            throw new IllegalStateException(
+                "Unknown NodeGroup: " + name + " - available: " + nodeGroups.stream()
+                    .map(c -> c.name)
+                    .sorted()
+                    .collect(Collectors.toList()));
+        });
+    }
+
+    private static Optional<NodeGroup> maybeGetNodeGroup(List<NodeGroup> nodeGroups, String name, String alias)
+    {
         if ((name == null || alias.equalsIgnoreCase(name)) && nodeGroups.size() == 1)
         {
-            return nodeGroups.get(0);
+            return Optional.of(nodeGroups.get(0));
         }
         for (NodeGroup nodeGroup : nodeGroups)
         {
@@ -151,12 +183,11 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
             {
                 if (ngAlias.equals(name))
                 {
-                    return nodeGroup;
+                    return Optional.of(nodeGroup);
                 }
             }
         }
-        throw new IllegalStateException(
-            "Unknown NodeGroup: " + name + " " + nodeGroups.stream().map(c -> c.name).collect(Collectors.toList()));
+        return Optional.empty();
     }
 
     public NodeGroup getObserverGroup()
@@ -186,9 +217,9 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
         }
     }
 
-    public LocalScratchSpace getLocalScratchSpace()
+    public LocalScratchSpace makeScratchSpaceFor(WorkloadComponent component)
     {
-        return localScratchSpace;
+        return workloadScratchSpace.makeScratchSpaceFor(component);
     }
 
     /** Transition entire ensemble at once */
@@ -204,8 +235,10 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
         List<CompletableFuture<Boolean>> futures = new ArrayList<>();
 
         for (NodeGroup nodeGroup : getUniqueNodeGroupInstances())
+        {
             futures.add(transitionNodeGroup.apply(nodeGroup, state)
                 .thenApplyAsync(checkResourcesResult -> checkResourcesResult != CheckResourcesResult.FAILED));
+        }
 
         return Utils.waitForAllAsync(futures);
     }
@@ -268,6 +301,25 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
             .findFirst();
     }
 
+    public <P extends Provider> Optional<P> findProviderWithName(Class<P> providerClass, String name)
+    {
+        return getUniqueNodeGroupInstances().stream()
+            .flatMap(ng -> ng.getNodes().stream())
+            .filter(n -> n.hasProvider(providerClass) && n.getProvider(providerClass).name().equals(name))
+            .map(n -> n.getProvider(providerClass))
+            .findFirst();
+    }
+
+    private <T extends Provider> Supplier<IllegalArgumentException> missingProviderError(Class<T> providerClass)
+    {
+        return () -> new IllegalArgumentException("Ensemble is missing a Node with a " + providerClass.getSimpleName());
+    }
+
+    public <T extends Provider> T findFirstRequiredProvider(Class<T> providerClass)
+    {
+        return findFirstProvider(providerClass).orElseThrow(missingProviderError(providerClass));
+    }
+
     public CompletableFuture<Boolean> prepareArtifacts()
     {
         return actOnAllUniqueNodeGroups(NodeGroup::prepareArtifacts, "preparing artifacts from ensemble");
@@ -304,11 +356,14 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
         }
     }
 
-    public boolean createAllLocalFiles()
+    public void addLink(String linkName, String link)
     {
-        return getUniqueNodeGroupInstances().stream()
-            .map(NodeGroup::createAllLocalFiles)
-            .reduce(true, Boolean::logicalAnd);
+        testRunLinkUpdater.add(linkName, link);
+    }
+
+    public boolean createAllLocalFiles(ActiveTestRunBuilder.ValidationResult validationResult)
+    {
+        return localFilesHandler.createAllLocalFiles(this, validationResult);
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
  */
 package com.datastax.fallout.test.utils;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -25,11 +23,13 @@ import java.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.datastax.fallout.ops.utils.FileUtils;
+
 public class TestOutputDir
 {
     private final static Logger logger = LoggerFactory.getLogger(TestOutputDir.class);
 
-    private static final Path FALLOUT_TESTS_DIR = Paths.get("build/fallout-tests");
+    public static final Path FALLOUT_TESTS_DIR = Paths.get("build/fallout-tests");
     private volatile static Path testBaseOutputDir = null;
     private volatile static String testStartDate = null;
 
@@ -47,14 +47,7 @@ public class TestOutputDir
             logger.info("testStartDate: {}", testStartDate);
 
             testBaseOutputDir = FALLOUT_TESTS_DIR.resolve(testStartDate).toAbsolutePath();
-            try
-            {
-                Files.createDirectories(testBaseOutputDir);
-            }
-            catch (IOException e)
-            {
-                throw new RuntimeException(e);
-            }
+            FileUtils.createDirs(testBaseOutputDir);
             logger.info("testBaseOutputDir: {}", testBaseOutputDir);
         }
     }

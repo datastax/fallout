@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,23 +18,26 @@ package com.datastax.fallout.service.cli;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.Mustache;
-import com.google.common.collect.ImmutableList;
 import io.dropwizard.setup.Bootstrap;
 import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
 import com.datastax.fallout.service.FalloutConfiguration;
+import com.datastax.fallout.util.Exceptions;
 
-public class GenerateNginxConf extends FalloutCommand
+public class GenerateNginxConf<FC extends FalloutConfiguration> extends FalloutCommand<FC>
 {
     public static class NginxConfParams
     {
@@ -44,14 +47,12 @@ public class GenerateNginxConf extends FalloutCommand
         public final boolean standalone;
         public final int nginxListenPort;
         public final Path nginxRoot;
-        public final String serverName;
 
-        public NginxConfParams(boolean standalone, int nginxListenPort, Path nginxRoot, String serverName)
+        public NginxConfParams(boolean standalone, int nginxListenPort, Path nginxRoot)
         {
             this.standalone = standalone;
             this.nginxListenPort = nginxListenPort;
             this.nginxRoot = nginxRoot.toAbsolutePath();
-            this.serverName = serverName;
         }
 
         public NginxConfParams(Namespace namespace)
@@ -59,8 +60,7 @@ public class GenerateNginxConf extends FalloutCommand
             this(
                 namespace.getBoolean("standalone"),
                 namespace.getInt("nginxListenPort"),
-                Paths.get(namespace.getString("nginxRoot")),
-                namespace.getString("serverName"));
+                Paths.get(namespace.getString("nginxRoot")));
         }
     }
 
@@ -105,12 +105,16 @@ public class GenerateNginxConf extends FalloutCommand
         Writer output, NginxConfParams nginxConfParams, FalloutConfiguration configuration)
     {
         final Mustache template = new DefaultMustacheFactory().compile("nginx/fallout.nginx.conf.mustache");
-        template.execute(output, ImmutableList.of(configuration, nginxConfParams));
+        template.execute(output, List.of(
+            Map.of("nginxServerName", Exceptions.getUnchecked(
+                () -> URI.create(configuration.getExternalUrl()).toURL().getHost())),
+            configuration,
+            nginxConfParams));
     }
 
     @Override
-    protected void run(Bootstrap<FalloutConfiguration> bootstrap,
-        Namespace namespace, FalloutConfiguration configuration) throws Exception
+    protected void run(Bootstrap<FC> bootstrap,
+        Namespace namespace, FC configuration) throws Exception
     {
         withWriterFromOutputString(namespace.getString("output"),
             writer -> generateNginxConf(writer, new NginxConfParams(namespace), configuration));

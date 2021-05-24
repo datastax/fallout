@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package com.datastax.fallout.ops;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.ListIterator;
@@ -30,32 +29,29 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.api.SoftAssertions;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import com.datastax.fallout.TestHelpers;
-import com.datastax.fallout.ops.configmanagement.FakeConfigurationManager;
-import com.datastax.fallout.ops.provisioner.FakeProvisioner;
+import com.datastax.fallout.components.fakes.FakeConfigurationManager;
+import com.datastax.fallout.components.fakes.FakeProvisioner;
 import com.datastax.fallout.runner.CheckResourcesResult;
+import com.datastax.fallout.service.FalloutConfiguration;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThatExceptionOfType;
 import static com.datastax.fallout.ops.NodeGroup.State.*;
 import static com.datastax.fallout.ops.NodeGroup.State.TransitionDirection.DOWN;
 import static com.datastax.fallout.ops.NodeGroup.State.TransitionDirection.UP;
-import static com.datastax.fallout.ops.NodeGroupAssert.assertThat;
 import static com.datastax.fallout.ops.NodeGroupHelpers.waitForTransition;
 import static com.datastax.fallout.ops.NodeGroupStateTransitionTest.Method.*;
-import static com.datastax.fallout.runner.CheckResourcesResultAssert.assertThat;
 import static com.datastax.fallout.util.Iterators.takeWhile;
 import static java.lang.StrictMath.abs;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
-class NodeGroupStateTransitionTest extends TestHelpers.FalloutTest
+class NodeGroupStateTransitionTest extends TestHelpers.FalloutTest<FalloutConfiguration>
 {
     enum Method
     {
@@ -81,7 +77,7 @@ class NodeGroupStateTransitionTest extends TestHelpers.FalloutTest
         calls.add(method);
     }
 
-    @After
+    @AfterEach
     public void assertExpectedCallsSeen()
     {
         SoftAssertions.assertSoftly(softly -> {
@@ -290,12 +286,12 @@ class NodeGroupStateTransitionTest extends TestHelpers.FalloutTest
             .withConfigurationManager(configurationManager)
             .withPropertyGroup(new WritablePropertyGroup())
             .withNodeCount(10)
-            .withLoggers(new JobConsoleLoggers())
             .withTestRunArtifactPath(testRunArtifactPath())
+            .withTestRunScratchSpace(persistentTestScratchSpace())
             .build();
     }
 
-    @Before
+    @BeforeEach
     public void setup()
     {
         provisioner = new MockProvisioner();
@@ -424,43 +420,33 @@ class NodeGroupStateTransitionTest extends TestHelpers.FalloutTest
         }
     }
 
-    @RunWith(Parameterized.class)
     public static class NodeGroupStateTransitionToFailedAndUnknownTest extends NodeGroupStateTransitionTest
     {
-        @Parameters(name = "{0}")
-        public static Collection<NodeGroup.State> states()
+        public static Stream<NodeGroup.State> states()
         {
             return Arrays.stream(NodeGroup.State.values())
-                .filter(NodeGroup.State::isRunLevelState)
-                .collect(Collectors.toList());
+                .filter(NodeGroup.State::isRunLevelState);
         }
 
-        @Parameter
-        public NodeGroup.State state;
-
-        @Before
-        @Override
-        public void setup()
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("states")
+        public void transition_to_failed_fails(NodeGroup.State state)
         {
-            super.setup();
             nodeGroup.setState(state);
-        }
 
-        @Test
-        public void transition_to_failed_fails()
-        {
             assertThat(nodeGroup.transitionState(FAILED).join()).wasNotSuccessful();
+
+            assertThat(nodeGroup).hasState(state);
         }
 
-        @Test
-        public void transition_to_unknown_fails()
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("states")
+        public void transition_to_unknown_fails(NodeGroup.State state)
         {
+            nodeGroup.setState(state);
+
             assertThat(nodeGroup.transitionState(UNKNOWN).join()).wasNotSuccessful();
-        }
 
-        @After
-        public void checkStateHasNotChanged()
-        {
             assertThat(nodeGroup).hasState(state);
         }
     }
@@ -527,57 +513,38 @@ class NodeGroupStateTransitionTest extends TestHelpers.FalloutTest
         }
     }
 
-    @RunWith(Parameterized.class)
     public static class IllegalStateTransitionTest extends TransitionLegalityTest
     {
-        @Parameters(name = "{0}")
-        public static Collection<Transition> illegalTransitions()
+        public static Stream<Transition> illegalTransitions()
         {
-            return allTransitions().filter(transition -> !transition.isLegal).collect(Collectors.toList());
+            return allTransitions().filter(transition -> !transition.isLegal);
         }
 
-        @Parameter
-        public Transition transition;
-
-        @Before
-        @Override
-        public void setup()
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("illegalTransitions")
+        public void illegal_transitions_fail_and_leave_nodegroup_alone(Transition transition)
         {
-            super.setup();
             NodeGroup.State.setState(nodeGroup, transition.startState);
-        }
 
-        @Test
-        public void illegal_transitions_fail_and_leave_nodegroup_alone()
-        {
             assertThat(waitForTransition(nodeGroup, transition.endState)).wasNotSuccessful();
             assertThat(nodeGroup).hasState(transition.startState);
         }
     }
 
-    @RunWith(Parameterized.class)
     public static class LegalStateTransitionTest extends TransitionLegalityTest
     {
-        @Parameters(name = "{0}")
-        public static Collection<Transition> legalTransitions()
+        public static Stream<Transition> legalTransitions()
         {
-            return allTransitions().filter(transition -> transition.isLegal).collect(Collectors.toList());
+            return allTransitions().filter(transition -> transition.isLegal);
         }
 
-        @Parameter
-        public Transition transition;
-
-        @Before
-        @Override
-        public void setup()
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("legalTransitions")
+        public void legal_transitions_work_and_invoke_the_expected_provisioner_and_configuration_manager_calls(
+            Transition transition)
         {
-            super.setup();
             NodeGroup.State.setState(nodeGroup, transition.startState);
-        }
 
-        @Test
-        public void legal_transitions_work_and_invoke_the_expected_provisioner_and_configuration_manager_calls()
-        {
             final EnumMap<NodeGroup.State, Expectations> stateExpectations = stateExpectations();
 
             // Get the states we expect to transition between for each pair of

@@ -1,0 +1,13 @@
+ensemble:
+  server:
+    mark_for_reuse: true
+    node.count: 1
+    provisioner:
+      name: fake
+
+  client: server
+
+workload:
+  phases:
+    - noop:
+        module: noop

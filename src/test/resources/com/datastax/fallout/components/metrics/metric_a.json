@@ -1,0 +1,38 @@
+{
+    "status": "success",
+    "data": {
+        "resultType": "matrix",
+        "result": [
+            {
+                "metric": {
+                    "__name__": "metric_a",
+                    "instance": "123.123.123.134:8080",
+                    "job": "some_job"
+                },
+                "values": [
+                    [
+                        1612169177,
+                        "0"
+                    ],
+                    [
+                        1612169192,
+                        "5"
+                    ]
+                ]
+            },
+            {
+                "metric": {
+                    "__name__": "metric_a",
+                    "instance": "123.123.123.135:8084",
+                    "job": "some_job"
+                },
+                "values": [
+                    [
+                        1612169177,
+                        "15"
+                    ]
+                ]
+            }
+        ]
+    }
+}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
  */
 package com.datastax.fallout.service.cli;
 
-import com.datastax.fallout.service.FalloutService;
+import com.datastax.fallout.service.FalloutConfiguration;
+import com.datastax.fallout.service.FalloutServiceBase;
 
-public class FalloutStandaloneCommand extends FalloutServerCommand
+public class FalloutStandaloneCommand<FC extends FalloutConfiguration> extends FalloutMainServerCommand<FC>
 {
-    public FalloutStandaloneCommand(FalloutService falloutService)
+    public FalloutStandaloneCommand(FalloutServiceBase<FC> falloutService)
     {
         super(falloutService, "standalone",
             "Run fallout as a standalone server, queuing and running testruns in a single process");

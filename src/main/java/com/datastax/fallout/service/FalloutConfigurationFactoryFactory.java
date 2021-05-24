@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,55 +61,56 @@ import com.datastax.fallout.ops.JobFileLoggers;
  *
  *  </ul>
  */
-public class FalloutConfigurationFactoryFactory implements ConfigurationFactoryFactory<FalloutConfiguration>
+public class FalloutConfigurationFactoryFactory<FC extends FalloutConfiguration>
+    implements ConfigurationFactoryFactory<FC>
 {
-    private final ConfigurationFactoryFactory<FalloutConfiguration> delegate;
-    private final Consumer<FalloutConfiguration> postBuildHook;
+    private final ConfigurationFactoryFactory<FC> delegate;
+    private final Consumer<FC> postBuildHook;
 
-    public FalloutConfigurationFactoryFactory(ConfigurationFactoryFactory<FalloutConfiguration> delegate,
-        Consumer<FalloutConfiguration> postBuildHook)
+    public FalloutConfigurationFactoryFactory(ConfigurationFactoryFactory<FC> delegate,
+        Consumer<FC> postBuildHook)
     {
         this.delegate = delegate;
         this.postBuildHook = postBuildHook;
     }
 
     @Override
-    public FalloutConfigurationFactory create(Class<FalloutConfiguration> klass, Validator validator,
+    public FalloutConfigurationFactory create(Class<FC> klass, Validator validator,
         ObjectMapper objectMapper, String propertyPrefix)
     {
         return new FalloutConfigurationFactory(
             delegate.create(klass, validator, objectMapper, propertyPrefix));
     }
 
-    private class FalloutConfigurationFactory implements ConfigurationFactory<FalloutConfiguration>
+    private class FalloutConfigurationFactory implements ConfigurationFactory<FC>
     {
-        private final ConfigurationFactory<FalloutConfiguration> delegate;
+        private final ConfigurationFactory<FC> delegate;
 
-        FalloutConfigurationFactory(ConfigurationFactory<FalloutConfiguration> delegate)
+        FalloutConfigurationFactory(ConfigurationFactory<FC> delegate)
         {
             this.delegate = delegate;
         }
 
         @Override
-        public FalloutConfiguration build(ConfigurationSourceProvider provider,
+        public FC build(ConfigurationSourceProvider provider,
             String path) throws IOException, ConfigurationException
         {
             return doPostBuildActions(delegate.build(provider, path));
         }
 
         @Override
-        public FalloutConfiguration build(File file) throws IOException, ConfigurationException
+        public FC build(File file) throws IOException, ConfigurationException
         {
             return doPostBuildActions(delegate.build(file));
         }
 
         @Override
-        public FalloutConfiguration build() throws IOException, ConfigurationException
+        public FC build() throws IOException, ConfigurationException
         {
             return doPostBuildActions(delegate.build());
         }
 
-        private FalloutConfiguration doPostBuildActions(FalloutConfiguration configuration)
+        private FC doPostBuildActions(FC configuration)
         {
             postBuildHook.accept(configuration);
             return configuration;

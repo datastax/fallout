@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,9 @@
  */
 package com.datastax.fallout.ops.commands;
 
+import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -25,7 +27,7 @@ import com.datastax.fallout.ops.Node;
 
 /** CommandExecutor that sets <code>JAVA_HOME=$JAVA8_HOME</code>.
  *
- *  Why?  Many of the existing test tools will not work
+ *  Why?  Some of the existing test tools (older versions of stress) will not work
  *  with Java 11, so this allows us to enforce the version as Java 8. */
 public class Java8LocalCommandExecutor extends LocalCommandExecutor
 {
@@ -34,16 +36,16 @@ public class Java8LocalCommandExecutor extends LocalCommandExecutor
 
     @Override
     public NodeResponse executeLocally(Node owner,
-        String command, Map<String, String> environment)
+        String command, Map<String, String> environment, Optional<Path> workingDirectory)
     {
-        return super.executeLocally(owner, command, getJavaEnvironment(environment));
+        return super.executeLocally(owner, command, getJavaEnvironment(environment), workingDirectory);
     }
 
     @Override
-    public NodeResponse executeLocally(Logger logger, String command,
-        Map<String, String> environment)
+    public NodeResponse executeLocally(Logger logger,
+        String command, Map<String, String> environment, Optional<Path> workingDirectory)
     {
-        return super.executeLocally(logger, command, getJavaEnvironment(environment));
+        return super.executeLocally(logger, command, getJavaEnvironment(environment), workingDirectory);
     }
 
     public Map<String, String> getJavaEnvironment(Map<String, String> environment)

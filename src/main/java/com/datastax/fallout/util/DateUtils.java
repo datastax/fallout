@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package com.datastax.fallout.util;
 
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
@@ -38,6 +39,15 @@ public class DateUtils
         {
             return "";
         }
-        return DATE_FORMATTER.format(date.toInstant());
+        return formatUTCDate(date.toInstant());
+    }
+
+    public static String formatUTCDate(Instant instant)
+    {
+        if (instant == null)
+        {
+            return "";
+        }
+        return DATE_FORMATTER.format(instant);
     }
 }

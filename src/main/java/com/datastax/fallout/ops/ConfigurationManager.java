@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,13 @@
 package com.datastax.fallout.ops;
 
 import java.util.HashMap;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datastax.fallout.harness.Module;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.util.ScopedLogger;
 
@@ -35,17 +32,28 @@ import com.datastax.fallout.util.ScopedLogger;
  * All operations must be idempotent
  * All operations are async
  */
-public abstract class ConfigurationManager extends EnsembleComponent implements DebugInfoProvidingComponent
+public abstract class ConfigurationManager extends EnsembleComponent
+    implements DebugInfoProvidingComponent, AutoCloseable
 {
     private static final Logger classLogger = LoggerFactory.getLogger(ConfigurationManager.class);
-    protected ScopedLogger logger = ScopedLogger.getLogger(classLogger);
-    protected Ensemble ensemble;
+    private ScopedLogger logger = ScopedLogger.getLogger(classLogger);
+    private Ensemble ensemble;
     private FalloutConfiguration falloutConfiguration;
     private String instanceName;
 
     public void setLogger(Logger logger)
     {
         this.logger = ScopedLogger.getLogger(logger);
+    }
+
+    public ScopedLogger logger()
+    {
+        return logger;
+    }
+
+    public Ensemble getEnsemble()
+    {
+        return ensemble;
     }
 
     public void setEnsemble(Ensemble ensemble)
@@ -58,17 +66,17 @@ public abstract class ConfigurationManager extends EnsembleComponent implements 
         this.falloutConfiguration = configuration;
     }
 
-    public FalloutConfiguration getFalloutConfiguration()
+    public <FC extends FalloutConfiguration> FC getFalloutConfiguration()
     {
         Preconditions.checkNotNull(falloutConfiguration);
-        return falloutConfiguration;
+        return (FC) falloutConfiguration;
     }
 
     @Override
-    public void setInstanceName(String modulePhaseName)
+    public void setInstanceName(String instanceName)
     {
         Preconditions.checkArgument(this.instanceName == null, "ConfigurationManager instance name already set");
-        this.instanceName = modulePhaseName;
+        this.instanceName = instanceName;
     }
 
     @Override
@@ -78,26 +86,20 @@ public abstract class ConfigurationManager extends EnsembleComponent implements 
     }
 
     /**
-     * Returns the providers added to each Node by this CM for the given NodeGroup properties
-     *
-     * @see Module#getRequiredProviders()
+     * Returns the providers that will be added to each Node by this CM for the given NodeGroup properties
      *
      * @param nodeGroupProperties
      * @return the set of Providers to be installed on each Node
      */
+    @Override
     public Set<Class<? extends Provider>> getAvailableProviders(PropertyGroup nodeGroupProperties)
     {
-        return ImmutableSet.of();
+        return Set.of();
     }
 
     public Set<Class<? extends Provider>> getRequiredProviders(PropertyGroup nodeGroupProperties)
     {
-        return ImmutableSet.of();
-    }
-
-    public Optional<Product> product(NodeGroup serverGroup)
-    {
-        return Optional.empty();
+        return Set.of();
     }
 
     /**
@@ -215,11 +217,9 @@ public abstract class ConfigurationManager extends EnsembleComponent implements 
         return true;
     }
 
-    /**
-     * Gets the contents of a java package specific resource
-     */
-    protected Optional<byte[]> getResource(String resourceName)
+    @Override
+    public void close()
     {
-        return Utils.getResource(this, resourceName);
+        // do nothing by default
     }
 }

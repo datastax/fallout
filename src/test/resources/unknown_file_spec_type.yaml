@@ -10,3 +10,8 @@ ensemble:
                       - path: foo
                         bar: bar is an invalid file spec type
     client: server
+
+workload:
+  phases:
+    - no-op:
+        module: noop

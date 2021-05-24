@@ -42,15 +42,17 @@ http {
 
         sendfile on;
 
-        server_name {{serverName}};
+        server_name {{nginxServerName}};
 
         # Static assets including error-page handling
         location /robots.txt {}
         location /favicon.ico {}
 
         error_page 401 /401.html;
-        location /401.html {}
-        location /401.jpg {}
+        location /401.html {
+            types {}
+            default_type text/html;
+        }
 
         # Proxy everything else to fallout process
         location / {

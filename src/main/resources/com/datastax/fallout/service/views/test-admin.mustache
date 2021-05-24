@@ -7,9 +7,11 @@
 <!-- Page Content -->
 <div id="page-wrapper">
     <div class="container-fluid">
-        <h2>Test Runner Administration</h2>
+        <h2>Administration</h2>
         {{> partials/message-area}}
 
+        <h3>Queue</h3>
+        <p>
         {{#mainView.testRunner.shutdownRequested}}
             <a href="#" id="cancelShutdown" type="button" class="btn btn-success">
                 <i class="fa fa-play"></i>
@@ -33,19 +35,11 @@
                 Request shutdown and pause queue</a>
         {{/mainView.testRunner.shutdownRequested}}
 
-        <div class="row">
-            <h3>Queued Test Runs</h3>
-            {{#queuedTestRuns}}
-                {{> partials/testrun/table}}
-            {{/queuedTestRuns}}
-        </div>
-
-        <div class="row">
-            <h3>Running Test Runs</h3>
-            {{#runningTestRuns}}
-                {{> partials/testrun/table}}
-            {{/runningTestRuns}}
-        </div>
+        <h3>Artifacts</h3>
+        <p><a href="/admin/artifactUsage" type="button" class="btn btn-warning">
+            <i class="fa fa-files-o"></i>
+            Download artifact usage CSV</a>
+        <p>Warning: this could be large!  You may want to login to the server and use the equivalent task instead: <code>curl -X POST http://localhost:8081/tasks/{{artifactUsageTaskName}}</code>
 
         <!-- /.row -->
     </div>
@@ -57,7 +51,7 @@
     $(function () {
         $("#requestShutdown, #cancelShutdown, #abortAndRequeueRunningTestRuns").click(function(){
             $.ajax({
-                url: "/tests/" + $(this)[0].id + "/api",
+                url: "/admin/" + $(this)[0].id,
                 type: "POST",
 
                 success: function (data) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,14 @@
  */
 package com.datastax.fallout.test.utils;
 
-import org.junit.Test;
+import java.io.IOException;
+import java.nio.file.Files;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
 public class WithPersistentTestOutputDirTest extends WithPersistentTestOutputDir
 {
@@ -45,5 +50,39 @@ public class WithPersistentTestOutputDirTest extends WithPersistentTestOutputDir
     {
         assertThat(persistentTestClassOutputDir().toString())
             .endsWith("/WithPersistentTestOutputDirTest/class");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2})
+    public void parameterized_tests_get_unique_output_dirs(int value) throws IOException
+    {
+        final var nonExistentFile = persistentTestOutputDir().resolve("foo");
+        assertThat(nonExistentFile).doesNotExist();
+        Files.writeString(nonExistentFile, "This file should not already exist");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2})
+    public void parameterized_tests_include_the_method_name(int value)
+    {
+        assertThat(currentTestShortName()).startsWith("parameterized_tests_include_the_method_name");
+    }
+
+    @ParameterizedTest(name = "[{index}] {0} This parameterized test name is far too long")
+    @ValueSource(ints = {1, 2})
+    public void parameterized_tests_with_long_display_names_are_truncated(int value)
+    {
+        assertThat(currentTestShortName())
+            .matches(String.format("parameterized_tests_with_long_display_names_are_truncated" +
+                "\\[\\[%d\\]-%d-This-paramete...[0-9a-f]{8}\\]",
+                value, value));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"example.yaml", "foo/bar/baz.yaml"})
+    public void parameterized_tests_with_yaml_file_names_use_the_file_name_as_the_test_name(String fileName)
+    {
+        assertThat(currentTestShortName())
+            .isEqualTo(fileName.replaceAll("/", "-"));
     }
 }

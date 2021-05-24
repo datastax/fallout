@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package com.datastax.fallout.service.db;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -25,9 +24,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Iterables;
 import io.dropwizard.lifecycle.Managed;
 
 import com.datastax.driver.core.BatchStatement;
@@ -84,14 +83,21 @@ public class TestRunDAO implements Managed
             String owner, String testName, UUID testRunId,
             List<TestRun.State> unfinishedStates);
 
-        /** Use LWT to ensure we only update finished {:link TestRun}s if they have no artifacts */
+        /** Use LWT to ensure we only update finished {@link TestRun}s if they have no artifacts */
         @Query("UPDATE test_runs " +
             "SET artifacts = :artifacts, artifactsLastUpdated = :artifactsLastUpdated " +
             "WHERE owner = :owner AND testName = :testName AND testRunId = :testRunId " +
             "IF state in :finishedStates AND artifacts in (null, {})")
-        ResultSet updateArtifactsIfFinishedButEmpty(Map<String, Long> artifacts, Date artifactsLastUpdated,
+        void updateArtifactsIfFinishedButEmpty(Map<String, Long> artifacts, Date artifactsLastUpdated,
             String owner, String testName, UUID testRunId,
             List<TestRun.State> finishedStates);
+
+        @Query("UPDATE test_runs " +
+            "SET artifacts = :artifacts, artifactsLastUpdated = :artifactsLastUpdated " +
+            "WHERE owner = :owner AND testName = :testName AND testRunId = :testRunId " +
+            "IF EXISTS")
+        void updateArtifactsIfExists(Map<String, Long> artifacts, Date artifactsLastUpdated,
+            String owner, String testName, UUID testRunId);
 
         @Query("UPDATE test_runs " +
             "SET state = 'ABORTED', failedDuring = :failedDuring, finishedAt = :finishedAt, results = :results " +
@@ -110,8 +116,8 @@ public class TestRunDAO implements Managed
             TestRunDAO.FINISHED_TEST_RUN_LIMIT)
         Result<FinishedTestRun> get(Date finishedAtDate);
 
-        @Query("SELECT * FROM finished_test_runs")
-        Result<FinishedTestRun> getAll();
+        @Query("SELECT * FROM finished_test_runs WHERE finishedAtDate = :finishedAtDate")
+        Result<FinishedTestRun> getAll(Date finishedAtDate);
     }
 
     @Accessor
@@ -122,6 +128,13 @@ public class TestRunDAO implements Managed
 
         @Query("SELECT * FROM deleted_test_runs")
         Result<DeletedTestRun> getAll();
+
+        @Query("UPDATE deleted_test_runs " +
+            "SET artifacts = :artifacts, artifactsLastUpdated = :artifactsLastUpdated " +
+            "WHERE owner = :owner AND testName = :testName AND testRunId = :testRunId " +
+            "IF EXISTS")
+        void updateArtifactsIfExists(Map<String, Long> artifacts, Date artifactsLastUpdated,
+            String owner, String testName, UUID testRunId);
     }
 
     private final CassandraDriverManager driverManager;
@@ -132,6 +145,7 @@ public class TestRunDAO implements Managed
     private DeletedTestRunAccessor deletedTestRunAccessor;
     private Mapper<FinishedTestRun> finishedTestRunMapper;
     private FinishedTestRunAccessor finishedTestRunAccessor;
+    private boolean isRunning = false;
 
     public TestRunDAO(CassandraDriverManager driverManager)
     {
@@ -148,6 +162,11 @@ public class TestRunDAO implements Managed
         return testRunMapper.get(tri.getTestOwner(), tri.getTestName(), tri.getTestRunId());
     }
 
+    public TestRun getEvenIfDeleted(TestRunIdentifier tri)
+    {
+        return getEvenIfDeleted(tri.getTestOwner(), tri.getTestName(), tri.getTestRunId());
+    }
+
     public TestRun getEvenIfDeleted(String owner, String testName, UUID testRunId)
     {
         TestRun testRun = testRunMapper.get(owner, testName, testRunId);
@@ -156,6 +175,13 @@ public class TestRunDAO implements Managed
             return deletedTestRunMapper.get(owner, testName, testRunId);
         }
         return testRun;
+    }
+
+    public Stream<TestRun> getAllEvenIfDeleted()
+    {
+        return Stream.concat(
+            StreamSupport.stream(testRunAccessor.getAll().spliterator(), false),
+            StreamSupport.stream(deletedTestRunAccessor.getAll().spliterator(), false));
     }
 
     public List<TestRun> getAll(String owner, String testName)
@@ -181,6 +207,11 @@ public class TestRunDAO implements Managed
                 return true;
             })
             .collect(Collectors.toList());
+    }
+
+    public DeletedTestRun getDeleted(TestRunIdentifier tri)
+    {
+        return deletedTestRunMapper.get(tri.getTestOwner(), tri.getTestName(), tri.getTestRunId());
     }
 
     public DeletedTestRun getDeleted(String owner, String testName, UUID testRunId)
@@ -225,17 +256,7 @@ public class TestRunDAO implements Managed
         }
     }
 
-    public void drop(String owner, String testName, UUID testRunId)
-    {
-        TestRun testRun = get(owner, testName, testRunId);
-        if (testRun == null)
-        {
-            return;
-        }
-        drop(testRun);
-    }
-
-    public void drop(TestRun testRun)
+    void delete(TestRun testRun)
     {
         DeletedTestRun deletedtestrun = DeletedTestRun.fromTestRun(testRun);
 
@@ -245,16 +266,16 @@ public class TestRunDAO implements Managed
         driverManager.getSession().execute(batchStatement);
     }
 
-    public void dropAll(String owner, String testName)
+    void deleteAll(String owner, String testName)
     {
         List<TestRun> runsToDelete = getAll(owner, testName);
         for (TestRun run : runsToDelete)
         {
-            drop(run);
+            delete(run);
         }
     }
 
-    public void restore(DeletedTestRun deletedTestRun)
+    void restore(DeletedTestRun deletedTestRun)
     {
         BatchStatement batchStatement = new BatchStatement();
         batchStatement.add(deletedTestRunMapper.deleteQuery(deletedTestRun));
@@ -262,7 +283,7 @@ public class TestRunDAO implements Managed
         driverManager.getSession().execute(batchStatement);
     }
 
-    public void restoreAll(String owner, String name)
+    void restoreAll(String owner, String name)
     {
         List<DeletedTestRun> runsToRestore = getAllDeleted(owner, name);
         for (DeletedTestRun run : runsToRestore)
@@ -271,7 +292,7 @@ public class TestRunDAO implements Managed
         }
     }
 
-    public void deleteAll(String owner, String name)
+    public void deleteAllForever(String owner, String name)
     {
         List<TestRun> runsToDelete = getAll(owner, name);
         List<DeletedTestRun> runsToDeleteForever = getAllDeleted(owner, name);
@@ -315,6 +336,15 @@ public class TestRunDAO implements Managed
         }
     }
 
+    /** Update only the artifacts fields in the DB for a testrun, regardless of whether it's been deleted or not. */
+    void updateArtifactsEvenIfDeleted(TestRun testRun)
+    {
+        deletedTestRunAccessor.updateArtifactsIfExists(testRun.getArtifacts(), testRun.getArtifactsLastUpdated(),
+            testRun.getOwner(), testRun.getTestName(), testRun.getTestRunId());
+        testRunAccessor.updateArtifactsIfExists(testRun.getArtifacts(), testRun.getArtifactsLastUpdated(),
+            testRun.getOwner(), testRun.getTestName(), testRun.getTestRunId());
+    }
+
     @VisibleForTesting
     public void maybeAddFinishedTestRunEndStop(Date date)
     {
@@ -337,26 +367,40 @@ public class TestRunDAO implements Managed
 
     public List<FinishedTestRun> getRecentFinishedTestRuns()
     {
-        List<FinishedTestRun> result = new ArrayList<>(FINISHED_TEST_RUN_LIMIT);
-        Date date = Date.from(Instant.now().truncatedTo(ChronoUnit.DAYS));
+        return getAllFinishedTestRunsThatFinishedBeforeInclusive(Instant.now())
+            .limit(FINISHED_TEST_RUN_LIMIT)
+            .collect(Collectors.toList());
+    }
 
-        boolean endStopSeen = false;
-        while (!endStopSeen && result.size() != FINISHED_TEST_RUN_LIMIT)
-        {
-            List<FinishedTestRun> fetched = finishedTestRunAccessor.get(date).all();
-            if (!fetched.isEmpty())
-            {
-                endStopSeen = Iterables.getLast(fetched).isEndStop();
-                result.addAll(fetched.subList(
-                    0,
-                    Math.min(FINISHED_TEST_RUN_LIMIT - result.size(), fetched.size()) -
-                        (endStopSeen ? 1 : 0)));
-            }
+    /** Get all {@link FinishedTestRun}s that finished in the closed range [earliestInstant, latestInstant] */
+    public Stream<FinishedTestRun> getAllFinishedTestRunsThatFinishedBetweenInclusive(Instant earliestInstant,
+        Instant latestInstant)
+    {
+        return getAllFinishedTestRunsThatFinishedBeforeInclusive(latestInstant)
+            // We can rely on testruns being retrieved in reverse order of finishedAt because the
+            // table is ordered that way
+            .takeWhile(fetched -> fetched.getFinishedAt().toInstant().isAfter(earliestInstant) ||
+                fetched.getFinishedAt().toInstant().equals(earliestInstant));
+    }
 
-            date = Date.from(date.toInstant().minus(1, ChronoUnit.DAYS));
-        }
+    private Stream<FinishedTestRun> getAllFinishedTestRunsThatFinishedBeforeInclusive(Instant latestInstant)
+    {
+        // For each day before latestInstant, fetch all the test runs that finished on that day,
+        // stopping iteration only if we hit the endstop.  This is _why_ we have an endstop:
+        // without it, we can't tell when to stop iterating, since an empty result from getAll(day)
+        // just means there were no testruns on that day, not that we've run out of testruns.
+        return Stream
+            .iterate(latestInstant.truncatedTo(ChronoUnit.DAYS),
+                day -> day.minus(1, ChronoUnit.DAYS))
+            .flatMap(
+                day -> StreamSupport.stream(finishedTestRunAccessor.getAll(Date.from(day))
+                    .spliterator(), false))
+            .takeWhile(fetched -> !fetched.isEndStop())
 
-        return result;
+            // Results will include tests that finished after `now - timeBeforeNow` because they're
+            // truncated to days; filter them out here.
+            .filter(fetched -> fetched.getFinishedAt().toInstant().isBefore(latestInstant) ||
+                fetched.getFinishedAt().toInstant().equals(latestInstant));
     }
 
     /** Given a list of all <b>known</b> existing {@link TestRun}s, compares that list
@@ -369,7 +413,7 @@ public class TestRunDAO implements Managed
      */
     public void abortStaleTestRuns(List<ReadOnlyTestRun> knownActiveTestRuns)
     {
-        logger.doWithScopedInfo(() -> {
+        logger.withScopedInfo("Aborting stale testruns").run(() -> {
             logger.info("Known active testruns:");
             knownActiveTestRuns.forEach(testRun -> logger.info("  {}", testRun.getTestRunIdentifier()));
 
@@ -387,8 +431,7 @@ public class TestRunDAO implements Managed
             maybeStaleTestRuns.stream()
                 .filter(testRun -> !knownActiveTestRunIds.contains(testRun.getTestRunId()))
                 .forEach(this::abortStaleTestRunIfUnchanged);
-        },
-            "Aborting stale testruns");
+        });
     }
 
     private void abortStaleTestRunIfUnchanged(TestRun testRun)
@@ -425,11 +468,18 @@ public class TestRunDAO implements Managed
         {
             maybeAddFinishedTestRunEndStop(new Date());
         }
+
+        isRunning = true;
+    }
+
+    public boolean isRunning()
+    {
+        return isRunning;
     }
 
     @Override
     public void stop() throws Exception
     {
-
+        isRunning = false;
     }
 }

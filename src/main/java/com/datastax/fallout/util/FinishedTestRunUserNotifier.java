@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,6 @@ import java.net.URI;
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.Mustache;
 import com.github.mustachejava.MustacheFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.service.core.TestCompletionNotification;
 import com.datastax.fallout.service.core.TestRun;
@@ -33,7 +31,7 @@ import static com.datastax.fallout.service.resources.server.TestResource.uriForS
 
 public class FinishedTestRunUserNotifier
 {
-    private static final Logger logger = LoggerFactory.getLogger(FinishedTestRunUserNotifier.class);
+    private static final ScopedLogger logger = ScopedLogger.getLogger(FinishedTestRunUserNotifier.class);
     private final String externalUrl;
     private final UserMessenger htmlMailUserMessenger;
     private final UserMessenger slackUserMessenger;
@@ -78,15 +76,18 @@ public class FinishedTestRunUserNotifier
         if (notificationPref == TestCompletionNotification.ALL ||
             (notificationPref == TestCompletionNotification.FAILURES && testRun.getState() != TestRun.State.PASSED))
         {
-            try
-            {
-                messenger.sendMessage(testRun.getOwner(), subject, body);
-            }
-            catch (UserMessenger.MessengerException e)
-            {
-                logger.error(String.format("TestRun %s: %s failed to notify user", testRun.getTestRunId(),
-                    messenger.getClass().toString()), e);
-            }
+            logger.withScopedInfo("TestRun {} {} {}: notifying completion via {}", testRun.getOwner(),
+                testRun.getTestName(), testRun.getTestRunId(), messenger.getClass()).run(() -> {
+                    try
+                    {
+                        messenger.sendMessage(testRun.getOwner(), subject, body);
+                    }
+                    catch (UserMessenger.MessengerException e)
+                    {
+                        logger.error(String.format("TestRun %s: %s failed to notify user", testRun.getTestRunId(),
+                            messenger.getClass().toString()), e);
+                    }
+                });
         }
     }
 

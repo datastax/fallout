@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,18 @@
  */
 package com.datastax.fallout.ops;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.TestHelpers;
-import com.datastax.fallout.ops.configmanagement.NoopConfigurationManager;
-import com.datastax.fallout.ops.provisioner.LocalProvisioner;
+import com.datastax.fallout.components.common.configuration_manager.NoopConfigurationManager;
+import com.datastax.fallout.components.common.provisioner.LocalProvisioner;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
 public class EnsembleBuilderTest extends TestHelpers.ArtifactTest
 {
@@ -43,15 +42,15 @@ public class EnsembleBuilderTest extends TestHelpers.ArtifactTest
             .withPropertyGroup(new WritablePropertyGroup());
     }
 
-    @Before
-    public void setUp() throws Exception
+    @BeforeEach
+    public void setUp()
     {
         ensemble = EnsembleBuilder.create()
             .withControllerGroup(nodeGroupBuilder("controller", 1))
             .withObserverGroup(nodeGroupBuilder("observer", 1))
             .withServerGroup(nodeGroupBuilder("server", 2))
             .withClientGroup(nodeGroupBuilder("client", 2))
-            .build(testRunArtifactPath());
+            .build(testRunArtifactPath(), persistentTestScratchSpace());
     }
 
     static Pair<String, List<Integer>> nodeGroupOrdinals(NodeGroup nodeGroup)
@@ -63,7 +62,7 @@ public class EnsembleBuilderTest extends TestHelpers.ArtifactTest
 
     static Pair<String, List<Integer>> nodeGroupOrdinals(String name, Integer... ordinals)
     {
-        return Pair.of(name, Arrays.asList(ordinals));
+        return Pair.of(name, List.of(ordinals));
     }
 
     @Test

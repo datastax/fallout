@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,32 +16,66 @@
 package com.datastax.fallout.ops;
 
 import java.nio.file.Path;
+import java.util.Optional;
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.ConsoleAppender;
+import com.google.common.annotations.VisibleForTesting;
+
+import com.datastax.fallout.runner.UserCredentialsFactory;
 
 public class JobConsoleLoggers implements JobLoggers
 {
+    private final Optional<UserCredentialsFactory.UserCredentials> userCredentials;
     private LoggerContext loggerContext = new LoggerContext();
 
-    private final org.slf4j.Logger shared = create("shared", null);
+    private final org.slf4j.Logger shared;
+
+    /**
+     * For component testing outside the context of UserCredentials.
+     */
+    @VisibleForTesting
+    public JobConsoleLoggers()
+    {
+        this(Optional.empty());
+    }
+
+    public JobConsoleLoggers(UserCredentialsFactory.UserCredentials userCredentials)
+    {
+        this(Optional.of(userCredentials));
+    }
+
+    private JobConsoleLoggers(Optional<UserCredentialsFactory.UserCredentials> userCredentials)
+    {
+        this.userCredentials = userCredentials;
+        this.shared = create("shared", null);
+    }
 
     @Override
     public org.slf4j.Logger create(String name, Path ignored)
     {
         Logger logger = loggerContext.getLogger(name);
 
-        PatternLayoutEncoder layout = new PatternLayoutEncoder();
-        layout.setContext(loggerContext);
-        layout.setPattern(JobFileLoggers.FALLOUT_PATTERN);
-        layout.start();
-
         ConsoleAppender<ILoggingEvent> appender = new ConsoleAppender<>();
         appender.setContext(loggerContext);
-        appender.setEncoder(layout);
+        userCredentials.ifPresentOrElse(
+            userCredentials_ -> {
+                CredentialsMaskingLayoutEncoder encoder =
+                    new CredentialsMaskingLayoutEncoder(loggerContext, userCredentials_);
+                encoder.start();
+                appender.setEncoder(encoder);
+            },
+            () -> {
+                PatternLayoutEncoder layout = new PatternLayoutEncoder();
+                layout.setContext(loggerContext);
+                layout.setPattern(JobFileLoggers.FALLOUT_PATTERN);
+                layout.start();
+                appender.setEncoder(layout);
+            });
+
         appender.start();
 
         logger.detachAndStopAllAppenders();

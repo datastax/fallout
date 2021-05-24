@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,8 @@
  */
 package com.datastax.fallout.ops;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -36,13 +34,18 @@ import org.slf4j.Logger;
  */
 public abstract class Provider
 {
-    protected Node node;
+    private final Node node;
 
     protected Provider(Node node)
     {
+        this(node, true);
+    }
+
+    protected Provider(Node node, boolean autoRegister)
+    {
         this.node = node;
-        List<Class<? extends Provider>> missingProviders =
-            this.getRequiredProviders().stream().filter(c -> !node.hasProvider(c)).collect(Collectors.toList());
+        Set<Class<? extends Provider>> missingProviders =
+            this.getRequiredProviders().stream().filter(c -> !node.hasProvider(c)).collect(Collectors.toSet());
         if (!missingProviders.isEmpty())
         {
             String msg = String.format("Failed to add %s to %s because required providers are missing: %s",
@@ -50,6 +53,12 @@ public abstract class Provider
             node.logger().error(msg);
             throw new IllegalStateException(msg);
         }
+        if (autoRegister)
+            node.addProvider(this);
+    }
+
+    public void register()
+    {
         node.addProvider(this);
     }
 
@@ -67,7 +76,7 @@ public abstract class Provider
 
     public Map<String, String> toInfoMap()
     {
-        return Collections.emptyMap();
+        return Map.of();
     }
 
     public Node node()
@@ -75,8 +84,8 @@ public abstract class Provider
         return node;
     }
 
-    public Collection<Class<? extends Provider>> getRequiredProviders()
+    public Set<Class<? extends Provider>> getRequiredProviders()
     {
-        return Collections.emptyList();
+        return Set.of();
     }
 }

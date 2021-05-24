@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,13 @@ package com.datastax.fallout.ops;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datastax.fallout.service.core.TestRun;
+import com.datastax.fallout.service.core.ReadOnlyTestRun;
+import com.datastax.fallout.service.core.TestRunIdentifier;
 import com.datastax.fallout.service.core.User;
 
 public class ClusterNames
@@ -34,31 +36,45 @@ public class ClusterNames
     }
 
     /** Make a valid cluster name for GCE, which doesn't allow underscores or uppercase */
-    public static String generateGCEClusterName(NodeGroup nodeGroup, String testRunName, TestRun testRun, User user)
+    public static String generateGCEClusterName(NodeGroup nodeGroup, TestRunIdentifier testRunIdentifier)
     {
-        return generateClusterName(nodeGroup, testRunName, testRun, user)
+        return generateClusterName(nodeGroup, Optional.empty(), testRunIdentifier)
             .replace("_", "-")
             .toLowerCase();
     }
 
-    public static String generateClusterName(NodeGroup nodeGroup, String testRunName, TestRun testRun, User user)
+    public static String generateClusterName(NodeGroup nodeGroup, Optional<User> user,
+        TestRunIdentifier testRunIdentifier)
     {
         List<String> nameComponents = new ArrayList<>();
-        if (testRun == null)
+
+        if (user.isPresent())
         {
-            // unit test
-            nameComponents.add(testRunName);
-        }
-        else
-        {
-            nameComponents.add(testRun.getTestName());
-            nameComponents.add(testRun.buildShortTestRunId());
-            if (nodeGroup.isMarkedForReuse())
+            Optional<String> userId = buildUserId(user.get());
+            if (userId.isPresent())
             {
-                nameComponents.add("nokill");
+                nameComponents.add(userId.get());
+            }
+            else
+            {
+                logger.warn("buildClusterName - unable to determine userId for user: " + user);
             }
         }
+
+        nameComponents.add(testRunIdentifier.getTestName());
+        nameComponents.add(ReadOnlyTestRun.buildShortTestRunId(testRunIdentifier.getTestRunId()));
+
+        if (nodeGroup.isMarkedForReuse())
+        {
+            nameComponents.add("nokill");
+        }
+
         nameComponents.add(nodeGroup.getId());
         return String.join("_", nameComponents);
+    }
+
+    private static Optional<String> buildUserId(User user)
+    {
+        return Optional.ofNullable(user).map(User::getOrGenerateAutomatonSharedHandle);
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@ package com.datastax.fallout.ops;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.service.core.TestRun;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
+import static com.datastax.fallout.ops.ResourceRequirementHelpers.req;
 
 public class ResourceRequirementTest
 {
@@ -54,10 +54,10 @@ public class ResourceRequirementTest
     {
         assertGetResourcesRequirementsForTestRunsAre(
             testRunsWithRequirements(
-                new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance1"), 2),
-                new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance1"), 1)
+                req("foo", "bar", "instance1", 2),
+                req("foo", "bar", "instance1", 1)
             ),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance1"), 3)
+            req("foo", "bar", "instance1", 3)
         );
     }
 
@@ -66,11 +66,11 @@ public class ResourceRequirementTest
     {
         assertGetResourcesRequirementsForTestRunsAre(
             testRunsWithRequirements(
-                new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance1"), 2),
-                new ResourceRequirement(new ResourceRequirement.ResourceType("provider2", "bar", "instance1"), 2)
+                req("foo", "bar", "instance1", 2),
+                req("provider2", "bar", "instance1", 2)
             ),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance1"), 2),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("provider2", "bar", "instance1"), 2)
+            req("foo", "bar", "instance1", 2),
+            req("provider2", "bar", "instance1", 2)
         );
     }
 
@@ -79,11 +79,11 @@ public class ResourceRequirementTest
     {
         assertGetResourcesRequirementsForTestRunsAre(
             testRunsWithRequirements(
-                new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance1"), 2),
-                new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "tenant2", "instance1"), 2)
+                req("foo", "bar", "instance1", 2),
+                req("foo", "tenant2", "instance1", 2)
             ),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance1"), 2),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "tenant2", "instance1"), 2)
+            req("foo", "bar", "instance1", 2),
+            req("foo", "tenant2", "instance1", 2)
         );
     }
 
@@ -92,11 +92,11 @@ public class ResourceRequirementTest
     {
         assertGetResourcesRequirementsForTestRunsAre(
             testRunsWithRequirements(
-                new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance1"), 2),
-                new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance2"), 2)
+                req("foo", "bar", "instance1", 2),
+                req("foo", "bar", "instance2", 2)
             ),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance1"), 2),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance2"), 2)
+            req("foo", "bar", "instance1", 2),
+            req("foo", "bar", "instance2", 2)
         );
     }
 
@@ -105,15 +105,11 @@ public class ResourceRequirementTest
     {
         assertGetResourcesRequirementsForTestRunsAre(
             testRunsWithRequirements(
-                new ResourceRequirement(
-                    new ResourceRequirement.ResourceType("foo", "bar", "instance1", Optional.of("bravo")), 2),
-                new ResourceRequirement(
-                    new ResourceRequirement.ResourceType("foo", "bar", "instance1", Optional.of("echo")), 2)
+                req("foo", "bar", "instance1", "bravo", 2),
+                req("foo", "bar", "instance1", "echo", 2)
             ),
-            new ResourceRequirement(
-                new ResourceRequirement.ResourceType("foo", "bar", "instance1", Optional.of("bravo")), 2),
-            new ResourceRequirement(
-                new ResourceRequirement.ResourceType("foo", "bar", "instance1", Optional.of("echo")), 2)
+            req("foo", "bar", "instance1", "bravo", 2),
+            req("foo", "bar", "instance1", "echo", 2)
         );
     }
 
@@ -122,13 +118,11 @@ public class ResourceRequirementTest
     {
         assertGetResourcesRequirementsForTestRunsAre(
             testRunsWithRequirements(
-                new ResourceRequirement(
-                    new ResourceRequirement.ResourceType("foo", "bar", "instance1", Optional.of("bravo")), 2),
-                new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance1"), 2)
+                req("foo", "bar", "instance1", "bravo", 2),
+                req("foo", "bar", "instance1", 2)
             ),
-            new ResourceRequirement(
-                new ResourceRequirement.ResourceType("foo", "bar", "instance1", Optional.of("bravo")), 2),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance1"), 2)
+            req("foo", "bar", "instance1", "bravo", 2),
+            req("foo", "bar", "instance1", 2)
         );
     }
 
@@ -136,17 +130,17 @@ public class ResourceRequirementTest
     public void getResourceRequirementsForTestRunsSortsCorrectly()
     {
         List<TestRun> testRuns = testRunsWithRequirements(
-            new ResourceRequirement(new ResourceRequirement.ResourceType("b", "b", "instance"), 2),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("b", "a", "instance"), 2),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("c", "c", "instance"), 2),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("a", "a", "instance"), 2)
+            req("b", "b", "instance", 2),
+            req("b", "a", "instance", 2),
+            req("c", "c", "instance", 2),
+            req("a", "a", "instance", 2)
         );
 
         assertThat(TestRun.getResourceRequirementsForTestRuns(testRuns)).containsExactly(
-            new ResourceRequirement(new ResourceRequirement.ResourceType("a", "a", "instance"), 2),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("b", "a", "instance"), 2),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("b", "b", "instance"), 2),
-            new ResourceRequirement(new ResourceRequirement.ResourceType("c", "c", "instance"), 2)
+            req("a", "a", "instance", 2),
+            req("b", "a", "instance", 2),
+            req("b", "b", "instance", 2),
+            req("c", "c", "instance", 2)
         );
     }
 }

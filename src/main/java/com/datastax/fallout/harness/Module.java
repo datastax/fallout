@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,14 @@
  */
 package com.datastax.fallout.harness;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -35,17 +37,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
 import io.netty.util.HashedWheelTimer;
 import jepsen.client.Client;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datastax.fallout.ops.ConfigurationManager;
+import com.datastax.fallout.components.common.provider.FileProvider;
+import com.datastax.fallout.components.common.provider.ModuleEventRecorderProvider;
 import com.datastax.fallout.ops.Ensemble;
-import com.datastax.fallout.ops.Product;
+import com.datastax.fallout.ops.FileSpec;
+import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.PropertySpecBuilder;
-import com.datastax.fallout.ops.Provider;
-import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.ops.WritablePropertyGroup;
 import com.datastax.fallout.util.NamedThreadFactory;
 
@@ -100,7 +103,6 @@ public abstract class Module implements Client, WorkloadComponent
         AUTOMATIC
     }
 
-    // Don't change these without considering their use in timestamp placeholders.
     public static final String START_EVENT_PREFIX = "Start: ";
     public static final String END_EVENT_PREFIX = "End: ";
 
@@ -116,20 +118,20 @@ public abstract class Module implements Client, WorkloadComponent
     private volatile String modulePhaseName;
 
     // if false, module's setup/teardown will run immediately before/after run, respectively
-    protected boolean useGlobalSetupTeardown = false;
+    private boolean useGlobalSetupTeardown = false;
 
     // Optional containing a reference to the test, initialized in invoke so we can use emit
     private volatile Optional<Object> test = Optional.empty();
 
-    protected Optional<String> testRunId = Optional.empty();
+    private Optional<UUID> testRunId = Optional.empty();
 
     // True when a Module is in its run method
-    protected boolean running = false;
+    private boolean running = false;
 
     // Atomic counter for number of times emit has been called in a given run
-    protected final AtomicInteger emittedCount = new AtomicInteger();
+    private final AtomicInteger emittedCount = new AtomicInteger();
 
-    protected Logger logger = classLogger;
+    private Logger logger = classLogger;
 
     private boolean setupSucceeded = false;
 
@@ -185,6 +187,11 @@ public abstract class Module implements Client, WorkloadComponent
         {
             this.lifetimePropertySpec = null;
         }
+    }
+
+    public void setUseGlobalSetupTeardown()
+    {
+        this.useGlobalSetupTeardown = true;
     }
 
     public void setTestRunAbortedCheck(Supplier<Boolean> abortedCheck)
@@ -243,41 +250,17 @@ public abstract class Module implements Client, WorkloadComponent
     }
 
     /**
-     * List the providers a module requires to work.
-     *
-     * This is an explicit call so we can verify upfront
-     * if a ops config will work with this module.
-     *
-     * @see ConfigurationManager#getAvailableProviders(PropertyGroup)
-     *
-     * @return the list of providers this Module requires
+     * Validates the ensemble has the proper configuration a Module requires to work.
+     * This includes things such as providers on a specific NodeGroup, or a managed file
      */
-    public abstract Set<Class<? extends Provider>> getRequiredProviders();
-
-    /**
-     * List the products a module supports testing
-     *
-     * We need to verify upfront if a config will work with this module
-     *
-     * @return the list of products this Module supports
-     */
-    public abstract List<Product> getSupportedProducts();
-
-    /**
-     * Returns the contents of a resource specific to the java package name
-     *
-     * @param resourceName
-     * @return
-     */
-    public Optional<byte[]> getResource(String resourceName)
+    public void validateEnsemble(EnsembleValidator validator)
     {
-        return Utils.getResource(this, resourceName);
     }
 
     @Override
-    final public List<PropertySpec> getPropertySpecs()
+    final public List<PropertySpec<?>> getPropertySpecs()
     {
-        final ImmutableList.Builder<PropertySpec> builder = ImmutableList.<PropertySpec>builder()
+        final ImmutableList.Builder<PropertySpec<?>> builder = ImmutableList.<PropertySpec<?>>builder()
             .addAll(getModulePropertySpecs());
         if (lifetimePropertySpec != null)
         {
@@ -286,9 +269,9 @@ public abstract class Module implements Client, WorkloadComponent
         return builder.build();
     }
 
-    protected List<PropertySpec> getModulePropertySpecs()
+    protected List<PropertySpec<?>> getModulePropertySpecs()
     {
-        return Collections.emptyList();
+        return List.of();
     }
 
     @Override
@@ -401,6 +384,7 @@ public abstract class Module implements Client, WorkloadComponent
         {
             if (setupSucceeded)
             {
+                newStartModuleEvent().ifPresent((event) -> maybeRecordEvent(ensemble, event));
                 runModule(ensemble);
             }
         }
@@ -411,6 +395,7 @@ public abstract class Module implements Client, WorkloadComponent
         }
         finally
         {
+            newEndModuleEvent().ifPresent((event) -> maybeRecordEvent(ensemble, event));
             if (!useGlobalSetupTeardown)
             {
                 doSafely(Module::teardown, "teardown", ensemble, getProperties());
@@ -458,7 +443,10 @@ public abstract class Module implements Client, WorkloadComponent
      *
      * In most forms of emit, this is used to timestamp operations as they are emitted
      * and is invoked implicitly. We provide this method to allow this timesource
-     * to be used in other fashions.
+     * to be used in other fashions. In particular, in the
+     * {@link com.datastax.fallout.components.lwtclient.LWTClientModule}, we use this method
+     * to allow out-of-process functions to construct operations with approximate timestamps to be
+     * emitted in batches.
      *
      * @return the time in nanoseconds relative to Jepsen starting this test
      */
@@ -599,5 +587,116 @@ public abstract class Module implements Client, WorkloadComponent
     public String toString()
     {
         return name();
+    }
+
+    /**
+     * Records an event in a {@link ModuleEventRecorderProvider} if it exists
+     * in the ensemble and services are running.  If not, this method is a no-op.
+     * @param ensemble the test ensemble where a {@link ModuleEventRecorderProvider} may be looked up
+     * @param event the event to record
+     */
+    protected void maybeRecordEvent(Ensemble ensemble, MonitoringEvent event)
+    {
+        ensemble.findFirstProvider(ModuleEventRecorderProvider.class)
+            .ifPresent(eventRecorder -> eventRecorder.maybeRecordEvent(event.title, event.description,
+                event.tags));
+    }
+
+    /**
+     * Creates a monitoring event that signals the start of {@code this} Module.
+     *
+     * This event will be recorded if the appropriate Provider is available.
+     *
+     * Some modules may choose to disable this 'start' event entirely by returning {@code Optional.empty()}.  Such use
+     * cases include repeating modules, when the 'start' event does not convey enough information.  Finer grained events
+     * may be recorded with {@link Module#maybeRecordEvent(Ensemble, MonitoringEvent)}.
+     *
+     * IF OVERRIDING, use START_EVENT_PREFIX to support timestamp placeholder replacement in metrics queries.
+     *
+     * @return an {@link Optional} containing the 'start' event to record, or {@code Optional.empty()} if nothing should
+     * be recorded
+     */
+    protected Optional<MonitoringEvent> newStartModuleEvent()
+    {
+        return newStartModuleEvent("");
+    }
+
+    protected Optional<MonitoringEvent> newStartModuleEvent(String description, String... tags)
+    {
+        return Optional.of(new MonitoringEvent(START_EVENT_PREFIX + getInstanceName(), description, tags));
+    }
+
+    /**
+     * Creates a monitoring event that signals the end of {@code this} Module.
+     *
+     * This event will be recorded if the appropriate Provider is available.
+     *
+     * Some modules may choose to disable this 'end' event entirely by returning {@code Optional.empty()}.  Such use
+     * cases include repeating modules, when the 'end' event does not convey enough information.  Finer grained events
+     * may be recorded with {@link Module#maybeRecordEvent(Ensemble, MonitoringEvent)}.
+     *
+     * IF OVERRIDING, use END_EVENT_PREFIX to support timestamp placeholder replacement in metrics queries.
+     *
+     * @return an {@link Optional} containing the 'end' event to record, or {@code Optional.empty()} if nothing should
+     * be recorded
+     */
+    protected Optional<MonitoringEvent> newEndModuleEvent()
+    {
+        return newEndModuleEvent("");
+    }
+
+    protected Optional<MonitoringEvent> newEndModuleEvent(String description, String... tags)
+    {
+        return Optional.of(new MonitoringEvent(END_EVENT_PREFIX + getInstanceName(), description, tags));
+    }
+
+    protected class MonitoringEvent
+    {
+        private final String title;
+        private final String description;
+        private final String[] tags;
+
+        public MonitoringEvent(String title, String description, String... tags)
+        {
+            this.title = title;
+            this.description = description;
+            if (testRunId.isPresent())
+            {
+                this.tags = Arrays.copyOf(tags, tags.length + 1);
+                this.tags[this.tags.length - 1] = String.valueOf(testRunId.get());
+            }
+            else
+            {
+                this.tags = tags;
+            }
+        }
+    }
+
+    protected void maybeDownloadWorkloadYaml(PropertySpec<String> yamlUrlSpec, List<Node> clientNodes)
+    {
+        Optional<String> yamlUrlValue = yamlUrlSpec.optionalValue(getProperties());
+        if (yamlUrlValue.isEmpty() || yamlUrlValue.get().isBlank() || clientNodes.isEmpty() ||
+            FileProvider.isManagedFileRef(yamlUrlValue.get()))
+        {
+            return;
+        }
+        String yamlUrl = yamlUrlValue.get();
+        String artifactName = "workloads/" + getInstanceName() + ".yaml";
+        Path localTargetFile = clientNodes.get(0).getNodeGroup().getLocalArtifactPath().resolve(artifactName);
+        try
+        {
+            URL url = new URL(yamlUrl);
+            FileUtils.copyURLToFile(url, localTargetFile.toFile(),
+                FileSpec.UrlFileSpec.DOWNLOAD_FROM_URL_TIMEOUT_MILLIS,
+                FileSpec.UrlFileSpec.DOWNLOAD_FROM_URL_TIMEOUT_MILLIS);
+        }
+        catch (MalformedURLException mue)
+        {
+            logger.info("maybeDownloadWorkloadYaml skipped for non-url: {}", yamlUrl);
+        }
+        catch (Exception e)
+        {
+            logger.warn("maybeDownloadWorkloadYaml failed", e);
+        }
     }
 }

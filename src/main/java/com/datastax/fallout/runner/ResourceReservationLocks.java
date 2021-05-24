@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,26 +24,29 @@ import java.util.Set;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.ops.ResourceRequirement;
+import com.datastax.fallout.ops.ResourceType;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
+import com.datastax.fallout.util.ScopedLogger;
 
+/** We have to make sure we only reserve one {@link ResourceType} at a time; for example, if we want to reserve
+ *  some instances on the FOO tenant of the BAR provider, we need to prevent anything else from
+ *  reserving on that tenant at the same time, otherwise we could get resources being double-booked. */
 public class ResourceReservationLocks
 {
-    private static final Logger logger = LoggerFactory.getLogger(ResourceReservationLocks.class);
+    private static final ScopedLogger logger = ScopedLogger.getLogger(ResourceReservationLocks.class);
 
-    private Set<ResourceRequirement.ResourceType> activeResources = new HashSet<>();
+    private Set<ResourceType> activeResources = new HashSet<>();
 
     public class Lock
     {
-        private Set<ResourceRequirement.ResourceType> lockedResources;
+        private Set<ResourceType> lockedResources;
         private final Instant acquiredAt = Instant.now();
         private Duration releasedAfterDuration;
 
-        Lock(Set<ResourceRequirement.ResourceType> resourceProviders)
+        Lock(Set<ResourceType> resourceProviders)
         {
             lockedResources = resourceProviders;
         }
@@ -53,30 +56,31 @@ public class ResourceReservationLocks
         {
             if (releasedAfterDuration == null)
             {
-                logger.debug("Attempting to release. Active: {}\tLocked: {}", activeResources, lockedResources);
                 releaseLockedResources(lockedResources);
                 releasedAfterDuration = Duration.between(acquiredAt, Instant.now());
             }
             return releasedAfterDuration;
         }
 
-        public Set<ResourceRequirement.ResourceType> getLockedResources()
+        public Set<ResourceType> getLockedResources()
         {
             return lockedResources;
         }
     }
 
-    private synchronized Optional<Lock> tryAcquire(Set<ResourceRequirement.ResourceType> required)
+    private synchronized Optional<Lock> tryAcquire(Set<ResourceType> required)
     {
-        logger.debug("Attempting to acquire. Active: {}\tRequired: {}", activeResources, required);
-        if (!couldAcquire(required))
-        {
-            return Optional.empty();
-        }
+        return logger.withScopedDebug("tryAcquire({})  active: {}", required, activeResources)
+            .get(() -> {
+                if (!couldAcquire(required))
+                {
+                    return Optional.empty();
+                }
 
-        activeResources.addAll(required);
+                activeResources.addAll(required);
 
-        return Optional.of(new Lock(required));
+                return Optional.of(new Lock(required));
+            });
     }
 
     public Optional<Lock> tryAcquire(TestRun testRun)
@@ -85,23 +89,28 @@ public class ResourceReservationLocks
             ResourceRequirement.reservationLockResourceTypes(testRun.getResourceRequirements().stream()));
     }
 
-    private synchronized boolean couldAcquire(Set<ResourceRequirement.ResourceType> required)
+    private synchronized boolean couldAcquire(Set<ResourceType> required)
     {
-        return Collections.disjoint(activeResources, required);
+        return logger.withScopedDebug("couldAcquire({})  active: {}", required, activeResources)
+            .get(() -> Collections.disjoint(activeResources, required));
     }
 
     public boolean couldAcquire(ReadOnlyTestRun testRun)
     {
-        return couldAcquire(
-            ResourceRequirement.reservationLockResourceTypes(testRun.getResourceRequirements().stream()));
+        return logger.withScopedDebug("couldAcquire({})", testRun.getShortName())
+            .get(() -> couldAcquire(
+                ResourceRequirement.reservationLockResourceTypes(testRun.getResourceRequirements().stream())));
     }
 
-    private synchronized void releaseLockedResources(Set<ResourceRequirement.ResourceType> lockedResources)
+    private synchronized void releaseLockedResources(Set<ResourceType> lockedResources)
     {
-        Preconditions.checkArgument(activeResources.containsAll(lockedResources));
+        logger.withScopedDebug("releaseLockedResources({})  active: {}", lockedResources, activeResources)
+            .run(() -> {
+                Preconditions.checkArgument(activeResources.containsAll(lockedResources));
 
-        activeResources.removeAll(lockedResources);
+                activeResources.removeAll(lockedResources);
 
-        Verify.verify(activeResources.stream().noneMatch(lockedResources::contains));
+                Verify.verify(activeResources.stream().noneMatch(lockedResources::contains));
+            });
     }
 }

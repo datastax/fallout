@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -30,7 +31,10 @@ import java.util.stream.Stream;
 import com.google.common.base.Preconditions;
 
 import com.datastax.fallout.harness.NullTestRunAbortedStatus;
+import com.datastax.fallout.harness.NullTestRunLinkUpdater;
 import com.datastax.fallout.harness.TestRunAbortedStatus;
+import com.datastax.fallout.harness.TestRunLinkUpdater;
+import com.datastax.fallout.ops.TestRunScratchSpaceFactory.TestRunScratchSpace;
 
 import static java.util.stream.Stream.concat;
 
@@ -42,7 +46,7 @@ public class EnsembleBuilder
     public static final String CONTROLLER_NAME = "controller";
     public static final String OBSERVER_NAME = "observer";
 
-    private String testRunId;
+    private UUID testRunId;
     private List<NodeGroupBuilder> serverBuilders = new LinkedList<>();
     private List<NodeGroupBuilder> clientBuilders = new LinkedList<>();
     private NodeGroupBuilder observerBuilder;
@@ -50,13 +54,15 @@ public class EnsembleBuilder
     private TestRunAbortedStatus testRunAbortedStatus = new NullTestRunAbortedStatus();
     private JobLoggers loggers = new JobConsoleLoggers();
     private EnsembleCredentials credentials;
+    private TestRunLinkUpdater testRunLinkUpdater = new NullTestRunLinkUpdater();
+    private LocalFilesHandler localFilesHandler = LocalFilesHandler.empty();
 
     public static EnsembleBuilder create()
     {
         return new EnsembleBuilder();
     }
 
-    public EnsembleBuilder withTestRunId(String testRunId)
+    public EnsembleBuilder withTestRunId(UUID testRunId)
     {
         this.testRunId = testRunId;
         return this;
@@ -160,6 +166,18 @@ public class EnsembleBuilder
         return this;
     }
 
+    public EnsembleBuilder withTestRunLinkUpdater(TestRunLinkUpdater testRunLinkUpdater)
+    {
+        this.testRunLinkUpdater = testRunLinkUpdater;
+        return this;
+    }
+
+    public EnsembleBuilder withLocalFilesHandler(LocalFilesHandler localFilesHandler)
+    {
+        this.localFilesHandler = localFilesHandler;
+        return this;
+    }
+
     private void check()
     {
         Preconditions.checkArgument(!serverBuilders.isEmpty(), "Server Builders are missing");
@@ -185,8 +203,7 @@ public class EnsembleBuilder
 
     public static IntSupplier createNodeOrdinalSupplier()
     {
-        return new IntSupplier()
-        {
+        return new IntSupplier() {
             private int current = 0;
 
             @Override
@@ -195,9 +212,9 @@ public class EnsembleBuilder
                 return this.current++;
             }
         };
-    };
+    }
 
-    public Ensemble build(Path testRunArtifactPath)
+    public Ensemble build(Path testRunArtifactPath, TestRunScratchSpace testRunScratchSpace)
     {
         check();
 
@@ -207,11 +224,13 @@ public class EnsembleBuilder
             .of(serverBuilders.stream(), clientBuilders.stream(), Stream.of(observerBuilder, controllerBuilder))
             .flatMap(Function.identity())
             .forEach(nodeGroupBuilder -> {
-                nodeGroupBuilder.withLoggers(loggers);
-                nodeGroupBuilder.withTestRunAbortedStatus(testRunAbortedStatus);
-                nodeGroupBuilder.withEnsembleOrdinalSupplier(nodeOrdinalSupplier);
-                nodeGroupBuilder.withTestRunArtifactPath(testRunArtifactPath);
-                nodeGroupBuilder.withCredentials(credentials);
+                nodeGroupBuilder.withLoggers(loggers)
+                    .withTestRunAbortedStatus(testRunAbortedStatus)
+                    .withEnsembleOrdinalSupplier(nodeOrdinalSupplier)
+                    .withTestRunArtifactPath(testRunArtifactPath)
+                    .withCredentials(credentials)
+                    .withTestRunScratchSpace(testRunScratchSpace)
+                    .withExtraAvailableProviders(localFilesHandler);
             });
 
         observerBuilder.withName(OBSERVER_NAME);
@@ -223,6 +242,7 @@ public class EnsembleBuilder
         NodeGroup observers = observerBuilder.build();
         NodeGroup controllers = controllerBuilder.build();
 
-        return new Ensemble(testRunId, servers, clients, observers, controllers);
+        return new Ensemble(testRunId, servers, clients, observers, controllers, testRunLinkUpdater,
+            testRunScratchSpace.makeScratchSpaceForWorkload(), loggers.getShared(), localFilesHandler);
     }
 }

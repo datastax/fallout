@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,22 +24,22 @@ import com.datastax.fallout.service.resources.server.ComponentResource;
 /** Contains things that don't change from one UI page to the next. */
 public final class MainView
 {
-    private final List<ComponentResource.ComponentType> componentMenu;
+    private final List<ComponentResource.ComponentType> componentTypes;
     private final QueuingTestRunner testRunner;
     public final String assetsRoot;
     public final String falloutVersion = FalloutVersion.getVersion();
 
-    public MainView(List<ComponentResource.ComponentType> componentMenu,
+    public MainView(List<ComponentResource.ComponentType> componentTypes,
         QueuingTestRunner testRunner, String assetsRoot)
     {
-        this.componentMenu = componentMenu;
+        this.componentTypes = componentTypes;
         this.testRunner = testRunner;
         this.assetsRoot = assetsRoot;
     }
 
-    public List<ComponentResource.ComponentType> getComponentMenu()
+    public List<ComponentResource.ComponentType> getComponentTypes()
     {
-        return componentMenu;
+        return componentTypes;
     }
 
     public QueuingTestRunner getTestRunner()

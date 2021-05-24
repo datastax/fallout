@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
  */
 package com.datastax.fallout.harness;
 
-import com.google.common.collect.ImmutableMap;
-import org.junit.Test;
+import java.util.Map;
 
+import org.junit.jupiter.api.Test;
+
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.harness.TestDefinition.expandTemplate;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDefinitionTest
 {
@@ -31,7 +32,7 @@ public class TestDefinitionTest
                 "bar: {{{foo}}}\n";
 
         String valueWithHTMLescapableChars = "-Dfoo=true -Dbar=false";
-        assertThat(expandTemplate(yaml, ImmutableMap.of("foo", valueWithHTMLescapableChars)))
+        assertThat(expandTemplate(yaml, Map.of("foo", valueWithHTMLescapableChars)))
             .isEqualTo(String.format(
                 "foo: %1$s\n" +
                     "bar: %1$s\n",

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,7 +42,7 @@ import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.Exceptions;
 
 /** Implementation of CommandExecutor that allows mocking the exit codes and output
- *  of commands using a list of commands created with {@link #command} */
+ *  of commands using a list of commands created with {@link #local} */
 public class MockCommandExecutor implements CommandExecutor
 {
     private static final Logger logger = LoggerFactory.getLogger(MockCommandExecutor.class);
@@ -116,12 +116,12 @@ public class MockCommandExecutor implements CommandExecutor
     private final List<MockCommandResponse> commandResponses;
 
     /** Create a MockCommandExecutor that will respond to commands according
-     *  to the commandResponses created with {@link #command}.  Commands not matching any of
+     *  to the commandResponses created with {@link #local}.  Commands not matching any of
      *  commandResponses will have an exit code of defaultExitCode. */
     public MockCommandExecutor(int defaultExitCode, MockCommandResponse... commandResponses)
     {
         this.defaultCommandResponse = command().exitsWith(defaultExitCode);
-        this.commandResponses = Arrays.asList(commandResponses);
+        this.commandResponses = List.of(commandResponses);
     }
 
     /** Equivalent to calling MockCommandExecutor(0, commandResponses) */
@@ -131,13 +131,15 @@ public class MockCommandExecutor implements CommandExecutor
     }
 
     @Override
-    public NodeResponse executeLocally(Node owner, String command, Map<String, String> environment)
+    public NodeResponse executeLocally(Node owner, String command, Map<String, String> environment,
+        Optional<Path> workingDirectory)
     {
         return new MockNodeResponse(executeCommand(command), command, owner.logger());
     }
 
     @Override
-    public NodeResponse executeLocally(Logger logger, String command, Map<String, String> environment)
+    public NodeResponse executeLocally(Logger logger, String command, Map<String, String> environment,
+        Optional<Path> workingDirectory)
     {
         return new MockNodeResponse(executeCommand(command), command, logger);
     }

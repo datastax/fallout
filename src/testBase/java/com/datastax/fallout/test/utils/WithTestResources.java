@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,10 +50,8 @@ public abstract class WithTestResources extends WithTestNames
 
         final String classBasedResourcePath = String.join("/", enclosingClasses) + "/" + path;
 
-        return Exceptions.getUncheckedIO(() -> {
-            return Resources.toString(
-                Resources.getResource(testClass, classBasedResourcePath),
-                StandardCharsets.UTF_8);
-        });
+        return Exceptions.getUncheckedIO(() -> Resources.toString(
+            Resources.getResource(testClass, classBasedResourcePath),
+            StandardCharsets.UTF_8));
     }
 }

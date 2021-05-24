@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,14 +27,14 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.sun.nio.file.SensitivityWatchEventModifier;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.TestHelpers;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
-import static org.assertj.core.api.Assertions.assertThat;
 
 /** Check basic behaviour of WatchService, since different platforms have different implementations. */
 public class WatchServiceTest extends TestHelpers.ArtifactTest
@@ -42,7 +42,7 @@ public class WatchServiceTest extends TestHelpers.ArtifactTest
     private WatchService watcher;
     private Path watched;
 
-    @Before
+    @BeforeEach
     public void setup() throws IOException
     {
         watcher = FileSystems.getDefault().newWatchService();
@@ -50,7 +50,7 @@ public class WatchServiceTest extends TestHelpers.ArtifactTest
         watched.getParent().register(watcher, new WatchEvent.Kind[] {ENTRY_MODIFY}, SensitivityWatchEventModifier.HIGH);
     }
 
-    @After
+    @AfterEach
     public void teardown() throws IOException
     {
         watcher.close();

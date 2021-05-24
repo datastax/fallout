@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class NamedThreadFactory implements ThreadFactory
 {
-    protected final String id;
+    private final String id;
     private final int priority;
-    protected final AtomicInteger n = new AtomicInteger(1);
+    private final AtomicInteger n = new AtomicInteger(1);
 
     public NamedThreadFactory(String id)
     {

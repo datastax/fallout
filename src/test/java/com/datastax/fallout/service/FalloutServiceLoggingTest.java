@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,38 +19,39 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
+import java.util.List;
 
 import com.google.common.collect.ImmutableList;
 import io.dropwizard.testing.ConfigOverride;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.experimental.categories.Category;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 
-import com.datastax.fallout.service.resources.FalloutServiceRule;
+import com.datastax.fallout.service.resources.FalloutAppExtension;
 import com.datastax.fallout.test.utils.WithPersistentTestOutputDir;
-import com.datastax.fallout.test.utils.categories.RequiresDb;
 import com.datastax.fallout.util.Exceptions;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.FalloutConfiguration.ServerMode.RUNNER;
 import static com.datastax.fallout.service.FalloutConfiguration.ServerMode.STANDALONE;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-@Category(RequiresDb.class)
+@Tag("requires-db")
 public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
 {
-    // Deliberately _not_ using @Rule: we want to set this up and tear it down for each test
-    private Optional<FalloutServiceRule> falloutServiceClassRule = Optional.empty();
+    /**
+     * we do not use {@link org.junit.jupiter.api.extension.RegisterExtension} here: we want to start {@link FalloutAppExtension} manually
+     **/
+    private FalloutAppExtension falloutService;
 
     private Path falloutYml;
 
-    @Before
+    @BeforeEach
     public void createFalloutYml() throws IOException
     {
         falloutYml = persistentTestOutputDir().resolve("fallout.yml");
-        Files.write(falloutYml, ImmutableList.of(
+        Files.write(falloutYml, List.of(
             "logging:",
             "  level: INFO",
             "  appenders:",
@@ -69,27 +70,20 @@ public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
             .build()
             .toArray(new ConfigOverride[0]);
 
-        final FalloutServiceRule falloutServiceClassRule =
-            FalloutServiceRule.withoutRuleAnnotation(mode,
-                persistentTestOutputDir(),
-                falloutYml.toString(),
-                overrides_);
+        falloutService = new FalloutAppExtension(mode, falloutYml.toString(), overrides_);
 
-        Exceptions.runUnchecked(falloutServiceClassRule::before);
-
-        this.falloutServiceClassRule = Optional.of(falloutServiceClassRule);
+        Exceptions.runUnchecked(() -> falloutService.before(persistentTestOutputDir()));
     }
 
     private void startService(FalloutConfiguration.ServerMode mode, String logFile)
     {
-        startService(mode,
-            ConfigOverride.config("logging.appenders[0].currentLogFilename", logFile));
+        startService(mode, ConfigOverride.config("logging.appenders[0].currentLogFilename", logFile));
     }
 
-    @After
+    @AfterEach
     public void teardown()
     {
-        falloutServiceClassRule.ifPresent(FalloutServiceRule::after);
+        falloutService.after();
     }
 
     private Path logPath(String logDir)

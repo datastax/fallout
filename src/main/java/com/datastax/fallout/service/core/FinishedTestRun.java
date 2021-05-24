@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 package com.datastax.fallout.service.core;
 
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 import java.util.Objects;
@@ -168,7 +167,7 @@ public class FinishedTestRun implements ReadOnlyTestRun
     @Override
     public Map<String, Object> getTemplateParamsMap()
     {
-        return Collections.emptyMap();
+        return Map.of();
     }
 
     @Override
@@ -180,6 +179,12 @@ public class FinishedTestRun implements ReadOnlyTestRun
     public boolean isEndStop()
     {
         return testRunId.equals(END_STOP_UUID);
+    }
+
+    @Override
+    public Map<String, String> getLinks()
+    {
+        return Map.of();
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,17 +22,18 @@ import net.sourceforge.argparse4j.inf.Namespace;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.FalloutConfigurationFactoryFactory;
 
-public abstract class FalloutCommand extends ConfiguredCommand<FalloutConfiguration>
+/** A command that does not need a {@link com.datastax.fallout.service.FalloutService} instance */
+public abstract class FalloutCommand<FC extends FalloutConfiguration> extends ConfiguredCommand<FC>
 {
     protected FalloutCommand(String name, String description)
     {
         super(name, description);
     }
 
-    private void forceConsoleLoggingOnly(Bootstrap<FalloutConfiguration> bootstrap)
+    private void forceConsoleLoggingOnly(Bootstrap<FC> bootstrap)
     {
-        final FalloutConfigurationFactoryFactory falloutConfigurationFactoryFactory =
-            new FalloutConfigurationFactoryFactory(bootstrap.getConfigurationFactoryFactory(),
+        final FalloutConfigurationFactoryFactory<FC> falloutConfigurationFactoryFactory =
+            new FalloutConfigurationFactoryFactory<>(bootstrap.getConfigurationFactoryFactory(),
                 falloutConfiguration -> {
                     falloutConfiguration.forceLoggingToConsoleOnly();
                     falloutConfiguration.updateLogFormat();
@@ -45,7 +46,7 @@ public abstract class FalloutCommand extends ConfiguredCommand<FalloutConfigurat
     @SuppressWarnings("unchecked")
     public void run(Bootstrap<?> wildcardBootstrap, Namespace namespace) throws Exception
     {
-        forceConsoleLoggingOnly((Bootstrap<FalloutConfiguration>) wildcardBootstrap);
+        forceConsoleLoggingOnly((Bootstrap<FC>) wildcardBootstrap);
 
         super.run(wildcardBootstrap, namespace);
     }

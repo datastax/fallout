@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,18 +23,16 @@ import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import com.github.mustachejava.Code;
 import com.github.mustachejava.Mustache;
-import com.github.mustachejava.MustacheFactory;
+import com.github.mustachejava.reflect.Guard;
+import com.github.mustachejava.reflect.MissingWrapper;
+import com.github.mustachejava.reflect.ReflectionObjectHandler;
 import org.apache.commons.lang3.tuple.Pair;
 
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
@@ -65,7 +63,6 @@ public class TestDefinition
         return yaml;
     }
 
-    @SuppressWarnings("unchecked")
     public static Pair<Optional<String>, String> splitDefaultsAndDefinition(String yaml)
     {
         Optional<String> defaults = Optional.empty();
@@ -89,30 +86,36 @@ public class TestDefinition
 
     public static String renderDefinitionWithScopes(String definition, List<Map<String, Object>> scopes)
     {
-        final MustacheFactory mustacheFactory = new MustacheFactoryWithoutHTMLEscaping();
+        final var mustacheFactory = new MustacheFactoryWithoutHTMLEscaping();
+        final var missingTags = new HashSet<String>();
+
+        // Inspired by https://github.com/spullara/mustache.java/issues/1#issuecomment-449716760
+        mustacheFactory.setObjectHandler(new ReflectionObjectHandler() {
+            @Override
+            protected MissingWrapper createMissingWrapper(String name, List<Guard> guards)
+            {
+                missingTags.add(name);
+                return super.createMissingWrapper(name, guards);
+            }
+        });
 
         final Mustache mustache = mustacheFactory.compile(new StringReader(definition), "test yaml");
 
-        final Set<String> missingTags = Stream.of(mustache.getCodes())
-            .map(Code::getName)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toSet());
-        scopes.forEach(scope -> missingTags.removeAll(scope.keySet()));
+        final StringWriter stringWriter = new StringWriter(definition.length() * 2);
+        mustache.execute(stringWriter, scopes.toArray());
+
         if (!missingTags.isEmpty())
         {
             throw new InvalidConfigurationException("Some template tags were not given values: " +
                 String.join(", ", missingTags));
         }
 
-        final StringWriter stringWriter = new StringWriter(definition.length() * 2);
-        mustache.execute(stringWriter, scopes.toArray());
-
         return stringWriter.toString();
     }
 
     public static Map<String, Object> loadDefaults(Optional<String> defaultsYaml)
     {
-        return defaultsYaml.map(YamlUtils::loadYaml).orElse(Collections.emptyMap());
+        return defaultsYaml.map(YamlUtils::loadYaml).orElse(Map.of());
     }
 
     private static String importRemoteYaml(String yaml)

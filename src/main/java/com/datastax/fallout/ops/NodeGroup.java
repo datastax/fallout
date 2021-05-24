@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,13 @@
 package com.datastax.fallout.ops;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -34,6 +31,7 @@ import java.util.function.BiFunction;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -46,9 +44,13 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.datastax.fallout.harness.ActiveTestRunBuilder;
 import com.datastax.fallout.harness.TestRunAbortedStatus;
+import com.datastax.fallout.ops.TestRunScratchSpaceFactory.LocalScratchSpace;
 import com.datastax.fallout.ops.commands.NodeCommandExecutor;
 import com.datastax.fallout.ops.commands.NodeResponse;
+import com.datastax.fallout.ops.provisioner.NoRemoteAccessProvisioner;
+import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.runner.CheckResourcesResult;
 import com.datastax.fallout.util.Duration;
 
@@ -62,7 +64,7 @@ import static com.datastax.fallout.ops.NodeGroup.State.TransitionDirection.UP;
  *
  * This could be a server group, client group, etc.
  */
-public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, AutoCloseable
+public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, AutoCloseable, HasAvailableProviders
 {
     private static final Logger classLogger = LoggerFactory.getLogger(NodeGroup.class);
 
@@ -79,7 +81,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
     private final EnsembleCredentials credentials;
     private final LocalScratchSpace localScratchSpace;
     private final Optional<NodeGroup.State> finalRunLevel;
-    private final LocalFilesHandler localFilesHandler;
+    private final HasAvailableProviders extraAvailableProviders;
 
     private volatile State state = UNKNOWN;
     private boolean hasStarted = false;
@@ -90,8 +92,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         TestRunAbortedStatus testRunAbortedStatus, int nodeCount, Ensemble.Role role,
         IntSupplier ensembleOrdinalSupplier, JobLoggers loggers, Path localArtifactPath,
         EnsembleCredentials credentials, Optional<State> finalRunLevel,
-        LocalFilesHandler localFilesHandler) throws IOException
-
+        LocalScratchSpace localScratchSpace, HasAvailableProviders extraAvailableProviders)
     {
         this.name = name;
         this.aliases = aliases;
@@ -104,16 +105,15 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         this.credentials = credentials;
         this.finalRunLevel = finalRunLevel;
         this.logger = loggers.create(name, Paths.get(name, "fallout-nodegroup.log"));
-        this.localFilesHandler = localFilesHandler;
-        localScratchSpace = new LocalScratchSpace("nodegroup-scratch");
+        this.localScratchSpace = localScratchSpace;
+        this.extraAvailableProviders = extraAvailableProviders;
 
         provisioner.setNodeGroup(this);
         configurationManager.setNodeGroup(this);
         configurationManager.setLogger(logger);
 
-        Files.createDirectories(localArtifactPath);
+        FileUtils.createDirs(localArtifactPath);
 
-        //Create node instances
         List<Node> nodeList = new ArrayList<>(nodeCount);
         for (int i = 0; i < nodeCount; i++)
         {
@@ -127,7 +127,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
     @Override
     public void close()
     {
-        localScratchSpace.close();
+        configurationManager.close();
     }
 
     public boolean currentOperationShouldBeAborted()
@@ -244,6 +244,17 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         return getFinalRunLevel().filter(finalRunLevel_ -> finalRunLevel_ == DESTROYED).isEmpty();
     }
 
+    /** The state that the {@link NodeGroup} should be left in after tearing down at the end of a test run; if
+     *  empty, then the {@link NodeGroup} should be left in whatever state it was in at the end of the workload.
+     *
+     *  <p>This is set by the mutually exclusive properties:
+     *
+     *  <ul>
+     *      <li><code>mark_for_reuse</code>: if <code>true</code> then this will be empty;
+     *      <li><code>runlevel.final</code>: if set, then this will be the set value;
+     *      <li>otherwise, it defaults to {@link State#DESTROYED}.
+     * </ul>
+     */
     public Optional<State> getFinalRunLevel()
     {
         return finalRunLevel;
@@ -254,18 +265,25 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         return localScratchSpace;
     }
 
-    public boolean createAllLocalFiles()
-    {
-        return localFilesHandler.createAllLocalFiles(this);
-    }
-
+    @Override
     public Set<Class<? extends Provider>> getAvailableProviders()
     {
-        Set<Class<? extends Provider>> available = new HashSet<>();
-        available.addAll(localFilesHandler.getAvailableProviders());
-        available.addAll(provisioner.getAvailableProviders(getProperties()));
-        available.addAll(configurationManager.getAvailableProviders(getProperties()));
-        return available;
+        return Stream.of(provisioner, configurationManager, extraAvailableProviders)
+            .map(HasAvailableProviders::getAvailableProviders)
+            .flatMap(Set::stream)
+            .collect(Collectors.toSet());
+    }
+
+    public boolean createLocalFile(Path fileLocation, FileSpec fileSpec)
+    {
+        return fileSpec.createLocalFile(this.logger(), this.getProvisioner().getCommandExecutor(),
+            fileLocation,
+            new ActiveTestRunBuilder.NoOpValidationResult());
+    }
+
+    public boolean willHaveProvider(Class<? extends Provider> reqProvider)
+    {
+        return getAvailableProviders().stream().anyMatch(reqProvider::isAssignableFrom);
     }
 
     /**
@@ -274,7 +292,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
      */
     void setState(State newState)
     {
-        String logMsg = "Changing node group {} from {} -> {}";
+        String logMsg = "Setting node group {} state {} -> {}";
         boolean toUnknown = this.state != UNKNOWN && newState == UNKNOWN;
         boolean toFailed = newState == FAILED;
         if (toUnknown)
@@ -417,7 +435,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         return actionSupplier.apply(state, endState)
             .map(actionAndStates ->
             // perform NodeGroup action
-            handleAction(actionAndStates.getLeft(), actionAndStates.getRight(), failure)
+            handleAction(actionAndStates.getLeft(), actionAndStates.getRight(), success, failure)
                 .thenComposeAsync(actionResult -> wasSuccessful.apply(actionResult) ?
                     // previous action was successful, continue transition to endState.
                     progressivelyApplyAction(actionSupplier, success, failure, wasSuccessful, endState) :
@@ -494,12 +512,14 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
      */
     public CompletableFuture<CheckResourcesResult> transitionState(final State endState)
     {
+        final var logMessage = String.format("Transitioning node group %s from %s -> %s...", name, state, endState);
+
         return
         // maybeCheckState will ensure NodeGroup.state is correct
         maybeCheckState(endState)
             // Do group transitions below endState
             .thenComposeAsync(ignored -> {
-                logger.info("Transitioning {} from {} -> {}", name, state, endState);
+                logger.info(logMessage);
                 return progressivelyApplyResourceAction(endState);
             })
             .thenComposeAsync(resourceTransitions -> {
@@ -512,17 +532,20 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
                     .thenApplyAsync(CheckResourcesResult::fromWasSuccessful);
             })
             .exceptionally(ex -> {
-                logger.error("Error transitioning NodeGroup:", ex);
+                logger.error(logMessage + "failed", ex);
                 return CheckResourcesResult.FAILED;
             })
             .thenApplyAsync(transitionResult -> {
                 switch (transitionResult)
                 {
                     case UNAVAILABLE:
-                        logger.warn("Failed to transition nodes (resources unavailable)");
+                        logger.warn("{}failed (resources unavailable)", logMessage);
                         break;
                     case FAILED:
-                        logger.error("Failed to transition nodes");
+                        logger.error("{}failed", logMessage);
+                        break;
+                    default:
+                        logger.info("{}done", logMessage);
                         break;
                 }
                 return transitionResult;
@@ -533,17 +556,17 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
     // Action Methods
     //
     private <T> CompletableFuture<T> handleAction(Function<NodeGroup, T> action,
-        State.ActionStates actionStates, T failure)
+        State.ActionStates actionStates, T success, T failure)
     {
         return CompletableFuture.supplyAsync(() -> {
             setState(actionStates.transition);
 
             T result = action.apply(this);
 
-            if (result == failure)
+            if (result != success)
             {
                 setState(FAILED);
-                return failure;
+                return result;
             }
 
             setState(actionStates.runLevel);
@@ -658,7 +681,17 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
     private <T extends Provider> Supplier<IllegalArgumentException> missingProviderError(Class<T> providerClass)
     {
         return () -> new IllegalArgumentException(
-            "NodeGroup " + getId() + " has no Node with Provider: " + providerClass);
+            "NodeGroup '" + getId() + "' is missing a Node with a " + providerClass.getSimpleName());
+    }
+
+    public <T extends Provider> List<T> findAllProviders(Class<T> providerClass, Predicate<T> predicate)
+    {
+        return getNodes().stream()
+            .flatMap(node -> node.getAllProviders().stream())
+            .filter(providerClass::isInstance)
+            .map(providerClass::cast)
+            .filter(predicate)
+            .collect(Collectors.toList());
     }
 
     public <T extends Provider> Optional<T> findFirstProvider(Class<T> providerClass)
@@ -722,19 +755,30 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
             return CompletableFuture.completedFuture(true);
         }
 
-        CompletableFuture<Boolean> generalNodeArtifacts = waitForAllNodesAsync(node -> {
-            return node.get(node.getRemoteArtifactPath(), node.getLocalArtifactPath(), true).join();
-        }, "getting general node artifacts");
+        CompletableFuture<Boolean> generalNodeArtifacts;
 
-        CompletableFuture<Boolean> nodeProvisionerArtifacts = waitForAllNodesAsync(node -> {
-            return getProvisioner().downloadProvisionerArtifacts(node, node.getLocalArtifactPath()).join();
-        }, "getting node provisioner artifacts");
+        if (provisioner instanceof NoRemoteAccessProvisioner)
+        {
+            logger.info(
+                "NodeGroup.downloadArtifacts will not download the node's artifact directories since SSH is not available on NoRemoteAccessProvisioner");
+            generalNodeArtifacts = CompletableFuture.completedFuture(true);
+        }
+        else
+        {
+            generalNodeArtifacts = waitForAllNodesAsync(
+                node -> node.get(node.getRemoteArtifactPath(), node.getLocalArtifactPath(), true).join(),
+                "getting general node artifacts");
+        }
+
+        CompletableFuture<Boolean> nodeProvisionerArtifacts = waitForAllNodesAsync(
+            node -> getProvisioner().downloadProvisionerArtifacts(node, node.getLocalArtifactPath()).join(),
+            "getting node provisioner artifacts");
 
         CompletableFuture<Boolean> nodeGroupProvisionerArtifacts =
             getProvisioner().downloadProvisionerArtifacts(this, getLocalArtifactPath());
 
         return Utils.waitForAllAsync(
-            ImmutableList.of(generalNodeArtifacts, nodeProvisionerArtifacts, nodeGroupProvisionerArtifacts));
+            List.of(generalNodeArtifacts, nodeProvisionerArtifacts, nodeGroupProvisionerArtifacts));
     }
 
     /**
@@ -837,7 +881,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
 
     public boolean waitForSuccessWithNonZeroIsNoError(String script)
     {
-        return waitForSuccess(script, wo -> wo.exitCodeIsError = n -> false);
+        return waitForSuccess(script, wo -> wo.nonZeroIsNoError());
     }
 
     public boolean waitForNodeSpecificSuccess(Function<Node, String> nodeSpecificScriptCreator)

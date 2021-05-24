@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package com.datastax.fallout.service.cli;
 
 import java.nio.file.Paths;
+import java.util.Optional;
 
 import io.dropwizard.lifecycle.ServerLifecycleListener;
 import io.dropwizard.setup.Environment;
@@ -25,16 +26,16 @@ import net.sourceforge.argparse4j.inf.Subparser;
 import org.eclipse.jetty.server.Server;
 
 import com.datastax.fallout.service.FalloutConfiguration;
-import com.datastax.fallout.service.FalloutService;
+import com.datastax.fallout.service.FalloutServiceBase;
 
 import static java.util.Optional.ofNullable;
 
-public class FalloutRunnerCommand extends FalloutServerCommand
+public class FalloutRunnerCommand<FC extends FalloutConfiguration> extends FalloutServerCommand<FC>
 {
     public static final String RUNNER_ID_OPTION_NAME = "runnerId";
     public static final String PORT_FILE_OPTION_NAME = "portFile";
 
-    public FalloutRunnerCommand(FalloutService falloutService)
+    public FalloutRunnerCommand(FalloutServiceBase<FC> falloutService)
     {
         super(falloutService, "runner",
             "Run fallout as a runner process, accepting testruns delegated from a queue process");
@@ -50,12 +51,19 @@ public class FalloutRunnerCommand extends FalloutServerCommand
 
         subparser.addArgument("--port-file")
             .help(String.format("Write the port number to %s if --runner-id is specified",
-                FalloutConfiguration.getPortFile(Paths.get("FALLOUT_HOME"), 99)
+                FalloutConfiguration.getPortFile(Paths.get("$FALLOUT_HOME"), 99)
                     .toString().replace("/99/", "/RUNNER-ID/")))
             .action(Arguments.storeTrue())
             .dest(PORT_FILE_OPTION_NAME);
 
         super.configure(subparser);
+    }
+
+    @Override
+    protected String getPidFileLocation()
+    {
+        return FalloutConfiguration.getPidFile(Paths.get("$FALLOUT_HOME"), Optional.of(99))
+            .toString().replace("/99/", "/RUNNER-ID/");
     }
 
     @Override
@@ -69,12 +77,11 @@ public class FalloutRunnerCommand extends FalloutServerCommand
 
     @Override
     protected void run(Environment environment, Namespace namespace,
-        FalloutConfiguration configuration) throws Exception
+        FC configuration) throws Exception
     {
         if (namespace.getBoolean(PORT_FILE_OPTION_NAME))
         {
-            environment.lifecycle().addServerLifecycleListener(new ServerLifecycleListener()
-            {
+            environment.lifecycle().addServerLifecycleListener(new ServerLifecycleListener() {
                 @Override
                 public void serverStarted(Server server)
                 {

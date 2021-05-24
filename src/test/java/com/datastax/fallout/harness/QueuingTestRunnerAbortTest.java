@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.datastax.fallout.harness;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,13 +29,13 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Uninterruptibles;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 
-import com.datastax.fallout.harness.impl.FakeModule;
+import com.datastax.fallout.components.fakes.FakeProvisioner;
+import com.datastax.fallout.components.impl.FakeModule;
 import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.NodeGroup;
@@ -43,23 +44,22 @@ import com.datastax.fallout.ops.Provisioner;
 import com.datastax.fallout.ops.ResourceRequirement;
 import com.datastax.fallout.ops.commands.CommandExecutor;
 import com.datastax.fallout.ops.commands.NodeResponse;
-import com.datastax.fallout.ops.provisioner.FakeProvisioner;
 import com.datastax.fallout.runner.CheckResourcesResult;
 import com.datastax.fallout.runner.QueuingTestRunner;
+import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.Test;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.ScopedLogger;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.harness.QueuingTestRunnerAbortTest.Method.*;
 import static com.datastax.fallout.harness.QueuingTestRunnerAbortTest.MethodResult.FAILS;
 import static com.datastax.fallout.harness.QueuingTestRunnerAbortTest.MethodResult.SUCCEEDS;
 import static com.datastax.fallout.harness.QueuingTestRunnerAbortTest.MethodResult.THROWS;
-import static com.datastax.fallout.service.core.TestRunAssert.assertThat;
-import static org.assertj.core.api.Assertions.assertThat;
 
-@RunWith(Parameterized.class)
-public class QueuingTestRunnerAbortTest extends TestRunnerTestHelpers.QueuingTestRunnerTest
+@Timeout(value = 10, unit = TimeUnit.SECONDS)
+public class QueuingTestRunnerAbortTest extends TestRunnerTestHelpers.QueuingTestRunnerTest<FalloutConfiguration>
 {
     private static final ScopedLogger logger = ScopedLogger.getLogger(QueuingTestRunnerAbortTest.class);
 
@@ -114,14 +114,12 @@ public class QueuingTestRunnerAbortTest extends TestRunnerTestHelpers.QueuingTes
         if (method == abortDuringMethod && --abortDuringMethodNumber == 0)
         {
             abortDuringMethod = null;
-            try (ScopedLogger.Scoped ignored = logger.scopedInfo(String.format(
-                "signalling start of to-be-aborted method %s and waiting before returning %s", method,
-                expectedAbortMode)))
-            {
-                methodStarted.countDown();
-                await(methodContinue);
-                return expectedAbortMode;
-            }
+            return logger.withScopedInfo("signalling start of to-be-aborted method {} and waiting before returning {}",
+                method, expectedAbortMode).get(() -> {
+                    methodStarted.countDown();
+                    await(methodContinue);
+                    return expectedAbortMode;
+                });
         }
         return ExpectedAbortMode.NO_ABORT;
     }
@@ -158,7 +156,7 @@ public class QueuingTestRunnerAbortTest extends TestRunnerTestHelpers.QueuingTes
     private void executeCommand(NodeGroup nodeGroup)
     {
         CommandExecutor commandExecutor = nodeGroup.getProvisioner().getCommandExecutor();
-        waitForExitCodeAndAddToCalledMethods(commandExecutor.executeLocally(nodeGroup.logger(), "bogus"));
+        waitForExitCodeAndAddToCalledMethods(commandExecutor.local(nodeGroup.logger(), "bogus").execute());
     }
 
     private void executeCommand(Node node)
@@ -244,13 +242,15 @@ public class QueuingTestRunnerAbortTest extends TestRunnerTestHelpers.QueuingTes
     private class FakeCommandExecutor implements CommandExecutor
     {
         @Override
-        public NodeResponse executeLocally(Node owner, String command, Map<String, String> environment)
+        public NodeResponse executeLocally(Node owner, String command, Map<String, String> environment,
+            Optional<Path> workingDirectory)
         {
             return new FakeNodeResponse(owner, methodResult() ? 0 : 1, owner.logger());
         }
 
         @Override
-        public NodeResponse executeLocally(Logger logger, String command, Map<String, String> environment)
+        public NodeResponse executeLocally(Logger logger, String command, Map<String, String> environment,
+            Optional<Path> workingDirectory)
         {
             return new FakeNodeResponse(null, methodResult() ? 0 : 1, logger);
         }
@@ -345,15 +345,9 @@ public class QueuingTestRunnerAbortTest extends TestRunnerTestHelpers.QueuingTes
 
             if (abortMethod != null)
             {
-                try (ScopedLogger.Scoped ignored = logger.scopedInfo(String.format(
-                    "waiting for method %s to start before aborting", abortMethod)))
-                {
-                    await(methodStarted);
-                }
-                try (ScopedLogger.Scoped ignored = logger.scopedInfo(String.format("aborting %s", abortMethod)))
-                {
-                    testRunner.abortTestRun(testRun);
-                }
+                logger.withScopedInfo("waiting for method {} to start before aborting", abortMethod).run(
+                    () -> await(methodStarted));
+                logger.withScopedInfo("aborting {}", abortMethod).run(() -> testRunner.abortTestRun(testRun));
                 methodContinue.countDown();
             }
 
@@ -367,36 +361,19 @@ public class QueuingTestRunnerAbortTest extends TestRunnerTestHelpers.QueuingTes
         assertThat(testRunnerJobQueue.hasNoRequeuedJobs()).isTrue();
     }
 
-    @Parameter
-    public int abortDuringMethodNumber;
-
-    @Parameter(1)
-    public Method abortDuringMethod;
-
-    @Parameter(2)
-    public MethodResult methodResult;
-
-    @Parameter(3)
-    public TestRun.State expectedFailedDuring;
-
-    @Parameter(4)
-    public List<Method> expectedMethods;
-
     private static List<Method> executesCommand()
     {
-        return ImmutableList.of(EXECUTE, EXECUTE_SUCCESS);
+        return List.of(EXECUTE, EXECUTE_SUCCESS);
     }
 
     private static List<Method> killsCommand()
     {
-        return ImmutableList.of(EXECUTE, NODE_EXECUTION_KILLED);
+        return List.of(EXECUTE, NODE_EXECUTION_KILLED);
     }
 
-    @Parameters(name = "when the test is aborted during call {0} to {1} that {2}, " +
-        "then the test fails during {3}, and only {4} are called")
-    public static Object[] params()
+    public static Object[][] params()
     {
-        return new Object[] {
+        return new Object[][] {
             // MODULE_RUN appears twice in a non-aborted test, since abort-fake.yaml contains two phases in which an instance
             // of fake module is called.  When we abort during the first MODULE_RUN, then we don't see the second call.
             new Object[] {1, null, SUCCEEDS, null,
@@ -413,11 +390,11 @@ public class QueuingTestRunnerAbortTest extends TestRunnerTestHelpers.QueuingTes
                     .build()},
 
             new Object[] {1, PROVISIONER_GET_RESOURCE_REQUIREMENTS, SUCCEEDS, TestRun.State.CHECKING_RESOURCES,
-                ImmutableList.of(PROVISIONER_GET_RESOURCE_REQUIREMENTS)},
+                List.of(PROVISIONER_GET_RESOURCE_REQUIREMENTS)},
             new Object[] {1, PROVISIONER_GET_RESOURCE_REQUIREMENTS, FAILS, TestRun.State.CHECKING_RESOURCES,
-                ImmutableList.of(PROVISIONER_GET_RESOURCE_REQUIREMENTS)},
+                List.of(PROVISIONER_GET_RESOURCE_REQUIREMENTS)},
             new Object[] {1, PROVISIONER_GET_RESOURCE_REQUIREMENTS, THROWS, TestRun.State.CHECKING_RESOURCES,
-                ImmutableList.of(PROVISIONER_GET_RESOURCE_REQUIREMENTS)},
+                List.of(PROVISIONER_GET_RESOURCE_REQUIREMENTS)},
 
             new Object[] {1, PROVISIONER_RESERVE, SUCCEEDS, TestRun.State.RESERVING_RESOURCES,
                 ImmutableList.builder()
@@ -558,9 +535,20 @@ public class QueuingTestRunnerAbortTest extends TestRunnerTestHelpers.QueuingTes
         };
     }
 
-    @org.junit.Test
-    public void aborts_test_during() throws InterruptedException
+    public int abortDuringMethodNumber;
+    public Method abortDuringMethod;
+    public MethodResult methodResult;
+
+    @ParameterizedTest(name = "when the test is aborted during call {0} to {1} that {2}, " +
+        "then the test fails during {3}, and only {4} are called")
+    @MethodSource("params")
+    public void aborts_test_during(int abortDuringMethodNumber, Method abortDuringMethod, MethodResult methodResult,
+        TestRun.State expectedFailedDuring, List<Method> expectedMethods)
     {
+        this.abortDuringMethodNumber = abortDuringMethodNumber;
+        this.abortDuringMethod = abortDuringMethod;
+        this.methodResult = methodResult;
+
         abortsTestDuring(abortDuringMethod, expectedFailedDuring, expectedMethods);
     }
 }

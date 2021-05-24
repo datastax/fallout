@@ -1,0 +1,12 @@
+ensemble:
+  client:
+    node.count: 1
+    provisioner:
+      name: fake
+    configuration_manager:
+      name: fake
+  server: client
+workload:
+  phases:
+    - phase	with	tabs:
+        module: fake

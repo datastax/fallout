@@ -1,0 +1,23 @@
+no_op_args:
+---
+ensemble:
+  server:
+    node.count: 1
+    provisioner:
+      name: fake
+
+  client: server
+
+workload:
+  phases:
+    - dummy:
+        module: fake
+  checkers:
+    nofail:
+      checker: nofail
+  artifact_checkers:
+    no_op_tool:
+      artifact_checker: tool
+      properties:
+        tool: no-op
+        args: {{no_op_args}}

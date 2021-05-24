@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,41 +18,33 @@ package com.datastax.fallout.harness.simulator;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
-import org.junit.Rule;
-import org.junit.runner.notification.Failure;
-import org.junit.runner.notification.RunListener;
-import org.junit.runner.notification.RunNotifier;
-import org.junit.runners.BlockJUnit4ClassRunner;
-import org.junit.runners.model.FrameworkMethod;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.datastax.fallout.TestHelpers;
+import com.datastax.fallout.components.fakes.FakeProvisioner;
+import com.datastax.fallout.components.impl.FakeModule;
 import com.datastax.fallout.harness.Module;
 import com.datastax.fallout.harness.Operation;
 import com.datastax.fallout.harness.TestRunnerTestHelpers;
-import com.datastax.fallout.harness.impl.FakeModule;
 import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.PropertySpecBuilder;
 import com.datastax.fallout.ops.Provisioner;
-import com.datastax.fallout.ops.provisioner.FakeProvisioner;
 import com.datastax.fallout.runner.ActiveTestRunFactory;
 import com.datastax.fallout.runner.JobLoggersFactory;
 import com.datastax.fallout.runner.QueuingTestRunner;
@@ -61,11 +53,11 @@ import com.datastax.fallout.runner.ThreadedRunnableExecutorFactory;
 import com.datastax.fallout.runner.UserCredentialsFactory.UserCredentials;
 import com.datastax.fallout.runner.queue.InMemoryPendingQueue;
 import com.datastax.fallout.runner.queue.TestRunQueue;
+import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.Fakes;
 import com.datastax.fallout.service.core.Test;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.User;
-import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.ScopedLogger;
 
 import static com.datastax.fallout.harness.TestRunnerTestHelpers.makeTest;
@@ -79,7 +71,8 @@ import static com.datastax.fallout.harness.simulator.TestRunPlan.shortTestRunId;
  * The heart of Simulator is {@link #simulate(QueuingTestRunner)}, which handles stepping through the simulation according
  * to the instructions in the {@link #pendingTestRunPlans}.
  */
-public class Simulator extends TestHelpers.FalloutTest
+@ExtendWith(MockitoExtension.class)
+public class Simulator extends TestHelpers.FalloutTest<FalloutConfiguration>
 {
     static final ScopedLogger logger = ScopedLogger.getLogger(Simulator.class);
     static final Duration SYNCHRONIZATION_TIMEOUT = Duration.ofSeconds(5);
@@ -94,9 +87,6 @@ public class Simulator extends TestHelpers.FalloutTest
     private final TestRunQueue.Blocker blocker = new TestRunQueue.Blocker();
     private final int simulationId;
 
-    @Rule
-    public final MockitoRule mockitoRule = MockitoJUnit.rule();
-
     static void debug(String message, Object... args)
     {
         logger.info(String.format("### " + message, args));
@@ -104,7 +94,8 @@ public class Simulator extends TestHelpers.FalloutTest
 
     static class SimulatedModule extends FakeModule
     {
-        static final PropertySpec<UUID> testRunIdSpec = PropertySpecBuilder.create(PREFIX)
+        static final PropertySpec<UUID> testRunIdSpec = PropertySpecBuilder
+            .<UUID>create(PREFIX)
             .name("test.run.id")
             .parser(input -> UUID.fromString((String) input))
             .required()
@@ -118,9 +109,9 @@ public class Simulator extends TestHelpers.FalloutTest
         }
 
         @Override
-        public List<PropertySpec> getModulePropertySpecs()
+        public List<PropertySpec<?>> getModulePropertySpecs()
         {
-            return ImmutableList.of(testRunIdSpec);
+            return List.of(testRunIdSpec);
         }
 
         @Override
@@ -135,7 +126,8 @@ public class Simulator extends TestHelpers.FalloutTest
 
     static class SimulatedProvisioner extends FakeProvisioner
     {
-        static final PropertySpec<UUID> testRunIdSpec = PropertySpecBuilder.create(PREFIX)
+        static final PropertySpec<UUID> testRunIdSpec = PropertySpecBuilder
+            .<UUID>create(PREFIX)
             .name("test.run.id")
             .parser(input -> UUID.fromString((String) input))
             .required()
@@ -149,9 +141,9 @@ public class Simulator extends TestHelpers.FalloutTest
         }
 
         @Override
-        public List<PropertySpec> getPropertySpecs()
+        public List<PropertySpec<?>> getPropertySpecs()
         {
-            return ImmutableList.of(testRunIdSpec);
+            return List.of(testRunIdSpec);
         }
 
         public TestRunnerState getTestRunnerState()
@@ -187,69 +179,21 @@ public class Simulator extends TestHelpers.FalloutTest
      *  that have been built up for use with other tests */
     void simulate()
     {
-        Exceptions.runUnchecked(() -> {
-            // Inspired by https://stackoverflow.com/a/13606735/322152
-            final BlockJUnit4ClassRunner runner = new BlockJUnit4ClassRunner(Simulator.class)
-            {
-                /** Instead of a new instance of Simulator, return the enclosing instance */
-                @Override
-                protected Object createTest() throws Exception
-                {
-                    return Simulator.this;
-                }
-
-                /** We have only one test method, _simulate */
-                @Override
-                protected List<FrameworkMethod> computeTestMethods()
-                {
-                    return Exceptions.getUnchecked(
-                        () -> ImmutableList.of(new FrameworkMethod(Simulator.class.getMethod("_simulate"))));
-                }
-
-                /** Return an appropriate name: we use the simulationId */
-                @Override
-                protected String testName(FrameworkMethod method)
-                {
-                    return String.format("simulate[%s]", simulationId);
-                }
-
-                /** Stop JUnit from moaning about the lack of a public ctor */
-                @Override
-                protected void collectInitializationErrors(List<Throwable> errors)
-                {
-                    super.collectInitializationErrors(errors);
-                    errors.removeIf(
-                        error -> error.getMessage().contains("Test class should have exactly one public constructor"));
-                }
-            };
-
-            // Run the test, and rethrow the first failure seen
-            List<Failure> failures = new ArrayList<>();
-
-            RunNotifier notifier = new RunNotifier();
-            notifier.addFirstListener(new RunListener()
-            {
-                @Override
-                public void testFailure(Failure failure) throws Exception
-                {
-                    failures.add(failure);
-                }
-            });
-            runner.run(notifier);
-
-            if (!failures.isEmpty())
-            {
-                throw failures.get(0).getException();
-            }
-        });
+        setFalloutConfiguration();
+        _simulate();
     }
 
     /** Invoked as a JUnit test method by {@link #simulate} */
     public void _simulate()
     {
+        // It's possible for testRunUpdater to be called for things other than state changes, so
+        // we only allow the first update with an "interesting" state change through.
+        final var seenFinishedTestRuns = ConcurrentHashMap.<Long>newKeySet();
+
         final Consumer<TestRun> testRunUpdater = (testRun) -> {
             if (testRun.getState().finished() &&
-                testRun.getFailedDuring() != TestRun.State.CHECKING_RESOURCES)
+                testRun.getFailedDuring() != TestRun.State.CHECKING_RESOURCES &&
+                seenFinishedTestRuns.add(shortTestRunId(testRun.getTestRunId())))
             {
                 testRunnerState.testRunner_addTestRunToFinishedTestRuns(shortTestRunId(testRun.getTestRunId()));
             }
@@ -264,16 +208,21 @@ public class Simulator extends TestHelpers.FalloutTest
                 .mockAll(Provisioner.class, () -> new SimulatedProvisioner(testRunnerState)))
             .withResourceChecker(SimulatedProvisioner::getMockResChecks);
 
-        try (QueuingTestRunner testRunner =
-            new QueuingTestRunner(testRunUpdater,
-                new TestRunQueue(new InMemoryPendingQueue(), List::of, blocker,
-                    testRunnerState::testRunner_testRunAvailable),
-                (testRun) -> new UserCredentials(getTestUser()),
-                new ThreadedRunnableExecutorFactory(
-                    loggersFactory, testRunUpdater,
-                    activeTestRunFactory, falloutConfiguration()),
-                testRun -> Collections.emptySet(),
-                new ResourceReservationLocks()))
+        try (
+            QueuingTestRunner testRunner =
+                new QueuingTestRunner(testRunUpdater,
+                    new TestRunQueue(new InMemoryPendingQueue(),
+                        (testrun, ex) -> {},
+                        List::of, blocker,
+                        testRunnerState::testRunner_testRunAvailable),
+                    (testRun) -> new UserCredentials(getTestUser(), Optional.empty()),
+                    new ThreadedRunnableExecutorFactory(
+                        loggersFactory, testRunUpdater,
+                        activeTestRunFactory, falloutConfiguration()),
+                    testRun -> Set.of(),
+                    new ResourceReservationLocks());
+            // Close the testRunnerState to ensure shutdown of the testRunner can continue
+            var dummy = testRunnerState)
         {
             simulate(testRunner);
         }
@@ -307,7 +256,7 @@ public class Simulator extends TestHelpers.FalloutTest
 
     private void startTestsOrUnblock(QueuingTestRunner testRunner)
     {
-        List<TestRun> toBeQueued = Collections.emptyList();
+        List<TestRun> toBeQueued = List.of();
         if (!pendingTestRunPlans.isEmpty())
         {
             toBeQueued = getTestRunsForQueueing(testRunner, pendingTestRunPlans.remove());
@@ -347,7 +296,7 @@ public class Simulator extends TestHelpers.FalloutTest
         List<TestRun> toBeQueued = testsToStart.stream().map(testRunPlan -> {
             final TestRun testRun = testRunFactory.makeTestRun(test);
             testRun.setTemplateParamsMap(
-                ImmutableMap.of("properties", "test.run.id: " + testRun.getTestRunId().toString()));
+                Map.of("properties", "test.run.id: " + testRun.getTestRunId().toString()));
 
             TestRunPlan testRunPlanWithTestRun = testRunPlan.cloneWithTestRun(testRun);
             runningTestRunPlans.put(testRunPlanWithTestRun.getTestRunId(), testRunPlanWithTestRun);

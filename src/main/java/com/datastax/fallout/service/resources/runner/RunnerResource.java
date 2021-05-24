@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -137,8 +137,7 @@ public class RunnerResource
         @Context HttpServletRequest request, @Context HttpServletResponse response,
         @Context SseEventSink sseEventSink, @Context Sse sse) throws IOException
     {
-        serverSentEvents.startEventStream(request, response, sseEventSink, sse, new EventSource()
-        {
+        serverSentEvents.startEventStream(request, response, sseEventSink, sse, new EventSource() {
             private Optional<Subscription> subscription = Optional.empty();
 
             @Override

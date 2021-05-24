@@ -126,25 +126,19 @@
                 <div class="panel panel-default">
                     <div class="panel-heading">
                         <p>
-                            Need help reading these logs? Check out <code>fallout-errors.log</code> first, which contains just the log messages logged at ERROR, and then
-                            <code>fallout-shared.log</code>, which is an aggregate of everything logged.
-                            Or maybe <code>jepsen-history.json</code>, which contains the raw jepsen output. Failures in test operations will most
-                            likely be in <code>jepsen-history</code>, and all other issues, especially failure to setup, will be in
-                            the errors and shared log.
-                            <code>ensemble-summary.json</code> contains a summary of various components and should help with ad hoc debugging.
-                            <code>fallout-warnings.log</code> contains the log messages logged at WARN, and
-                            <code>fallout-debug.log</code> contains DEBUG messages.
+                            Need help reading these logs? Check out <a href="artifacts/fallout-errors.log"><code>fallout-errors.log</code></a> first, which contains just the log messages logged at ERROR.
+                            <a href="artifacts/fallout-shared.log"><code>fallout-shared.log</code></a> is an aggregate of everything logged.
+                            Failures in test operations will most likely be in <a href="artifacts/controller/jepsen-history.json"><code>jepsen-history.json</code></a> (contains raw jepsen output),
+                            and all other issues, especially failure to setup, will be in the errors and shared log.
                         </p>
                         <p>
-                            The remaining artifacts are separated into directories depending on which nodegroup they belong to. These directories are then further split into additional directories per node in each nodegroup. The
-                            <code>fallout-shared.log</code> comprises
-                            the <code>fallout-nodegroup.log</code> files (for the nodegroup) and
-                            <code>fallout-node.log</code> files (for the nodes in that nodegroup).
+                            To diagnose a provisioning failure look into the logs specific to the affected nodegroup.
+                            See <a href="artifacts/server/fallout-nodegroup.log"><code>fallout-nodegroup.log</code></a> files (i.e. for the server nodegroup) and
+                            <a href="artifacts/server/node0/fallout-node.log"><code>fallout-node.log</code></a> files (i.e. for node0 of the server nodegroup).
                         </p>
                         <p>
-                            If you are trying to diagnose a provisioning failure, the error should appear in a log snippet immediately below this paragraph. You can find the remaining context of the error within
-                            <code>fallout-shared.log</code>, or
-                            you can check the <code>fallout-nodegroup.log</code> under the directory that matches the specific cluster that failed to launch.
+                            A summary of various test components can be found in <a href="artifacts/ensemble-summary.json"><code>ensemble-summary.json</code></a> to help with ad hoc debugging.
+                            The ctool diagnostics information is contained in <a href="artifacts/server/ctool-diagnostics.json"><code>ctool-diagnostics.json</code></a> in each nodegroup directory.
                         </p>
                         {{#testRun.parsedLogInfo}}
                             <p>

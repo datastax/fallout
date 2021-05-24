@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package com.datastax.fallout.ops;
 
 import java.nio.file.Path;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.IntSupplier;
@@ -26,8 +25,8 @@ import com.google.common.base.Preconditions;
 
 import com.datastax.fallout.harness.NullTestRunAbortedStatus;
 import com.datastax.fallout.harness.TestRunAbortedStatus;
+import com.datastax.fallout.ops.TestRunScratchSpaceFactory.TestRunScratchSpace;
 import com.datastax.fallout.ops.commands.NodeCommandExecutor;
-import com.datastax.fallout.util.Exceptions;
 
 /**
  * Builder for NodeGroups. Optional but useful.
@@ -50,7 +49,8 @@ public class NodeGroupBuilder
     private Path testRunArtifactPath;
     private EnsembleCredentials credentials;
     private Optional<NodeGroup.State> finalRunLevel = Optional.of(NodeGroup.State.DESTROYED);
-    private LocalFilesHandler localFilesHandler = new LocalFilesHandler(List.of());
+    private TestRunScratchSpace testRunScratchSpace;
+    private HasAvailableProviders extraAvailableProviders = () -> Set.of();
 
     NodeGroup builtNodeGroup = null;
 
@@ -175,21 +175,28 @@ public class NodeGroupBuilder
         return this;
     }
 
-    public NodeGroupBuilder withLocalFilesHandler(LocalFilesHandler localFilesHandler)
+    public NodeGroupBuilder withTestRunScratchSpace(TestRunScratchSpace testRunScratchSpace)
     {
-        this.localFilesHandler = localFilesHandler;
+        this.testRunScratchSpace = testRunScratchSpace;
+        return this;
+    }
+
+    public NodeGroupBuilder withExtraAvailableProviders(HasAvailableProviders extraAvailableProviders)
+    {
+        this.extraAvailableProviders = extraAvailableProviders;
         return this;
     }
 
     private void check()
     {
-        Preconditions.checkArgument(provisioner != null, "provisioner missing");
-        Preconditions.checkArgument(configurationManager != null, "configuration manager missing");
-        Preconditions.checkArgument(propertyGroup != null, "property group missing");
-        Preconditions.checkArgument(nodeCount != null, "node count missing");
-        Preconditions.checkArgument(name != null, "name is missing");
-        Preconditions.checkArgument(loggers != null, "loggers is missing");
-        Preconditions.checkArgument(testRunArtifactPath != null, "testRunArtifactPath is missing");
+        Preconditions.checkNotNull(provisioner, "provisioner missing");
+        Preconditions.checkNotNull(configurationManager, "configuration manager missing");
+        Preconditions.checkNotNull(propertyGroup, "property group missing");
+        Preconditions.checkNotNull(nodeCount, "node count missing");
+        Preconditions.checkNotNull(name, "name is missing");
+        Preconditions.checkNotNull(loggers, "loggers is missing");
+        Preconditions.checkNotNull(testRunArtifactPath, "testRunArtifactPath is missing");
+        Preconditions.checkNotNull(testRunScratchSpace, "testRunScratchSpace is missing");
     }
 
     public NodeGroup build()
@@ -198,11 +205,13 @@ public class NodeGroupBuilder
 
         if (builtNodeGroup == null)
         {
-            builtNodeGroup = Exceptions.getUnchecked(() -> new NodeGroup(name, aliases, propertyGroup,
+            builtNodeGroup = new NodeGroup(name, aliases, propertyGroup,
                 nodeCommandExecutor != null ? nodeCommandExecutor : provisioner,
                 provisioner, configurationManager, testRunAbortedStatus, nodeCount, role,
                 ensembleOrdinalSupplier, loggers, testRunArtifactPath.resolve(name),
-                credentials, finalRunLevel, localFilesHandler));
+                credentials, finalRunLevel,
+                testRunScratchSpace.makeScratchSpaceForNodeGroup(name),
+                extraAvailableProviders);
         }
 
         return builtNodeGroup;

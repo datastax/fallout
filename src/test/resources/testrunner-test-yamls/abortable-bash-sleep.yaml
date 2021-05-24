@@ -1,0 +1,7 @@
+workload:
+  phases:
+    - sleep:
+        module: bash
+        properties:
+          target.group: controller
+          script: sleep 30

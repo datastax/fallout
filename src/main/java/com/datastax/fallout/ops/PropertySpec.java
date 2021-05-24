@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,10 @@
 package com.datastax.fallout.ops;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * A Core Internal API for Fallout Ops.
@@ -101,39 +98,17 @@ public interface PropertySpec<T>
      *
      * @return the list of possible values OR empty
      */
-    Optional<Collection<Value<T>>> options();
+    Optional<Collection<T>> options();
 
-    /**
-     * Possible parent spec
-     *
-     * The feature here is two fold.
-     * 1. We can organise docs/UI based on this parent
-     * so it's easier to understand.
-     *
-     * 2. We can ignore the required flag of children
-     * when the parent spec is not selected.
-     *
-     * Here's how it works:
-     *   The parent spec must be one with only options().
-     *   Each option Value must have a category that matches
-     *   the category in the child.
-     *
-     * The PropertySpecBuilder will enforce this.
-     *
-     * @see #options()
-     * @see #category()
-     *
-     *
-     * @return parent property spec if defined
-     */
-    Optional<PropertySpec> dependsOn();
+    /** Whether this property is for internal use only */
+    boolean isInternal();
 
     /**
      * Get the default value (if set)
      *
      * @return
      */
-    Optional<Value<T>> defaultValue();
+    Optional<T> defaultValue();
 
     /** Get the default value (if set) as YAML */
     Optional<String> defaultValueYaml();
@@ -164,12 +139,6 @@ public interface PropertySpec<T>
     }
 
     /**
-     * @param propertyGroup
-     * @return the value wrapper from the property found in the properties group
-     */
-    Value<T> valueType(PropertyGroup propertyGroup);
-
-    /**
      * @return true if this property is required, false if optional
      */
     boolean isRequired();
@@ -177,7 +146,7 @@ public interface PropertySpec<T>
     /**
      * Considering dependent properties
      *
-     * @see #dependsOn()
+     * @see PropertySpecBuilder#dependsOn
      *
      * @return true if this property is required, false if optional
      */
@@ -219,9 +188,9 @@ public interface PropertySpec<T>
     {
         private static String formatError(List<PropertySpec<?>> failedSpec, String error)
         {
-            String specNames = StringUtils.join(failedSpec.stream()
+            String specNames = failedSpec.stream()
                 .map(PropertySpec::name)
-                .collect(Collectors.toList()), ", ");
+                .collect(Collectors.joining(", "));
             return "ValidationException for Properties '" + specNames + "': " + error;
         }
 
@@ -235,7 +204,7 @@ public interface PropertySpec<T>
 
         public ValidationException(PropertySpec<?> failedSpec, String error)
         {
-            this(Arrays.asList(failedSpec), error);
+            this(List.of(failedSpec), error);
         }
 
         public ValidationException(List<PropertySpec<?>> failedSpecs, String error)
@@ -244,37 +213,4 @@ public interface PropertySpec<T>
             this.failedSpecs = failedSpecs;
         }
     }
-
-    class Value<T>
-    {
-        public static final Value empty = new Value(null, null, null);
-
-        public final String id;
-        public final T value;
-        public boolean isDefault = false;
-        public final Optional<String> category;
-
-        private Value(String id, T value, String category)
-        {
-            this.id = id;
-            this.value = value;
-            this.category = Optional.ofNullable(category);
-        }
-
-        public static <T> Value<T> of(String id, T value, String category)
-        {
-            return new Value<>(id, value, category);
-        }
-
-        public static <T> Value<T> of(T value)
-        {
-            return new Value<>(String.valueOf(value), value, String.valueOf(value));
-        }
-
-        public static <T> Value<T> of(T value, String category)
-        {
-            return new Value<>(String.valueOf(value), value, category);
-        }
-    }
-
 }

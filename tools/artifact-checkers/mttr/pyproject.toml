@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "mttr"
+version = "0.1.0"
+description = "MTTR calculation artifact checker tool"
+authors = []
+include = ["poetry.lock"]
+
+[tool.poetry.dependencies]
+python = "^3.7.1"
+pandas = "^1.2.3"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.2"
+black = "^20.8b1"
+
+[tool.poetry.scripts]
+mttr = 'mttr.main:run'
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

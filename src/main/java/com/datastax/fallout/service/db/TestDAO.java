@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,15 @@
  */
 package com.datastax.fallout.service.db;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.locks.ReentrantLock;
 
 import io.dropwizard.lifecycle.Managed;
+import org.apache.commons.lang3.tuple.Pair;
 
 import com.datastax.driver.core.BatchStatement;
 import com.datastax.driver.core.ResultSet;
@@ -27,13 +32,20 @@ import com.datastax.driver.mapping.Result;
 import com.datastax.driver.mapping.annotations.Accessor;
 import com.datastax.driver.mapping.annotations.Query;
 import com.datastax.fallout.service.core.DeletedTest;
+import com.datastax.fallout.service.core.DeletedTestRun;
 import com.datastax.fallout.service.core.Test;
 import com.datastax.fallout.service.core.TestRun;
+import com.datastax.fallout.service.core.TestRunIdentifier;
+import com.datastax.fallout.util.LockHolder;
 import com.datastax.fallout.util.ScopedLogger;
 
 public class TestDAO implements Managed
 {
     private static final ScopedLogger logger = ScopedLogger.getLogger(TestDAO.class);
+
+    /** Lock used for operations that must be atomic with respect to deleted/not-deleted Test and TestRun tables */
+    private final ReentrantLock deleteRestoreLock = new ReentrantLock();
+    private Duration deletedTtl;
 
     @Accessor
     private interface TestAccessor
@@ -149,18 +161,12 @@ public class TestDAO implements Managed
         update(test);
     }
 
-    private boolean writeNewSizeToDB(Test test, Long oldSize, Long newSize)
-    {
-        return complexTestAccessor.updateTestSize(newSize, test.getOwner(), test.getName(), oldSize)
-            .wasApplied();
-    }
-
-    public void changeSizeOnDiskBytes(TestRun testRun)
+    public void increaseSizeOnDiskBytesByTestRunSize(TestRun testRun)
     {
         changeSizeOnDiskBytes(testRun, testRun.getArtifactsSizeBytes().orElse(0L));
     }
 
-    public void changeSizeOnDiskBytes(TestRun testRun, Long change)
+    private void changeSizeOnDiskBytes(TestRun testRun, long change)
     {
         if (change == 0L)
         {
@@ -173,17 +179,89 @@ public class TestDAO implements Managed
             Test test = complexTestAccessor.get(testRun.getOwner(), testRun.getTestName()).one();
             Long oldSize = test.getSizeOnDiskBytes();
             Long newSize = oldSize != null ? oldSize + change : change;
-            applied = writeNewSizeToDB(test, oldSize, newSize);
+            applied = complexTestAccessor.updateTestSize(newSize, test.getOwner(), test.getName(), oldSize)
+                .wasApplied();
         }
     }
 
-    public void drop(String owner, String name)
+    // ----------------------------------------------------------------------------------------------------------------
+    // The following methods will also change the overall test size, so they must happen atomically with
+    // respect to one another.  It would have been possible to handle this using a CQL batch, but for
+    // the requirement that updateTestRunArtifacts must handle DeletedTestRuns (which do not require
+    // Test.sizeOnDiskBytes to be updated) as well as TestRuns (which do require Test.sizeOnDiskBytes to be updated).
+
+    public void deleteTestAndTestRuns(Test test)
     {
-        Test test = get(owner, name);
-        if (test == null)
+        try (var lockHolder = LockHolder.acquire(deleteRestoreLock))
         {
-            return;
+            testRunDAO.deleteAll(test.getOwner(), test.getName());
+            delete(test);
         }
+    }
+
+    public void restoreTestAndTestRuns(DeletedTest deletedTest)
+    {
+        try (var lockHolder = LockHolder.acquire(deleteRestoreLock))
+        {
+            restore(deletedTest);
+            testRunDAO.restoreAll(deletedTest.getOwner(), deletedTest.getName());
+        }
+    }
+
+    public void deleteTestRun(TestRun testRun)
+    {
+        try (var lockHolder = LockHolder.acquire(deleteRestoreLock))
+        {
+            testRunDAO.delete(testRun);
+            changeSizeOnDiskBytes(testRun, -testRun.getArtifactsSizeBytes().orElse(0L));
+        }
+    }
+
+    public void restoreTestRun(DeletedTestRun deletedTestRun)
+    {
+        try (var lockHolder = LockHolder.acquire(deleteRestoreLock))
+        {
+            testRunDAO.restore(deletedTestRun);
+
+            DeletedTest deletedTest = getDeleted(deletedTestRun.getOwner(), deletedTestRun.getTestName());
+            if (deletedTest != null)
+            {
+                deletedTest.setSizeOnDiskBytes(0L);
+                restore(deletedTest);
+            }
+            increaseSizeOnDiskBytesByTestRunSize(deletedTestRun);
+        }
+    }
+
+    /** Updates the testRun with the artifacts and updates overall size in the corresponding {@link Test}.
+     *  Returns the original and new sizes, or Optional.empty() if the testrun no longer exists */
+    public Optional<Pair<Long, Long>> updateTestRunArtifacts(
+        TestRunIdentifier testRunIdentifier, Map<String, Long> artifacts)
+    {
+        try (var lockHolder = LockHolder.acquire(deleteRestoreLock))
+        {
+            return Optional.ofNullable(testRunDAO.getEvenIfDeleted(testRunIdentifier)).map(testRun -> {
+                final var oldSize = testRun.getArtifactsSizeBytes().orElse(0L);
+
+                final var newSize = testRun.updateArtifacts(artifacts);
+                final var change = newSize - oldSize;
+
+                testRunDAO.updateArtifactsEvenIfDeleted(testRun);
+
+                if (!(testRun instanceof DeletedTestRun))
+                {
+                    changeSizeOnDiskBytes(testRun, change);
+                }
+
+                return Pair.of(oldSize, newSize);
+            });
+        }
+    }
+
+    // ----------------------------------------------------------------------------------------------------------------
+
+    private void delete(Test test)
+    {
         DeletedTest deletedtest = DeletedTest.fromTest(test);
 
         BatchStatement batchStatement = new BatchStatement();
@@ -192,7 +270,7 @@ public class TestDAO implements Managed
         driverManager.getSession().execute(batchStatement);
     }
 
-    public void restore(DeletedTest deletedTest)
+    private void restore(DeletedTest deletedTest)
     {
         BatchStatement batchStatement = new BatchStatement();
         batchStatement.add(deletedTestMapper.deleteQuery(deletedTest));
@@ -200,7 +278,7 @@ public class TestDAO implements Managed
         driverManager.getSession().execute(batchStatement);
     }
 
-    public void delete(String owner, String name)
+    public void deleteForever(String owner, String name)
     {
         Test test = getEvenIfDeleted(owner, name);
         testMapper.delete(test);
@@ -211,8 +289,7 @@ public class TestDAO implements Managed
     {
         Result<Test> tests = complexTestAccessor.getAll();
 
-        try (ScopedLogger.Scoped ignored = logger.scopedInfo("Ensuring Test.lastRunAt is populated"))
-        {
+        logger.withScopedInfo("Ensuring Test.lastRunAt is populated").run(() -> {
             for (Test test : tests)
             {
                 if (test.getLastRunAt() == null)
@@ -229,7 +306,12 @@ public class TestDAO implements Managed
                     testMapper.save(test, Mapper.Option.saveNullFields(false));
                 }
             }
-        }
+        });
+    }
+
+    public Duration deletedTtl()
+    {
+        return deletedTtl;
     }
 
     @Override
@@ -240,6 +322,8 @@ public class TestDAO implements Managed
         complexTestAccessor = driverManager.getMappingManager().createAccessor(TestAccessor.class);
         deletedTestAccessor = driverManager.getMappingManager().createAccessor(DeletedTestAccessor.class);
 
+        deletedTtl = Duration.ofSeconds(deletedTestMapper.getTableMetadata().getOptions().getDefaultTimeToLive());
+
         if (driverManager.isSchemaCreator())
         {
             ensureLastRunAtIsPopulated();
@@ -249,7 +333,7 @@ public class TestDAO implements Managed
 
     private void maybePopulateTestSizeOndisk()
     {
-        complexTestAccessor.getAll().all().stream()
+        complexTestAccessor.getAll()
             .forEach(test -> {
                 if (test.getSizeOnDiskBytes() == null)
                 {

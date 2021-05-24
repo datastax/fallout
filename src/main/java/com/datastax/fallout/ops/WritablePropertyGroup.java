@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@ import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.datastax.fallout.ops.PropertyGroup.ExpandRefsMode.EXPAND_REFS;
+
 /**
  * Represents a user defined set of Properties used by Fallout components
  * to configure themselves
@@ -38,28 +40,16 @@ public class WritablePropertyGroup implements PropertyGroup
     private String prefix = "";
     private static final Logger logger = LoggerFactory.getLogger(WritablePropertyGroup.class);
     private final Map<String, Object> properties;
+    private PropertyRefExpander refExpander = s -> s;
 
-    @Override
-    public void validateFull(List<PropertySpec> propertySpecs) throws PropertySpec.ValidationException
+    public void setRefExpander(PropertyRefExpander refExpander)
     {
-        validate(propertySpecs, false, true);
+        this.refExpander = refExpander;
     }
 
     @Override
-    public void validate(List<PropertySpec> propertySpecs) throws PropertySpec.ValidationException
-    {
-        validate(propertySpecs, false, false);
-    }
-
-    @Override
-    public void validate(List<PropertySpec> propertySpecs, boolean ignoreFalloutProperties)
-        throws PropertySpec.ValidationException
-    {
-        validate(propertySpecs, ignoreFalloutProperties, false);
-    }
-
-    @Override
-    public void validate(List<PropertySpec> propertySpecs, boolean ignoreFalloutProperties, boolean failForUnknownProps)
+    public void validate(List<PropertySpec<?>> propertySpecs, boolean ignoreFalloutProperties,
+        boolean failForUnknownProps)
         throws PropertySpec.ValidationException
     {
         Map<String, List<PropertySpec<?>>> specsByPropName = new HashMap<>();
@@ -135,52 +125,16 @@ public class WritablePropertyGroup implements PropertyGroup
         properties = new HashMap<>();
     }
 
-    public WritablePropertyGroup(Map<String, String> map)
+    /** Creates an instance populated with a shallow copy of map */
+    public WritablePropertyGroup(Map<String, Object> map)
     {
-        properties = new HashMap<>(map.size());
-
-        for (Map.Entry<String, String> entry : map.entrySet())
-        {
-            String value = entry.getValue();
-
-            if (value == null || value.length() == 0)
-                continue;
-
-            switch (value.charAt(0))
-            {
-                case '[':
-                    properties.put(entry.getKey(), Utils.fromJsonList(value));
-                    break;
-                case '{':
-                    properties.put(entry.getKey(), Utils.fromJsonMap(value));
-                    break;
-                case '"':
-                    properties.put(entry.getKey(), value.substring(1, value.length() - 1));
-                    break;
-                default:
-                    properties.put(entry.getKey(), value);
-            }
-        }
+        properties = new HashMap<>(map);
     }
 
-    public static WritablePropertyGroup writableCopy(PropertyGroup propertyGroup)
+    /** Creates an instance populated with a shallow copy of propertyGroup */
+    public WritablePropertyGroup(PropertyGroup propertyGroup)
     {
-        return new WritablePropertyGroup(propertyGroup.asMap());
-    }
-
-    @Override
-    public Map<String, String> asMap()
-    {
-        Map<String, String> map = new HashMap<>(properties.size());
-
-        for (Map.Entry<String, Object> entry : properties.entrySet())
-        {
-            //Maps,Lists, Strings all encoded as json
-            Object v = entry.getValue();
-            map.put(entry.getKey(), (v instanceof String ? (String) v : Utils.json(v)));
-        }
-
-        return map;
+        this(propertyGroup.asMap());
     }
 
     /**
@@ -235,30 +189,45 @@ public class WritablePropertyGroup implements PropertyGroup
 
     public WritablePropertyGroup put(PropertyGroup propertyGroup)
     {
-        properties.putAll(propertyGroup.getProperties());
+        properties.putAll(propertyGroup.asMap());
         return this;
     }
 
-    @Override
-    public Object get(String name)
+    /** Recursively apply expander to all String values found in value */
+    private Object expandRefs(Object value)
     {
-        return properties.get(name);
+        if (value instanceof String)
+        {
+            return refExpander.expandRefs((String) value);
+        }
+        else if (value instanceof List<?>)
+        {
+            return ((List<?>) value).stream().map(this::expandRefs).collect(Collectors.toList());
+        }
+        else if (value instanceof Map<?, ?>)
+        {
+            return ((Map<?, ?>) value).entrySet().stream()
+                .map(entry -> Map.entry(
+                    expandRefs(entry.getKey()),
+                    expandRefs(entry.getValue())))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
+        else
+        {
+            return value;
+        }
     }
 
     @Override
-    public boolean hasProperty(String name)
+    public Object get(String name, ExpandRefsMode expandRefsMode)
     {
-        return properties.containsKey(name);
+        return expandRefsMode == EXPAND_REFS ?
+            expandRefs(properties.get(name)) :
+            properties.get(name);
     }
 
     @Override
-    public boolean isEmpty()
-    {
-        return properties.isEmpty();
-    }
-
-    @Override
-    public Map<String, Object> getProperties()
+    public Map<String, Object> asMap()
     {
         return Collections.unmodifiableMap(properties);
     }

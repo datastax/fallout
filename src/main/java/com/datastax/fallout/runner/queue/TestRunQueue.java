@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,13 +22,10 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -57,16 +54,21 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
         doesNotRequireClusterInUse(Supplier<List<ReadOnlyTestRun>> runningTestRunsSupplier)
     {
         return testRun -> {
-            Set<String> requiredClusters = testRun.getResourceRequirements().stream()
+            final var requiredClusters = testRun.getResourceRequirements().stream()
                 .map(resourceRequirement -> resourceRequirement.getResourceType().getUniqueName())
-                .flatMap(o -> o.map(Stream::of).orElseGet(Stream::empty))
+                .flatMap(Optional::stream)
                 .collect(Collectors.toSet());
 
-            return requiredClusters.isEmpty() || runningTestRunsSupplier.get().stream()
+            final var inUseClusters = runningTestRunsSupplier.get().stream()
                 .flatMap(_testRun -> _testRun.getResourceRequirements().stream())
                 .map(resourceRequirement -> resourceRequirement.getResourceType().getUniqueName())
-                .flatMap(o -> o.map(Stream::of).orElseGet(Stream::empty))
-                .noneMatch(requiredClusters::contains);
+                .flatMap(Optional::stream)
+                .collect(Collectors.toSet());
+
+            return logger
+                .withResultDebug("doesNotRequireClusterInUse({})  required: {}  inUse: {}",
+                    testRun.getShortName(), requiredClusters, inUseClusters)
+                .get(() -> Collections.disjoint(requiredClusters, inUseClusters));
         };
     }
 
@@ -94,10 +96,13 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
         public boolean testRunNotTriedRecently(ReadOnlyTestRun testRun)
         {
             return temporaryDelay
-                .map(temporaryDelay_ -> {
-                    Date oneDurationAgo = Date.from(Instant.now().minus(temporaryDelay_));
-                    return testRun.getFinishedAt() == null || testRun.getFinishedAt().before(oneDurationAgo);
-                })
+                .map(temporaryDelay_ -> logger
+                    .withScopedDebug("testRunNotTriedRecently({})  temporaryDelay: {}",
+                        testRun.getShortName(), temporaryDelay_)
+                    .get(() -> {
+                        Date oneDurationAgo = Date.from(Instant.now().minus(temporaryDelay_));
+                        return testRun.getFinishedAt() == null || testRun.getFinishedAt().before(oneDurationAgo);
+                    }))
                 .orElse(true);
         }
 
@@ -122,31 +127,31 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
 
         public synchronized void blockTemporarily()
         {
-            logger.doWithScopedDebug(() -> block(temporaryDelay), "blockTemporarily");
+            logger.withScopedDebug("blockTemporarily").run(() -> block(temporaryDelay));
         }
 
         public synchronized void block()
         {
-            logger.doWithScopedDebug(() -> block(Optional.empty()), "block");
+            logger.withScopedDebug("block").run(() -> block(Optional.empty()));
         }
 
         public synchronized void unblock()
         {
-            logger.doWithScopedDebug(() -> {
+            logger.withScopedDebug("unblock").run(() -> {
                 blocked = false;
                 notifyAll();
-            }, "unblock");
+            });
         }
 
         @VisibleForTesting
         public synchronized void waitUntilBlocked()
         {
-            logger.doWithScopedDebug(() -> {
+            logger.withScopedDebug("waitUntilBlocked").run(() -> {
                 while (!blocked)
                 {
                     Exceptions.runUninterruptibly(this::wait);
                 }
-            }, "waitUntilBlocked");
+            });
         }
     }
 
@@ -186,7 +191,7 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
         {
             synchronized (blocker)
             {
-                logger.doWithScopedDebug(() -> {
+                logger.withScopedDebug("waitForUnblockIfNoTestRunsForProcessingOrPaused").run(() -> {
                     logState();
                     if (paused)
                     {
@@ -197,7 +202,7 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
                         blocker.blockTemporarily();
                     }
                     logState();
-                }, "waitForUnblockIfNoTestRunsForProcessingOrPaused");
+                });
             }
         }
 
@@ -209,7 +214,7 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
         {
             synchronized (blocker)
             {
-                return logger.doWithScopedDebug(() -> {
+                return logger.withScopedDebug("getTestRunForProcessing").get(() -> {
                     logState();
                     if (prioritizedPendingQueue.noneAvailable() || paused)
                     {
@@ -226,7 +231,7 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
                     }
 
                     return currentlyProcessing;
-                }, "getTestRunForProcessing");
+                });
             }
         }
 
@@ -301,8 +306,7 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
         {
             synchronized (blocker)
             {
-                try (ScopedLogger.Scoped ignored = logger.scopedInfo("Removing (" + testRun.getShortName() + ")"))
-                {
+                return logger.withScopedInfo("Removing (" + testRun.getShortName() + ")").get(() -> {
                     if (currentlyProcessing
                         .map(testRun_ -> testRun_.getTestRunId().equals(testRun.getTestRunId()))
                         .orElse(false))
@@ -317,23 +321,33 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
                     }
                     logger.info("Test run not found");
                     return false;
-                }
+                });
             }
         }
     }
 
     private final SynchronizedTestRunQueue queue;
 
-    public TestRunQueue(PendingQueue pendingQueue, Supplier<List<ReadOnlyTestRun>> runningTestRunsSupplier,
-        Duration retryTestRunAfter, Predicate<ReadOnlyTestRun> available)
+    private final BiConsumer<TestRun, Throwable> handleProcessingException;
+
+    public TestRunQueue(PendingQueue pendingQueue,
+        BiConsumer<TestRun, Throwable> handleProcessingException,
+        Supplier<List<ReadOnlyTestRun>> runningTestRunsSupplier,
+        Duration retryTestRunAfter,
+        Predicate<ReadOnlyTestRun> available)
     {
-        this(pendingQueue, runningTestRunsSupplier, new Blocker(retryTestRunAfter), available);
+        this(pendingQueue, handleProcessingException, runningTestRunsSupplier, new Blocker(retryTestRunAfter),
+            available);
     }
 
     @VisibleForTesting
-    public TestRunQueue(PendingQueue pendingQueue, Supplier<List<ReadOnlyTestRun>> runningTestRunsSupplier,
-        Blocker blocker, Predicate<ReadOnlyTestRun> available)
+    public TestRunQueue(PendingQueue pendingQueue,
+        BiConsumer<TestRun, Throwable> handleProcessingException,
+        Supplier<List<ReadOnlyTestRun>> runningTestRunsSupplier,
+        Blocker blocker,
+        Predicate<ReadOnlyTestRun> available)
     {
+        this.handleProcessingException = handleProcessingException;
         this.queue = new SynchronizedTestRunQueue(blocker,
             new PrioritizedPendingQueue(pendingQueue, runningTestRunsSupplier,
                 available.and(blocker::testRunNotTriedRecently)
@@ -346,14 +360,27 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
     }
 
     @Override
-    public void take(BiConsumer<TestRun, Consumer<TestRun>> consumer)
+    public void take(BiConsumer<TestRun, UnprocessedHandler> consumer)
     {
-        try (ScopedLogger.Scoped ignored = logger.scopedInfo("take"))
-        {
+        logger.withScopedInfo("take").run(() -> {
             queue.waitForUnblockIfNoTestRunsForProcessingOrPaused();
-            queue.getTestRunForProcessing().ifPresent(testRun -> consumer.accept(testRun, queue::requeueTestRun));
+            queue.getTestRunForProcessing()
+                .ifPresent(testRun -> consumer.accept(testRun,
+                    new UnprocessedHandler() {
+                        @Override
+                        public void requeue()
+                        {
+                            queue.requeueTestRun(testRun);
+                        }
+
+                        @Override
+                        public void handleException(Throwable ex)
+                        {
+                            handleProcessingException.accept(testRun, ex);
+                        }
+                    }));
             queue.finishProcessingTestRun();
-        }
+        });
     }
 
     public boolean remove(TestRun testRun)

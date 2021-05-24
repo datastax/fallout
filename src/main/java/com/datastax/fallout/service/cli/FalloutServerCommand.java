@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,8 @@
 package com.datastax.fallout.service.cli;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Optional;
 
 import io.dropwizard.cli.ServerCommand;
 import io.dropwizard.setup.Bootstrap;
@@ -31,25 +28,27 @@ import net.sourceforge.argparse4j.inf.Subparser;
 
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.FalloutConfigurationFactoryFactory;
-import com.datastax.fallout.service.FalloutService;
+import com.datastax.fallout.service.FalloutServiceBase;
 
-public abstract class FalloutServerCommand extends ServerCommand<FalloutConfiguration>
+/** A command that starts a persistent server */
+public abstract class FalloutServerCommand<FC extends FalloutConfiguration> extends ServerCommand<FC>
 {
     public static final String PID_FILE_OPTION_NAME = "pidFile";
 
-    protected FalloutServerCommand(FalloutService falloutService, String name, String description)
+    protected FalloutServerCommand(FalloutServiceBase<FC> falloutService, String name, String description)
     {
         super(falloutService, name, description);
     }
+
+    /** Return a string representing where the PID file will be found for use in the command help in {@link #configure};
+     * note that it cannot access an instance of {@link FalloutConfiguration} because that won't exist yet */
+    protected abstract String getPidFileLocation();
 
     @Override
     public void configure(Subparser subparser)
     {
         subparser.addArgument("--pid-file")
-            .help(String.format("Write the process ID to %s (or %s if --runner-id is specified)",
-                FalloutConfiguration.getPidFile(Paths.get("FALLOUT_HOME"), Optional.empty()),
-                FalloutConfiguration.getPidFile(Paths.get("FALLOUT_HOME"), Optional.of(99))
-                    .toString().replace("/99/", "/RUNNER-ID/")))
+            .help(String.format("Write the process ID to %s", getPidFileLocation()))
             .action(Arguments.storeTrue())
             .dest(PID_FILE_OPTION_NAME);
 
@@ -62,10 +61,10 @@ public abstract class FalloutServerCommand extends ServerCommand<FalloutConfigur
     @SuppressWarnings("unchecked")
     public void run(Bootstrap<?> wildcardBootstrap, Namespace namespace) throws Exception
     {
-        final Bootstrap<FalloutConfiguration> bootstrap = (Bootstrap<FalloutConfiguration>) wildcardBootstrap;
+        final Bootstrap<FC> bootstrap = (Bootstrap<FC>) wildcardBootstrap;
 
-        final FalloutConfigurationFactoryFactory falloutConfigurationFactoryFactory =
-            new FalloutConfigurationFactoryFactory(bootstrap.getConfigurationFactoryFactory(),
+        final FalloutConfigurationFactoryFactory<FC> falloutConfigurationFactoryFactory =
+            new FalloutConfigurationFactoryFactory<>(bootstrap.getConfigurationFactoryFactory(),
                 falloutConfiguration -> updateConfiguration(falloutConfiguration, namespace));
 
         bootstrap.setConfigurationFactoryFactory(falloutConfigurationFactoryFactory);
@@ -83,7 +82,7 @@ public abstract class FalloutServerCommand extends ServerCommand<FalloutConfigur
 
     @Override
     protected void run(Environment environment, Namespace namespace,
-        FalloutConfiguration configuration) throws Exception
+        FC configuration) throws Exception
     {
         super.run(environment, namespace, configuration);
 
@@ -102,7 +101,7 @@ public abstract class FalloutServerCommand extends ServerCommand<FalloutConfigur
     {
         try
         {
-            Files.write(file, Long.toString(value).getBytes(StandardCharsets.UTF_8));
+            Files.writeString(file, Long.toString(value));
             file.toFile().deleteOnExit();
         }
         catch (IOException e)

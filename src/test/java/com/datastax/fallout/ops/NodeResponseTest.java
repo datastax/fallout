@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.commons.lang3.tuple.Pair;
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +48,7 @@ import com.datastax.fallout.ops.commands.NodeResponse;
 import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.Exceptions;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
 public class NodeResponseTest
 {
@@ -64,7 +64,7 @@ public class NodeResponseTest
 
     private static NodeResponse run(String cmd)
     {
-        return commandExecutor.executeLocally(logger, cmd);
+        return commandExecutor.local(logger, cmd).execute();
     }
 
     @Test
@@ -155,7 +155,7 @@ public class NodeResponseTest
             listAppender.start();
             logger.addAppender(listAppender);
 
-            NodeResponse r = commandExecutor.executeLocally(NodeResponseTest.logger, "echo hello");
+            NodeResponse r = commandExecutor.local(NodeResponseTest.logger, "echo hello").execute();
 
             NodeResponse.NodeResponseWait nodeResponseWait = r.doWait().withLogger(logger);
             if (withDisableOutputLogging)
@@ -386,7 +386,7 @@ public class NodeResponseTest
             nodeResponses.forEach(FakeNodeResponse::didNotThrow);
         }
 
-        @After
+        @AfterEach
         public void cleanupNodeResponseThreads()
         {
             nodeResponses.forEach(FakeNodeResponse::kill);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,25 +15,26 @@
  */
 package com.datastax.fallout.ops;
 
-import java.util.Arrays;
+import java.util.List;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.TestHelpers;
+import com.datastax.fallout.service.FalloutConfiguration;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThatCode;
+import static com.datastax.fallout.assertj.Assertions.assertThatThrownBy;
 
 /**
  * Tests for Property Specs/Groups/etc
  */
-public class PropertyTest extends TestHelpers.FalloutTest
+public class PropertyTest extends TestHelpers.FalloutTest<FalloutConfiguration>
 {
     private WritablePropertyGroup pg;
 
-    @Before
+    @BeforeEach
     public void setUp()
     {
         pg = new WritablePropertyGroup();
@@ -59,7 +60,7 @@ public class PropertyTest extends TestHelpers.FalloutTest
 
     private void assertDoesNotValidate(PropertySpec<?>... specs)
     {
-        assertThatThrownBy(() -> pg.validateFull(Arrays.asList(specs)))
+        assertThatThrownBy(() -> pg.validateFull(List.of(specs)))
             .isInstanceOf(PropertySpec.ValidationException.class);
     }
 
@@ -84,25 +85,6 @@ public class PropertyTest extends TestHelpers.FalloutTest
     }
 
     @Test
-    public void options_work_with_direct_values()
-    {
-        PropertySpec<String> p = PropertySpecBuilder
-            .create("animals.")
-            .name("cat")
-            .category("animal")
-            .options(PropertySpec.Value.of("calico", "type1"), PropertySpec.Value.of("siamese"))
-            .required()
-            .build();
-
-        pg.put("animals.cat", "calico");
-
-        assertValidates(p, "animals.cat", "calico");
-
-        assertThat(p.value(pg)).isEqualTo("calico");
-        assertThat(p.valueType(pg).category).hasValue("type1");
-    }
-
-    @Test
     public void options_do_not_allow_unspecified_values()
     {
         PropertySpec<String> p = PropertySpecBuilder
@@ -124,15 +106,14 @@ public class PropertyTest extends TestHelpers.FalloutTest
     enum Dogs
     {
         RHUBARB, SHEP, ALISTAIR
-    };
+    }
 
     @Test
     public void options_work_with_enums()
     {
         PropertySpec<Dogs> p = PropertySpecBuilder
-            .<Dogs>create("animals.")
+            .createEnum("animals.", Dogs.class)
             .name("dog")
-            .optionsArray(Dogs.values())
             .required()
             .build();
 
@@ -306,7 +287,7 @@ public class PropertyTest extends TestHelpers.FalloutTest
         pg.put("test.name1", "val");
         pg.put("test.foobar", "val");
 
-        assertThatCode(() -> pg.validate(Arrays.asList(p1, p2), false))
+        assertThatCode(() -> pg.validate(List.of(p1, p2), false))
             .doesNotThrowAnyException();
 
         assertDoesNotValidate(p1, p2);
@@ -327,9 +308,8 @@ public class PropertyTest extends TestHelpers.FalloutTest
     @Test
     public void default_enum_values_are_used()
     {
-        final PropertySpec<Dogs> p = PropertySpecBuilder.<Dogs>create("test.")
+        final PropertySpec<Dogs> p = PropertySpecBuilder.<Dogs>createEnum("test.", Dogs.class)
             .name("dogs")
-            .optionsArray(Dogs.values())
             .defaultOf(Dogs.SHEP)
             .build();
 

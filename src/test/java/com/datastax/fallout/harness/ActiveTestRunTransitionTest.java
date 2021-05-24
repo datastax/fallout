@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,27 +17,29 @@ package com.datastax.fallout.harness;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import com.google.common.collect.ImmutableList;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.TestHelpers;
+import com.datastax.fallout.components.common.configuration_manager.NoopConfigurationManager;
+import com.datastax.fallout.components.common.provisioner.LocalProvisioner;
 import com.datastax.fallout.ops.EnsembleBuilder;
 import com.datastax.fallout.ops.FalloutPropertySpecs;
 import com.datastax.fallout.ops.JobConsoleLoggers;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.NodeGroupBuilder;
 import com.datastax.fallout.ops.WritablePropertyGroup;
-import com.datastax.fallout.ops.configmanagement.NoopConfigurationManager;
-import com.datastax.fallout.ops.provisioner.LocalProvisioner;
 import com.datastax.fallout.runner.UserCredentialsFactory;
+import com.datastax.fallout.service.FalloutConfiguration;
+import com.datastax.fallout.service.core.Fakes;
 import com.datastax.fallout.service.core.TestRun;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
-public class ActiveTestRunTransitionTest extends TestHelpers.FalloutTest
+public class ActiveTestRunTransitionTest extends TestHelpers.FalloutTest<FalloutConfiguration>
 {
     private static final String NODE_GROUP_NAME = "atr-transition-test-server";
     private static final NodeGroup.State DEFAULT_LAUNCH_RUNLEVEL = NodeGroup.State.STARTED_SERVICES_RUNNING;
@@ -56,16 +58,21 @@ public class ActiveTestRunTransitionTest extends TestHelpers.FalloutTest
             .withServerGroup(testGroupBuilder)
             .withClientGroup(testGroupBuilder);
 
+        UserCredentialsFactory.UserCredentials userCredentials =
+            new UserCredentialsFactory.UserCredentials(getTestUser(), Optional.empty());
+
         return ActiveTestRunBuilder.create()
-            .withTestRunName("active-test-run-transition-test")
-            .withEnsembleBuilder(ensembleBuilder, true)
+            .withTestRunIdentifier(Fakes.TEST_RUN_IDENTIFIER)
+            .withEnsembleBuilder(ensembleBuilder)
             .withWorkload(new Workload(new ArrayList<>(), new HashMap<>(), new HashMap<>()))
             .withTestRunStatusUpdater(
                 new TestRunAbortedStatusUpdater(new InMemoryTestRunStateStorage(TestRun.State.CREATED)))
-            .withLoggers(new JobConsoleLoggers())
-            .withResourceChecker((e) -> ImmutableList.of(CompletableFuture.completedFuture(true)))
+            .withLoggers(new JobConsoleLoggers(userCredentials))
+            .withResourceChecker((e) -> List.of(CompletableFuture.completedFuture(true)))
             .withTestRunArtifactPath(persistentTestOutputDir())
-            .withUserCredentials(new UserCredentialsFactory.UserCredentials(getTestUser()))
+            .withTestRunScratchSpace(persistentTestScratchSpace())
+            .withFalloutConfiguration(falloutConfiguration())
+            .withUserCredentials(userCredentials)
             .build();
     }
 
@@ -91,7 +98,7 @@ public class ActiveTestRunTransitionTest extends TestHelpers.FalloutTest
         atr.setup();
         assertThat(testGroup.getState()).isEqualTo(launchLevel);
 
-        atr.tearDown();
+        atr.tearDownEnsemble();
         assertThat(testGroup.getState()).isEqualTo(finalLevel);
     }
 

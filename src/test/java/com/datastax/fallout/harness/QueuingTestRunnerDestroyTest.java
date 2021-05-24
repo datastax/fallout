@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,20 +19,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
+import com.datastax.fallout.components.fakes.FakeProvisioner;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.Provisioner;
-import com.datastax.fallout.ops.provisioner.FakeProvisioner;
 import com.datastax.fallout.runner.QueuingTestRunner;
+import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.Test;
 import com.datastax.fallout.service.core.TestRun;
 
-import static com.datastax.fallout.service.core.TestRunAssert.assertThat;
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
-public class QueuingTestRunnerDestroyTest extends TestRunnerTestHelpers.QueuingTestRunnerTest
+public class QueuingTestRunnerDestroyTest extends TestRunnerTestHelpers.QueuingTestRunnerTest<FalloutConfiguration>
 {
     private void destroysNodeGroupTest(
-        Function<AtomicInteger, Provisioner> provisionerFactory) throws InterruptedException
+        Function<AtomicInteger, Provisioner> provisionerFactory)
     {
         final AtomicInteger nodeGroupDestroyed = new AtomicInteger(0);
         final CompletableFuture<TestRun> completedTestRun = new CompletableFuture<>();
@@ -56,11 +56,10 @@ public class QueuingTestRunnerDestroyTest extends TestRunnerTestHelpers.QueuingT
         }
     }
 
-    @org.junit.Test
-    public void destroys_the_nodegroup_when_prepare_fails() throws InterruptedException
+    @org.junit.jupiter.api.Test
+    public void destroys_the_nodegroup_when_prepare_fails()
     {
-        destroysNodeGroupTest(nodeGroupDestroyed -> new FakeProvisioner()
-        {
+        destroysNodeGroupTest(nodeGroupDestroyed -> new FakeProvisioner() {
             private NodeGroup.State checkStateResult = NodeGroup.State.DESTROYED;
 
             @Override
@@ -85,11 +84,10 @@ public class QueuingTestRunnerDestroyTest extends TestRunnerTestHelpers.QueuingT
         });
     }
 
-    @org.junit.Test
-    public void destroys_the_nodegroup_when_prepare_fails_and_checkState_is_broken() throws InterruptedException
+    @org.junit.jupiter.api.Test
+    public void destroys_the_nodegroup_when_prepare_fails_and_checkState_is_broken()
     {
-        destroysNodeGroupTest(nodeGroupDestroyed -> new FakeProvisioner()
-        {
+        destroysNodeGroupTest(nodeGroupDestroyed -> new FakeProvisioner() {
             @Override
             protected NodeGroup.State checkStateImpl(NodeGroup nodeGroup)
             {

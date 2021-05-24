@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 package com.datastax.fallout.ops;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,8 +49,8 @@ public interface PropertyBasedComponent
 
     /**
      * @return a string linking to example usage of this component. Implementations should use the form of
-     * https://github.com/datastax/fallout/tree/master/examples/{exampleUsage} for the URI. Leaving the default
-     * implementation will result in a link to https://github.com/datastax/fallout/tree/master/examples/
+     * https://github.com/riptano/Fallout/tree/master/examples/{exampleUsage} for the URI. Leaving the default
+     * implementation will result in a link to https://github.com/riptano/Fallout/tree/master/examples/
      */
     default Optional<String> exampleUsage()
     {
@@ -61,9 +60,9 @@ public interface PropertyBasedComponent
     /**
      * @return the list of properties this Component will accept
      */
-    default List<PropertySpec> getPropertySpecs()
+    default List<PropertySpec<?>> getPropertySpecs()
     {
-        return Collections.emptyList();
+        return List.of();
     }
 
     /**
@@ -101,7 +100,7 @@ public interface PropertyBasedComponent
         String prefix = prefix();
         List<String> wrongPrefixPropertySpecs = new ArrayList<>();
         // iterate through PropertySpecs of component, verify they all have correct prefix
-        for (PropertySpec spec : getPropertySpecs())
+        for (PropertySpec<?> spec : getPropertySpecs())
         {
             if (!spec.prefix().equals(prefix))
             {

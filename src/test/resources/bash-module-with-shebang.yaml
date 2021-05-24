@@ -1,0 +1,22 @@
+ensemble:
+    server:
+        node.count: 1
+        provisioner: local
+        configuration_manager:
+            name: Test Configuration Manager
+            properties:
+                foo: abc
+    client: server
+
+workload:
+    phases:
+        - check-bash:
+              module: bash
+              properties:
+                  script: |
+                      #!/bin/bash
+                      echo "text here"
+
+    checkers:
+        verify_success:
+            checker: nofail

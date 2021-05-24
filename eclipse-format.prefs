@@ -56,7 +56,7 @@ org.eclipse.jdt.core.formatter.blank_lines_between_import_groups=1
 org.eclipse.jdt.core.formatter.blank_lines_between_statement_group_in_switch=0
 org.eclipse.jdt.core.formatter.blank_lines_between_type_declarations=1
 org.eclipse.jdt.core.formatter.brace_position_for_annotation_type_declaration=next_line
-org.eclipse.jdt.core.formatter.brace_position_for_anonymous_type_declaration=next_line
+org.eclipse.jdt.core.formatter.brace_position_for_anonymous_type_declaration=end_of_line
 org.eclipse.jdt.core.formatter.brace_position_for_array_initializer=end_of_line
 org.eclipse.jdt.core.formatter.brace_position_for_block=next_line
 org.eclipse.jdt.core.formatter.brace_position_for_block_in_case=next_line
@@ -305,7 +305,7 @@ org.eclipse.jdt.core.formatter.insert_space_between_empty_parens_in_method_invoc
 org.eclipse.jdt.core.formatter.join_lines_in_comments=false
 org.eclipse.jdt.core.formatter.join_wrapped_lines=false
 org.eclipse.jdt.core.formatter.keep_annotation_declaration_on_one_line=one_line_never
-org.eclipse.jdt.core.formatter.keep_anonymous_type_declaration_on_one_line=one_line_never
+org.eclipse.jdt.core.formatter.keep_anonymous_type_declaration_on_one_line=one_line_if_empty
 org.eclipse.jdt.core.formatter.keep_code_block_on_one_line=one_line_never
 org.eclipse.jdt.core.formatter.keep_else_statement_on_same_line=false
 org.eclipse.jdt.core.formatter.keep_empty_array_initializer_on_one_line=false

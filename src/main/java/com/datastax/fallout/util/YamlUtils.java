@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import java.util.stream.StreamSupport;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.base.Splitter;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -59,12 +58,16 @@ public class YamlUtils
         return new Yaml(loaderOptions);
     }
 
-    @SuppressWarnings("unchecked")
     public static Map<String, Object> loadYaml(String yaml)
+    {
+        return loadYamlWithType(yaml);
+    }
+
+    public static <T> T loadYamlWithType(String yaml)
     {
         try
         {
-            return (Map<String, Object>) yaml().load(yaml);
+            return yaml().load(yaml);
         }
         catch (Exception e)
         {
@@ -79,7 +82,7 @@ public class YamlUtils
 
     public static JsonNode loadYamlDocument(String yaml, String nodePath)
     {
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+        ObjectMapper mapper = JacksonUtils.getYamlObjectMapper();
         JsonNode node = Exceptions.getUncheckedIO(() -> mapper.readTree(yaml));
         return Optional.ofNullable(nodePath).map(node::at).orElse(node);
     }

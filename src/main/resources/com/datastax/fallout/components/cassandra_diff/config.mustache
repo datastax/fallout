@@ -1,0 +1,27 @@
+{{config}}
+
+#### Default Settings ####
+
+# This is how many parts we split the full token range in.
+# Each of these splits is then compared between the clusters
+splits: 10000
+
+# Number of buckets - splits / buckets should be under 100k to avoid wide partitions when storing the metadata
+buckets: 100
+
+# global rate limit - this is how many q/s you think the target clusters can handle
+rate_limit: 10000
+
+# Fetch size to use for the query fetching the tokens in the cluster
+token_scan_fetch_size: 1000
+# Fetch size to use for the queries fetching the rows of each partition
+partition_read_fetch_size: 1000
+
+read_timeout_millis: 10000
+reverse_read_probability: 0.5
+consistency_level: ALL
+metadata_options:
+  keyspace: cassandradiff
+  replication: "{'class':'SimpleStrategy', 'replication_factor':'1'}"
+  ttl: 31536000
+  should_init: true

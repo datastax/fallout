@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import com.datastax.fallout.service.core.TestRun;
 
 public class InMemoryPendingQueue implements PendingQueue
 {
-    private final List<TestRun> pendingQueue = new ArrayList();
+    private final List<TestRun> pendingQueue = new ArrayList<>();
 
     @Override
     public void add(TestRun testRun)

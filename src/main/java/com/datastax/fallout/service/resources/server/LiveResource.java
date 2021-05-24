@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ import com.datastax.fallout.service.resources.ServerSentEvents;
 import com.datastax.fallout.service.resources.ServerSentEvents.EventSink;
 import com.datastax.fallout.service.resources.ServerSentEvents.EventSource;
 
-import static com.datastax.fallout.service.resources.server.TestResource.EMAIL_PATTERN;
+import static com.datastax.fallout.service.resources.server.AccountResource.EMAIL_PATTERN;
 import static com.datastax.fallout.service.resources.server.TestResource.ID_PATTERN;
 import static com.datastax.fallout.service.resources.server.TestResource.NAME_PATTERN;
 import static com.datastax.fallout.service.views.FalloutView.uriFor;
@@ -107,8 +107,7 @@ public class LiveResource
                 Response.Status.NOT_FOUND);
         }
 
-        serverSentEvents.startEventStream(request, response, eventSink, sse, new EventSource()
-        {
+        serverSentEvents.startEventStream(request, response, eventSink, sse, new EventSource() {
             private long watchId;
 
             private boolean sendStateEvent(EventSink eventSink)

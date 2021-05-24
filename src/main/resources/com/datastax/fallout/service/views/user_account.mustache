@@ -7,6 +7,45 @@
     <div class="container-fluid">
         <h2>User Profile Page</h2>
 
+        <div class="modal fade" id="appCredModal" role="dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <!-- Modal Header -->
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span aria-hidden="true">&times;</span>
+                            <span class="sr-only">Close</span>
+                        </button>
+                        <h4 class="modal-title" id="appCredFormLabel">Add Nebula App Credentials</h4>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="modal-body">
+                        <form role="form" id="appCredForm" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="projectName">Project Name</label>
+                                <input type="text" class="form-control" id="projectName" name="projectName" placeholder="Enter the project name"/>
+                            </div>
+                            <div class="form-group">
+                                <label for="appCredsId">App Creds ID</label>
+                                <input type="text" class="form-control" id="appCredsId" name="appCredsId" placeholder="Enter the id"/>
+                            </div>
+                            <div class="form-group">
+                                <label for="appCredsSecret">App Creds Secret</label>
+                                <input type="text" class="form-control" id="appCredsSecret" name="appCredsSecret" placeholder="Enter the secret"/>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="appCredButton">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="modal fade" id="googleCloudSAModal" role="dialog">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -33,6 +72,129 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                         <button type="button" class="btn btn-primary" id="googleCloudSAKeyButton">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="astraCredModal" role="dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <!-- Modal Header -->
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span aria-hidden="true">&times;</span>
+                            <span class="sr-only">Close</span>
+                        </button>
+                        <h4 class="modal-title" id="astraCredFormLabel">Add Astra Service Account</h4>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="modal-body">
+                        <form role="form" id="astraCredForm" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="astraClientId">Client Id</label>
+                                <input type="text" class="form-control" id="astraClientId" name="astraClientId" placeholder="Enter the client Id"/>
+                            </div>
+                            <div class="form-group">
+                                <label for="astraClientName">Client Name</label>
+                                <input type="text" class="form-control" id="astraClientName" name="astraClientName" placeholder="Enter the client name"/>
+                            </div>
+                            <div class="form-group">
+                                <label for="astraClientSecret">Client Secret</label>
+                                <input type="text" class="form-control" id="astraClientSecret" name="astraClientSecret" placeholder="Enter the client secret"/>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="astraCredButton">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="backupServiceCredModal" role="dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <!-- Modal Header -->
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span aria-hidden="true">&times;</span>
+                            <span class="sr-only">Close</span>
+                        </button>
+                        <h4 class="modal-title" id="backupServiceFormLabel">Add Backup Service Credentials</h4>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="modal-body">
+                        <form role="form" id="backupServiceCredForm" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="backupServiceName">Name</label>
+                                <input type="text" class="form-control" id="backupServiceName" name="backupServiceName"
+                                       placeholder="Enter name"/>
+                            </div>
+                            <div class="form-group">
+                                <label for="s3AccessKey">S3 Access Key</label>
+                                <input type="text" class="form-control" id="s3AccessKey" name="s3AccessKey"
+                                       placeholder="Enter the access key"/>
+                            </div>
+                            <div class="form-group">
+                                <label for="s3SecretKey">S3 Secret Key</label>
+                                <input type="text" class="form-control" id="s3SecretKey" name="s3SecretKey"
+                                       placeholder="Enter the secret key"/>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="backupServiceCredButton">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="dockerRegistryCredModal" role="dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <!-- Modal Header -->
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span aria-hidden="true">&times;</span>
+                            <span class="sr-only">Close</span>
+                        </button>
+                        <h4 class="modal-title" id="dockerRegistryFormLabel">Add Docker Registry Credentials</h4>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="modal-body">
+                        <form role="form" id="dockerRegistryCredForm" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="dockerRegistry">Docker Registry</label>
+                                <input type="text" class="form-control" id="dockerRegistry" name="dockerRegistry"
+                                       placeholder="Enter docker registry address"/>
+                            </div>
+                            <div class="form-group">
+                                <label for="dockerRegistryUsername">Username</label>
+                                <input type="text" class="form-control" id="dockerRegistryUsername" name="dockerRegistryUsername"
+                                       placeholder="Enter the username"/>
+                            </div>
+                            <div class="form-group">
+                                <label for="dockerRegistryPassword">Password</label>
+                                <input type="text" class="form-control" id="dockerRegistryPassword" name="dockerRegistryPassword"
+                                       placeholder="Enter the password"/>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="dockerRegistryCredButton">Add</button>
                     </div>
                 </div>
             </div>
@@ -71,8 +233,38 @@
                         <p class="form-control-static">{{oauthId}}</p>
                     </div>
                     {{/user}}
+
+                    <div class="form-group">
+                        <label>User Group</label>
+                        <select id="usergroup-select" class="form-control" name="group" required>
+                            <option selected disabled>( Select your group )</option>
+                            {{#allUserGroups}}
+                                <option value="{{name}}" id="usergroup-select-option-{{name}}">{{prettyName}}</option>
+                            {{/allUserGroups}}
+                        </select>
+                        <p class="help-block">This group determines what Openstack / Ironic credentials and tenant are used for launching ctool clusters.</p>
+                    </div>
+                    {{#user}}
+                    <script>
+                        $("#usergroup-select-option-{{group}}").prop("selected", true);
+                    </script>
+                    {{/user}}
+
+                    <div class="form-group">
+                        <label>Automaton Shared Handle</label>
+                        <input class="form-control" name="automatonSharedHandle" value="{{user.getOrGenerateAutomatonSharedHandle}}">
+                        <p class="help-block">Shared handle (usually &lt;username&gt; in &lt;username&gt;@datastax.com). See your automaton.conf file.</p>
+                    </div>
+
                     <button type="button" class="btn btn-primary">Submit</button>
                     <input type="submit" class="btn btn-default" value="Reset OAuth Id" onclick="$.get('/account/reset-oauth', location.reload());"/>
+                </div>
+                <div class="col-lg-6">
+                    <div class="form-group">
+                        <label>Public SSH Key</label>
+                        <textarea class="form-control" rows="7" name="publicSshKey">{{#user}}{{publicSshKey}}{{/user}}</textarea>
+                        <p class="help-block">This optional PUBLIC ssh key will get added to all ctool clusters, so that you can SSH onto them.</p>
+                    </div>
                 </div>
             </form>
         </div>
@@ -86,6 +278,55 @@
                 <div class="panel">
                     <div class="panel-body">
                         <div class="panel-group" id="accordion">
+                            <!--Nebula Credentials-->
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">
+                                        <a data-toggle="collapse" data-parent="#accordion" href="#nebula-form-collapse" aria-expanded="false" class="collapsed">Nebula ctool Credentials</a>
+                                    </h4>
+                                </div>
+                                <div id="nebula-form-collapse" class="panel-collapse collapse">
+                                    <div class="panel-body" id="appCredTableDiv">
+                                        <form id="nebula-profile-form" onsubmit="return false;">
+                                            <div class="form-group">
+                                                <label>Default Nebula Project</label>
+                                                <input id="nebula_project_name" class="form-control" name="nebulaProjectName" {{#user}}value="{{nebulaProjectName}}"{{/user}} readonly>
+                                                <p class="help-block">Must match the project of one of the app credentials below. See your automaton.conf file. </p>
+                                                <button class="btn btn-primary" data-toggle="modal" data-target="#appCredModal">
+                                                    Add App Credentials
+                                                </button>
+                                                {{#user}}
+                                                        <table class="table table-bordered table-striped" id="appCredTable">
+                                                            <thead>
+                                                            <tr>
+                                                                <th>Project</th>
+                                                                <th>ID</th>
+                                                                <th>Actions</th>
+                                                            </tr>
+                                                            </thead>
+                                                            {{#nebulaAppCreds}}
+                                                            <tbody>
+                                                            <td>{{project}}</td>
+                                                            <td>{{id}}</td>
+                                                            <td>
+                                                                <a title="Set as Default" class="btn btn-success btn-xs"
+                                                                       onclick="setDefaultNebulaAppCreds('{{project}}')">
+                                                                    <i class="fa fa-flag"></i>
+                                                                </a>
+                                                                <a title="Delete Credentials" class="btn btn-danger btn-xs"
+                                                                       onclick="deleteNebulaAppCreds('{{project}}', '{{id}}')">
+                                                                    <i class="fa fa-trash-o"></i>
+                                                                </a>
+                                                            </td>
+                                                            </tbody>
+                                                            {{/nebulaAppCreds}}
+                                                        </table>
+                                                {{/user}}
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                             <!--Google Cloud Credentials-->
                             <div class="panel panel-default">
                                 <div class="panel-heading">
@@ -131,6 +372,226 @@
                                                     </tbody>
                                                     {{/googleCloudServiceAccounts}}
                                                 </table>
+                                                {{/user}}
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {{#showOpenstackSection}}
+                            <!--Openstack/Ironic Credentials-->
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">
+                                        <a data-toggle="collapse" data-parent="#accordion" href="#openstack-ironic-form-collapse" aria-expanded="false" class="collapsed">Openstack / Ironic ctool Credentials</a>
+                                    </h4>
+                                </div>
+                                <div id="openstack-ironic-form-collapse" class="panel-collapse collapse">
+                                    <div class="panel-body">
+                                        <form id="openstack-ironic-profile-form" onsubmit="return false;">
+                                            <div class="form-group">
+                                                <label>Openstack/Ironic Username</label>
+                                                <input class="form-control" name="openstackUsername" {{#user}}value="{{openstackUsername}}"{{/user}}>
+                                                <p class="help-block">Openstack/Ironic username. See your automaton.conf file.</p>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Openstack/Ironic Password</label>
+                                                <input class="form-control" type="password" name="openstackPassword" {{#user}}value="{{openstackPassword}}"{{/user}}>
+                                                <p class="help-block">Openstack/Ironic password. See your automaton.conf file.</p>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Ironic Tenant Name</label>
+                                                <input class="form-control" name="ironicTenantName" {{#user}}value="{{ironicTenantName}}"{{/user}}>
+                                                <p class="help-block">Ironic tenant Name. See your automaton.conf file.</p>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <button type="button" class="btn btn-primary">Update Openstack Credentials</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {{/showOpenstackSection}}
+                            <!--Astra Service Accounts-->
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">
+                                        <a data-toggle="collapse" data-parent="#accordion" href="#astra-form-collapse" aria-expanded="false" class="collapsed">Astra Service Accounts</a>
+                                    </h4>
+                                </div>
+                                <div id="astra-form-collapse" class="panel-collapse collapse">
+                                    <div class="panel-body" id="astraCredTableDiv">
+                                        <form id="astra-profile-form" onsubmit="return false;">
+                                            <div class="form-group">
+                                                <label>Default Astra Service Account ID</label>
+                                                <input id="default_astra_service_account" class="form-control" name="defaultAstraServiceAccountName" {{#user}}value="{{defaultAstraServiceAccountName}}"{{/user}} readonly>
+                                                <p class="help-block">Must match the client ID of one of the Astra Service Accounts below. See your automaton.conf file. </p>
+                                                <button class="btn btn-primary" data-toggle="modal" data-target="#astraCredModal">
+                                                    Add Astra Service Account
+                                                </button>
+                                                {{#user}}
+                                                    <table class="table table-bordered table-striped" id="astraCredTable">
+                                                        <thead>
+                                                        <tr>
+                                                            <th>Client Name</th>
+                                                            <th>Client Id</th>
+                                                            <th>Actions</th>
+                                                        </tr>
+                                                        </thead>
+                                                        {{#astraServiceAccounts}}
+                                                            <tbody>
+                                                            <td>{{clientName}}</td>
+                                                            <td>{{clientId}}</td>
+                                                            <td>
+                                                                <a title="Set as Default" class="btn btn-success btn-xs"
+                                                                   onclick="setDefaultAstraServiceAccount('{{clientName}}')">
+                                                                    <i class="fa fa-flag"></i>
+                                                                </a>
+                                                                <a title="Delete Credentials" class="btn btn-danger btn-xs"
+                                                                   onclick="deleteAstraServiceAccount('{{clientName}}')">
+                                                                    <i class="fa fa-trash-o"></i>
+                                                                </a>
+                                                            </td>
+                                                            </tbody>
+                                                        {{/astraServiceAccounts}}
+                                                    </table>
+                                                {{/user}}
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <!--Backup Service Credentials-->
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">
+                                        <a data-toggle="collapse" data-parent="#accordion" href="#backupService-form-collapse"
+                                           aria-expanded="false" class="collapsed">Backup Service Credentials</a>
+                                    </h4>
+                                </div>
+                                <div id="backupService-form-collapse" class="panel-collapse collapse">
+                                    <div class="panel-body" id="backupServiceCredTableDiv">
+                                        <form id="backupService-form" onsubmit="return false;">
+                                            <div class="form-group">
+                                                <label>Default Backup Service Credentials</label>
+                                                <input id="default_backup_service_cred" class="form-control"
+                                                       name="defaultbackupServiceCred"
+                                                       {{#user}}value="{{defaultBackupServiceCred}}"{{/user}} readonly>
+                                                <p class="help-block">Must match the name of one of the backup service credentials
+                                                    below. See
+                                                    <a href="https://datastax.jira.com/wiki/spaces/EN/pages/1080001788/Nebula+Swift+clients#s3cmd">https://datastax.jira.com/wiki/spaces/EN/pages/1080001788/Nebula+Swift+clients#s3cmd</a>
+                                                    for help with generating your credentials.
+                                                </p>
+                                                <button class="btn btn-primary" data-toggle="modal"
+                                                        data-target="#backupServiceCredModal">
+                                                    Add Backup Service Credentials
+                                                </button>
+                                                {{#user}}
+                                                    <table class="table table-bordered table-striped"
+                                                           id="backupServiceCredTable">
+                                                        <thead>
+                                                        <tr>
+                                                            <th>Name</th>
+                                                            <th>S3 Access Key</th>
+                                                            <th>Actions</th>
+                                                        </tr>
+                                                        </thead>
+                                                        {{#backupServiceCreds}}
+                                                            <tbody>
+                                                            <td>{{name}}</td>
+                                                            <td>{{s3AccessKey}}</td>
+                                                            <td>
+                                                                <a title="Set as Default" class="btn btn-success btn-xs"
+                                                                   onclick="setDefaultbackupServiceCred('{{name}}')">
+                                                                    <i class="fa fa-flag"></i>
+                                                                </a>
+                                                                <a title="Delete Credentials"
+                                                                   class="btn btn-danger btn-xs"
+                                                                   onclick="deletebackupServiceCred('{{name}}')">
+                                                                    <i class="fa fa-trash-o"></i>
+                                                                </a>
+                                                            </td>
+                                                            </tbody>
+                                                        {{/backupServiceCreds}}
+                                                    </table>
+                                                {{/user}}
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <!--EC2 Credentials-->
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">
+                                        <a data-toggle="collapse" data-parent="#accordion" href="#ec2-form-collapse" aria-expanded="false" class="collapsed">EC2 ctool Credentials</a>
+                                    </h4>
+                                </div>
+                                <div id="ec2-form-collapse" class="panel-collapse collapse">
+                                    <div class="panel-body">
+                                        <form id="ec2-profile-form" onsubmit="return false;">
+                                            <div class="form-group">
+                                                <label>EC2 Access Key</label>
+                                                <input class="form-control" name="ec2AccessKey" {{#user}}value="{{ec2AccessKey}}"{{/user}}>
+                                                <p class="help-block">EC2 Access Key. Only needed for direct ec2. See your automaton.conf file.</p>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>EC2 Secret Key</label>
+                                                <input type="password" class="form-control" name="ec2SecretKey" {{#user}}value="{{ec2SecretKey}}"{{/user}}>
+                                                <p class="help-block">EC2 Secret Key. Only needed for direct ec2. See your automaton.conf file.</p>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <button type="button" class="btn btn-primary">Update EC2 Credentials</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <!--Docker Registry Credentials-->
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">
+                                        <a data-toggle="collapse" data-parent="#accordion" href="#dockerRegistry-form-collapse"
+                                           aria-expanded="false" class="collapsed">Docker Registry Credentials</a>
+                                    </h4>
+                                </div>
+                                <div id="dockerRegistry-form-collapse" class="panel-collapse collapse">
+                                    <div class="panel-body" id="dockerRegistryCredTableDiv">
+                                        <form id="dockerRegistry-form" onsubmit="return false;">
+                                            <div class="form-group">
+                                                <button class="btn btn-primary" data-toggle="modal"
+                                                        data-target="#dockerRegistryCredModal">
+                                                    Add Docker Registry Credentials
+                                                </button>
+                                                {{#user}}
+                                                    <table class="table table-bordered table-striped"
+                                                           id="dockerRegistryCredTable">
+                                                        <thead>
+                                                        <tr>
+                                                            <th>Docker Registry</th>
+                                                            <th>Username</th>
+                                                            <th>Actions</th>
+                                                        </tr>
+                                                        </thead>
+                                                        {{#dockerRegistryCredentials}}
+                                                            <tbody>
+                                                            <td>{{dockerRegistry}}</td>
+                                                            <td>{{username}}</td>
+                                                            <td>
+                                                                <a title="Delete Credentials"
+                                                                   class="btn btn-danger btn-xs"
+                                                                   onclick="deleteDockerRegistryCred('{{dockerRegistry}}')">
+                                                                    <i class="fa fa-trash-o"></i>
+                                                                </a>
+                                                            </td>
+                                                            </tbody>
+                                                        {{/dockerRegistryCredentials}}
+                                                    </table>
                                                 {{/user}}
                                             </div>
                                         </form>
@@ -210,18 +671,69 @@
                 });
             }
 
+            $("#appCredButton").click(function() {
+                submitCredentialForm("appCredForm", "nebula_app_creds", "appCredModal", "appCredTableDiv")
+            });
+
+            $("#astraCredButton").click(function() {
+                submitCredentialForm("astraCredForm", "astra_service_account", "astraCredModal", "astraCredTableDiv")
+            });
+
             $("#googleCloudSAKeyButton").click(function() {
                 submitCredentialForm("googleCloudSAForm", "google_cloud_service_account", "googleCloudSAModal", "googleCloudTableDiv")
             });
+
+            $("#backupServiceCredButton").click(function() {
+                submitCredentialForm("backupServiceCredForm", "backup_service_creds", "backupServiceCredModal", "backupServiceCredTableDiv")
+            });
+
+            $("#dockerRegistryCredButton").click(function() {
+                submitCredentialForm("dockerRegistryCredForm", "docker_registry_creds", "dockerRegistryCredModal", "dockerRegistryCredTableDiv")
+            });
+
+            function setDefaultAstraServiceAccount(clientName) {
+                setDefaultCreds("astra_service_account_default", {clientName: clientName}, "default_astra_service_account",
+                 "default_astra_service_account_id");
+            }
+
+            function setDefaultNebulaAppCreds(project) {
+                setDefaultCreds("nebula_app_creds_default", {projectName: project}, "nebula_project_name",
+                    "default_nebula_project_name");
+            }
 
             function setDefaultServiceAccount(email) {
                 setDefaultCreds("google_cloud_service_account_default", {email: email},
                     "googleCloud_project_name", "default_google_cloud_service_account_email");
             }
 
+            function setDefaultbackupServiceCred(name) {
+                setDefaultCreds("backup_service_creds_default", {backupServiceName: name},
+                    "default_backup_service_cred", "backup_service_creds_default");
+            }
+
+            function deleteNebulaAppCreds(project, id) {
+                var confirmMessage = "Delete app creds " + id + " for project " + project + " ?";
+                deleteCreds("nebula_app_creds", {appCredsId: id}, confirmMessage, "appCredTableDiv");
+            }
+
             function deleteServiceAccount(email) {
                 var confirmMessage = "Delete Google service account " + email + "?";
                 deleteCreds("google_cloud_service_account", {email: email}, confirmMessage, "googleCloudTableDiv");
+            }
+
+            function deleteAstraServiceAccount(clientName) {
+                var confirmMessage = "Delete Astra Service Account " + clientName + "?";
+                deleteCreds("astra_service_account", {clientName:clientName}, confirmMessage, "astraCredTableDiv");
+            }
+
+            function deletebackupServiceCred(name) {
+                var confirmMessage = "Delete backupService credential " + name + "?";
+                deleteCreds("backup_service_creds", {backupServiceName:name}, confirmMessage, "backupServiceCredTableDiv");
+            }
+
+            function deleteDockerRegistryCred(dockerRegistry) {
+                var confirmMessage = "Delete Docker Registry credential " + dockerRegistry + "?";
+                deleteCreds("docker_registry_creds", {dockerRegistry:dockerRegistry}, confirmMessage, "dockerRegistryCredTableDiv");
             }
 
             $(function() {
