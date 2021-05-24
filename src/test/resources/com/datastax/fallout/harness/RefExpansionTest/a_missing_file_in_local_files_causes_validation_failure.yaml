@@ -1,0 +1,28 @@
+has_some_local_files: true
+---
+ensemble:
+  {{#has_some_local_files}}
+  local_files:
+    - path: metal.txt
+      data: CrO2
+  {{/has_some_local_files}}
+
+  server:
+    node.count: 1
+    provisioner:
+      name: local
+
+  client: server
+
+workload:
+  phases:
+    - ref-in-lists-and-maps:
+        module: fake
+        properties:
+          list:
+            - <<file:metal.txt>>
+            - <<file:normal.txt>>
+
+  checkers:
+    nofail:
+      checker: nofail

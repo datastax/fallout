@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package com.datastax.fallout.service.resources.server;
 
+import javax.validation.constraints.NotEmpty;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.CookieParam;
 import javax.ws.rs.DELETE;
@@ -32,8 +33,12 @@ import javax.ws.rs.core.UriBuilder;
 
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -41,9 +46,7 @@ import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Preconditions;
 import io.dropwizard.auth.Auth;
 import org.apache.commons.lang3.tuple.Pair;
-import org.hibernate.validator.constraints.NotEmpty;
 
-import com.datastax.driver.mapping.Mapper;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.FalloutService;
 import com.datastax.fallout.service.auth.SecurityUtil;
@@ -51,6 +54,7 @@ import com.datastax.fallout.service.core.Session;
 import com.datastax.fallout.service.core.TestCompletionNotification;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.service.db.UserDAO;
+import com.datastax.fallout.service.db.UserGroupMapper;
 import com.datastax.fallout.service.views.FalloutView;
 import com.datastax.fallout.service.views.MainView;
 import com.datastax.fallout.util.ScopedLogger;
@@ -62,24 +66,24 @@ public class AccountResource
 {
     private static final ScopedLogger logger = ScopedLogger.getLogger(AccountResource.class);
 
-    private static final String EMAIL_PATTERN_STR =
-        "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
-    private static final Pattern EMAIL_PATTERN = Pattern.compile(EMAIL_PATTERN_STR);
+    public static final String EMAIL_PATTERN = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}";
 
     private final UserDAO userDAO;
     private final FalloutConfiguration configuration;
     private final UserMessenger mailer;
     private final MainView mainView;
     private final SecurityUtil securityUtil;
+    private final UserGroupMapper userGroupMapper;
 
     public AccountResource(UserDAO userDAO, FalloutConfiguration configuration, UserMessenger mailer,
-        MainView mainView, SecurityUtil securityUtil)
+        MainView mainView, SecurityUtil securityUtil, UserGroupMapper userGroupMapper)
     {
         this.userDAO = userDAO;
         this.configuration = configuration;
         this.mailer = mailer;
         this.mainView = mainView;
         this.securityUtil = securityUtil;
+        this.userGroupMapper = userGroupMapper;
     }
 
     @GET
@@ -120,9 +124,28 @@ public class AccountResource
     @Timed
     @Produces(MediaType.APPLICATION_JSON)
     public Response doRegistration(@FormParam("name") @NotEmpty String name, @FormParam("email") @NotEmpty String email,
-        @FormParam("password") @NotEmpty String password)
+        @FormParam("password") @NotEmpty String password, @FormParam("group") String group)
     {
         validateEmail(email);
+
+        /** Special logic for fallout in production **/
+        if (configuration.isDatastaxOnly())
+        {
+            if (!email.toLowerCase().endsWith("@datastax.com"))
+            {
+                throw new WebApplicationException("Only DataStax employees can register, Sorry!",
+                    Response.Status.BAD_REQUEST);
+            }
+
+            if (configuration.getIsSharedEndpoint())
+            {
+                //Force users to recover their password
+                if (configuration.isDatastaxOnly() && configuration.getIsSharedEndpoint())
+                {
+                    password = UUID.randomUUID().toString();
+                }
+            }
+        }
 
         User existingUser = userDAO.getUser(email);
         if (existingUser != null && existingUser.getSalt() != null)
@@ -134,7 +157,7 @@ public class AccountResource
 
         try
         {
-            var user = userDAO.createUserIfNotExists(name, email, password);
+            var user = userDAO.createUserIfNotExists(name, email, password, userGroupMapper.validGroupOrOther(group));
             session = userDAO.addSession(user);
         }
         catch (Exception e)
@@ -259,6 +282,52 @@ public class AccountResource
     }
 
     @POST
+    @Path("/profile/nebula_app_creds")
+    @Timed
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response addNebulaAppCred(@Auth User user, @FormParam("projectName") @NotEmpty String projectName,
+        @FormParam("appCredsId") @NotEmpty String appCredsId,
+        @FormParam("appCredsSecret") @NotEmpty String appCredsSecret)
+    {
+        User.NebulaAppCred appCred = new User.NebulaAppCred(projectName, appCredsId, appCredsSecret);
+        user.addNebulaAppCred(appCred);
+        userDAO.updateUserCredentials(user);
+
+        return Response.ok().build();
+    }
+
+    @POST
+    @Path("/profile/nebula_app_creds_default")
+    @Timed
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response setDefaultNebulaAppCred(@Auth User user, Map<String, String> json)
+    {
+        String projectName = getNonNullNonEmpty(json, "projectName");
+
+        user.validateAndSetNebulaProjectName(projectName);
+        userDAO.updateUserCredentials(user);
+
+        return Response
+            .ok()
+            .entity("{\"default_nebula_project_name\":\"" + user.getNebulaProjectName() + "\"}")
+            .build();
+    }
+
+    @DELETE
+    @Path("/profile/nebula_app_creds")
+    @Timed
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response dropNebulaAppCred(@Auth User user, Map<String, String> json)
+    {
+        String appCredsId = getNonNullNonEmpty(json, "appCredsId");
+
+        user.dropNebulaAppCred(appCredsId);
+        userDAO.updateUserCredentials(user);
+
+        return Response.ok().build();
+    }
+
+    @POST
     @Path("/profile/google_cloud_service_account")
     @Timed
     @Produces(MediaType.APPLICATION_JSON)
@@ -306,25 +375,192 @@ public class AccountResource
     }
 
     @POST
+    @Path("/profile/astra_service_account")
+    @Timed
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response addAstraServiceAccount(@Auth User user, @FormParam("astraClientId") @NotEmpty String clientId,
+        @FormParam("astraClientName") @NotEmpty String clientName,
+        @FormParam("astraClientSecret") @NotEmpty String clientSecret)
+    {
+        User.AstraServiceAccount astraServiceAccount = new User.AstraServiceAccount(clientId, clientName, clientSecret);
+        user.addAstraCred(astraServiceAccount);
+        userDAO.updateUserCredentials(user);
+
+        return Response.ok().build();
+    }
+
+    @DELETE
+    @Path("/profile/astra_service_account")
+    @Timed
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response dropAstraServiceAccount(@Auth User user, User.AstraServiceAccount cred)
+    {
+        user.dropAstraCred(cred.clientName);
+        userDAO.updateUserCredentials(user);
+
+        return Response.ok().build();
+    }
+
+    private static class AstraServiceAccountName
+    {
+        public String clientName;
+    }
+
+    @POST
+    @Path("/profile/astra_service_account_default")
+    @Timed
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response setDefaultAstraServiceAccount(@Auth User user, AstraServiceAccountName serviceAccountName)
+    {
+        user.validateAndSetDefaultAstraServiceAccount(serviceAccountName.clientName);
+        userDAO.updateUserCredentials(user);
+
+        return Response
+            .ok()
+            .entity("{\"default_astra_service_account\":\"" +
+                user.getDefaultAstraServiceAccountName() + "\"}")
+            .build();
+    }
+
+    @POST
+    @Path("/profile/backup_service_creds")
+    @Timed
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response addBackupServiceCred(@Auth User user,
+        @FormParam("backupServiceName") @NotEmpty String backupServiceName,
+        @FormParam("s3AccessKey") @NotEmpty String s3AccessKey,
+        @FormParam("s3SecretKey") @NotEmpty String s3SecretKey)
+    {
+        User.BackupServiceCred cred = new User.BackupServiceCred(backupServiceName, s3AccessKey, s3SecretKey);
+        user.addBackupServiceCred(cred);
+        userDAO.updateUserCredentials(user);
+
+        return Response.ok().build();
+    }
+
+    @DELETE
+    @Path("/profile/backup_service_creds")
+    @Timed
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response dropBackupServiceCred(@Auth User user, Map<String, String> json)
+    {
+        String credName = getNonNullNonEmpty(json, "backupServiceName");
+
+        user.dropBackupServiceCred(credName);
+        userDAO.updateUserCredentials(user);
+
+        return Response.ok().build();
+    }
+
+    @POST
+    @Path("/profile/backup_service_creds_default")
+    @Timed
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response setDefaultBackupServiceCred(@Auth User user, Map<String, String> json)
+    {
+        String name = getNonNullNonEmpty(json, "backupServiceName");
+
+        user.validateAndSetDefaultBackupServiceCred(name);
+        userDAO.updateUserCredentials(user);
+
+        return Response
+            .ok()
+            .entity("{\"backup_service_creds_default\":\"" + user.getDefaultBackupServiceCred() + "\"}")
+            .build();
+    }
+
+    @POST
+    @Path("/profile/docker_registry_creds")
+    @Timed
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response addDockerRegistryCred(@Auth User user,
+        @FormParam("dockerRegistry") @NotEmpty String dockerRegistry,
+        @FormParam("dockerRegistryUsername") @NotEmpty String username,
+        @FormParam("dockerRegistryPassword") @NotEmpty String password)
+    {
+        User.DockerRegistryCredential cred = new User.DockerRegistryCredential(dockerRegistry, username, password);
+        user.addDockerRegistryCredential(cred);
+        userDAO.updateUserCredentials(user);
+
+        return Response.ok().build();
+    }
+
+    @DELETE
+    @Path("/profile/docker_registry_creds")
+    @Timed
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response dropDockerRegistryCred(@Auth User user, Map<String, String> json)
+    {
+        String dockerRegistry = getNonNullNonEmpty(json, "dockerRegistry");
+
+        user.dropDockerRegistryCredential(dockerRegistry);
+        userDAO.updateUserCredentials(user);
+
+        return Response.ok().build();
+    }
+
+    private String getNonNullNonEmpty(Map<String, String> json, String key)
+    {
+        String val = json.get(key);
+        if (val == null || val.isEmpty())
+        {
+            throw new WebApplicationException(String.format("Missing %s", key), 422);
+        }
+        return val;
+    }
+
+    private <T> void setIfNonNull(Consumer<T> setter, T param)
+    {
+        if (param != null)
+        {
+            setter.accept(param);
+        }
+    }
+
+    private <T> void setIfNonNull(Consumer<T> setter, Function<String, T> converter, String param)
+    {
+        if (param != null)
+        {
+            setter.accept(converter.apply(param));
+        }
+    }
+
+    @POST
     @Path("/profile")
     @Timed
     @Produces(MediaType.APPLICATION_JSON)
     public Response doProfile(@Auth User user,
+        @FormParam("automatonSharedHandle") String automatonSharedHandle,
+        @FormParam("group") String group,
         @FormParam("emailPref") String emailPref,
-        @FormParam("slackPref") String slackPref)
+        @FormParam("slackPref") String slackPref,
+        @FormParam("publicSshKey") String sshKey,
+        @FormParam("ec2AccessKey") String ec2AccessKey,
+        @FormParam("ec2SecretKey") String ec2SecretKey,
+        @FormParam("openstackUsername") String openstackUsername,
+        @FormParam("openstackPassword") String openstackPassword,
+        @FormParam("ironicTenantName") String ironicTenantName,
+        @FormParam("nebulaProjectName") String nebulaProjectName)
     {
         try
         {
-            if (emailPref != null)
-            {
-                user.setEmailPref(TestCompletionNotification.valueOf(emailPref));
-            }
-            if (slackPref != null)
-            {
-                user.setSlackPref(TestCompletionNotification.valueOf(slackPref));
-            }
+            // FAL-716: This API method serves as the endpoint to several forms, so not all of the
+            // FormParams will be set.  To make sure we don't overwrite anything that wasn't
+            // specified, we only set things in user for which a non-null FormParam was supplied.
 
-            userDAO.updateUserCredentials(user, Mapper.Option.saveNullFields(false));
+            setIfNonNull(user::setGroup, userGroupMapper::validGroupOrOther, group);
+            setIfNonNull(user::throwOrSetValidAutomatonSharedHandle, automatonSharedHandle);
+            setIfNonNull(user::setPublicSshKey, sshKey);
+            setIfNonNull(user::setEc2AccessKey, ec2AccessKey);
+            setIfNonNull(user::setEc2SecretKey, ec2SecretKey);
+            setIfNonNull(user::setOpenstackUsername, openstackUsername);
+            setIfNonNull(user::setOpenstackPassword, openstackPassword);
+            setIfNonNull(user::setIronicTenantName, ironicTenantName);
+            setIfNonNull(user::validateAndSetNebulaProjectName, nebulaProjectName);
+            setIfNonNull(user::setEmailPref, TestCompletionNotification::valueOf, emailPref);
+            setIfNonNull(user::setSlackPref, TestCompletionNotification::valueOf, slackPref);
+
+            userDAO.updateUserCredentials(user);
         }
         catch (Exception e)
         {
@@ -347,12 +583,17 @@ public class AccountResource
 
     public class AccountView extends FalloutView
     {
+        protected final Collection<UserGroupMapper.UserGroup> allUserGroups = userGroupMapper.getGroups();
         final List<Pair<TestCompletionNotification, Boolean>> allEmailNotify;
         final List<Pair<TestCompletionNotification, Boolean>> allSlackNotify;
+
+        protected final boolean showOpenstackSection;
 
         public AccountView(FalloutConfiguration configuration, User user)
         {
             super("user_account.mustache", user, mainView);
+            this.showOpenstackSection =
+                !configuration.getUseTeamOpenstackCredentials() || userGroupMapper.isCIUser(user);
             allEmailNotify = Arrays.stream(TestCompletionNotification.values())
                 .map(notify -> Pair.of(notify, user.getEmailPref() == notify))
                 .collect(Collectors.toList());
@@ -364,7 +605,7 @@ public class AccountResource
 
     private void validateEmail(String email)
     {
-        if (!EMAIL_PATTERN.matcher(email).matches())
+        if (!Pattern.compile(EMAIL_PATTERN).matcher(email).matches())
         {
             throw new WebApplicationException("Invalid email address", 422);
         }

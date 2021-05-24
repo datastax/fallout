@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,17 +28,20 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import com.datastax.fallout.ops.ResourceRequirement;
 
-public interface ReadOnlyTestRun
+public interface ReadOnlyTestRun extends HasPermissions
 {
-    String getOwner();
-
     String getTestName();
 
     UUID getTestRunId();
 
+    static String buildShortTestRunId(UUID testRunId)
+    {
+        return testRunId.toString().split("-")[0];
+    }
+
     default String buildShortTestRunId()
     {
-        return getTestRunId().toString().split("-")[0];
+        return buildShortTestRunId(getTestRunId());
     }
 
     Date getStartedAt();
@@ -95,12 +98,9 @@ public interface ReadOnlyTestRun
 
     Set<ResourceRequirement> getResourceRequirements();
 
-    Map<String, Object> getTemplateParamsMap();
+    Map<String, String> getLinks();
 
-    default boolean isOwnedBy(User u)
-    {
-        return u != null && getOwner().equalsIgnoreCase(u.getEmail());
-    }
+    Map<String, Object> getTemplateParamsMap();
 
     default boolean belongsTo(Test test)
     {
@@ -112,4 +112,11 @@ public interface ReadOnlyTestRun
     {
         return new TestRunIdentifier(this.getOwner(), this.getTestName(), this.getTestRunId());
     }
+
+    @JsonIgnore
+    default String getShortName()
+    {
+        return String.format("%s %s %s", getOwner(), getTestName(), getTestRunId());
+    }
+
 }

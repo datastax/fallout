@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,49 +15,36 @@
  */
 package com.datastax.fallout.harness;
 
-import java.util.Arrays;
-import java.util.Collection;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import com.datastax.fallout.components.common.spec.GitClone;
 
-import com.datastax.fallout.harness.specs.GitClone;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-@RunWith(Parameterized.class)
 public class GitRepoExpansionTest
 {
-    @Parameters(name = "{0} expands to {1}")
-    public static Collection<Object[]> cases()
+    public static Object[][] cases()
     {
-        return Arrays.asList(new Object[][] {
-            {"mine/other", "git@github.com:mine/other.git"},
-            {"https://git.datastax.com/bing/bong", "https://git.datastax.com/bing/bong.git"},
-
-            {"git@github.com:datastax/dse-metric-reporter-dashboards.git",
-                "git@github.com:datastax/dse-metric-reporter-dashboards.git"},
-            {"git@github.com:datastax/python-driver.git", "git@github.com:datastax/python-driver.git"},
-            {"git@github.com:datastax/java-driver.git", "git@github.com:datastax/java-driver.git"},
-
-            // irregular examples found within Fallout
-            {"git://github.com/tjake/mvbench.git", "git://github.com/tjake/mvbench.git"},
-            {"https://github.com/datastax/spark-cassandra-stress.git",
-                "https://github.com/datastax/spark-cassandra-stress.git"}
-        });
+        return new Object[][] {
+            {"short", "git@github.com:riptano/short.git"},
+            {"short.git", "git@github.com:riptano/short.git"},
+            {"riptano/longer", "git@github.com:riptano/longer.git"},
+            {"riptano/longer.git", "git@github.com:riptano/longer.git"},
+            {"other/longer", "git@github.com:other/longer.git"},
+            {"other/longer.git", "git@github.com:other/longer.git"},
+            {"git@github.com:riptano/full", "git@github.com:riptano/full.git"},
+            {"git@github.com:riptano/full.git", "git@github.com:riptano/full.git"},
+            {"git@github.com:other/full", "git@github.com:other/full.git"},
+            {"git@github.com:other/full.git", "git@github.com:other/full.git"},
+            {"https://some-other-git-repo.com/bing/bong", "https://some-other-git-repo.com/bing/bong.git"},
+            {"ssh://git@github.com/riptano/short", "ssh://git@github.com/riptano/short.git"},
+        };
     }
 
-    @Parameter(0)
-    public String given;
-
-    @Parameter(1)
-    public String expected;
-
-    @Test
-    public void short_repo_params_are_correctly_expanded()
+    @ParameterizedTest(name = "{0} expands to {1}")
+    @MethodSource("cases")
+    public void short_repo_params_are_correctly_expanded(String given, String expected)
     {
         assertThat(GitClone.expandShortRepo(given)).isEqualTo(expected);
     }

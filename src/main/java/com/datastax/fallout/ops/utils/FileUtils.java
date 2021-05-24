@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,9 @@
 package com.datastax.fallout.ops.utils;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -27,26 +30,33 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 
 import com.google.common.base.Verify;
 import org.slf4j.Logger;
 
-import com.datastax.fallout.ops.Utils;
+import com.datastax.fallout.util.Exceptions;
 
 public class FileUtils
 {
-    /**
-     * Compresses a file in gzip format.
-     */
     public static void compressGZIP(Path input, Path output) throws IOException
     {
         try (GZIPOutputStream out = new GZIPOutputStream(Files.newOutputStream(output)))
         {
             Files.copy(input, out);
-            Files.delete(input);
+        }
+    }
+
+    public static void uncompressGZIP(Path input, Path output) throws IOException
+    {
+        try (GZIPInputStream in = new GZIPInputStream(Files.newInputStream(input)))
+        {
+            Files.copy(in, output);
         }
     }
 
@@ -113,7 +123,7 @@ public class FileUtils
                     InputStream inputStream = zipFile.getInputStream(zipEntry);
                     String result = new BufferedReader(new InputStreamReader(inputStream)).lines()
                         .collect(Collectors.joining("\n"));
-                    Utils.writeStringToFile(zipEntryPath.toFile(), result);
+                    writeString(zipEntryPath, result);
 
                     unzippedLogs.add(zipEntryPath);
                 }
@@ -124,6 +134,51 @@ public class FileUtils
             }
         }
         return unzippedLogs;
+    }
+
+    public static void unzipArchive(Path archive, Path output, Logger logger)
+    {
+        // taken largely from https://www.baeldung.com/java-compress-and-uncompress
+        try
+        {
+            ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(archive.toFile()));
+            ZipEntry zipEntry = zipInputStream.getNextEntry();
+            byte[] buffer = new byte[1024];
+            while (zipEntry != null)
+            {
+                File newFile = new File(output.toFile(), zipEntry.getName());
+                if (zipEntry.isDirectory())
+                {
+                    if (!newFile.isDirectory() && !newFile.mkdirs())
+                    {
+                        throw new IOException("Failed to create directory " + newFile);
+                    }
+                }
+                else
+                {
+                    // fix for Windows-created archives
+                    File parent = newFile.getParentFile();
+                    if (!parent.isDirectory() && !parent.mkdirs())
+                    {
+                        throw new IOException("Failed to create directory " + parent);
+                    }
+
+                    // write file content
+                    FileOutputStream fos = new FileOutputStream(newFile);
+                    int len;
+                    while ((len = zipInputStream.read(buffer)) > 0)
+                    {
+                        fos.write(buffer, 0, len);
+                    }
+                    fos.close();
+                }
+                zipEntry = zipInputStream.getNextEntry();
+            }
+        }
+        catch (IOException e)
+        {
+            logger.error(String.format("Failed to unzip archive %s.", archive), e);
+        }
     }
 
     public static List<String> concatenateBigLog(List<Path> logList, Logger logger)
@@ -141,5 +196,36 @@ public class FileUtils
             }
         }
         return myBigLog;
+    }
+
+    public static Path createDirs(Path dir)
+    {
+        return Exceptions.getUncheckedIO(() -> Files.createDirectories(dir)
+        );
+    }
+
+    public static void deleteDir(Path dir)
+    {
+        Exceptions.runUncheckedIO(() -> org.apache.commons.io.FileUtils.deleteDirectory(dir.toFile())
+        );
+    }
+
+    public static List<Path> listDir(Path dir)
+    {
+        try (Stream<Path> paths = Exceptions.getUncheckedIO(() -> Files.list(dir)))
+        {
+            // finalize stream so that we can close the open directory
+            return paths.collect(Collectors.toList());
+        }
+    }
+
+    public static void writeString(Path file, String content)
+    {
+        Exceptions.runUncheckedIO(() -> Files.writeString(file, content));
+    }
+
+    public static String readString(Path file)
+    {
+        return Exceptions.getUncheckedIO(() -> Files.readString(file));
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package com.datastax.fallout.util;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
 import com.datastax.fallout.ops.PropertyBasedComponent;
@@ -42,9 +43,10 @@ public class ServiceLoaderTypedComponentFactory<T extends PropertyBasedComponent
             try
             {
                 if (aT.name().equalsIgnoreCase(name))
-                    return (T) aT.getClass().newInstance();
+                    return (T) aT.getClass().getDeclaredConstructor().newInstance();
             }
-            catch (InstantiationException | IllegalAccessException e)
+            catch (InstantiationException | IllegalAccessException | NoSuchMethodException |
+                InvocationTargetException e)
             {
                 throw new RuntimeException("Error creating instance", e);
             }

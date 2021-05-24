@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,15 +19,15 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.ResponseAssert;
 
 import java.util.Map;
 import java.util.UUID;
 
 import com.datastax.driver.core.Session;
+import com.datastax.fallout.service.db.UserGroupMapper;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static javax.ws.rs.core.Response.Status.OK;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class AccountClient
 {
@@ -46,10 +46,11 @@ public class AccountClient
         String[] emailSplit = email.split("@");
         assertThat(emailSplit).hasSize(2);
 
-        ResponseAssert.assertThat(register(api, new MultivaluedHashMap<>(Map.of(
+        assertThat(register(api, new MultivaluedHashMap<>(Map.of(
             "name", emailSplit[0],
             "email", email,
-            "password", "123")))).hasStatusInfo(OK);
+            "password", "123",
+            "group", UserGroupMapper.UserGroup.OTHER)))).hasStatusInfo(OK);
 
         return getOAuthId(session, email);
     }
@@ -77,6 +78,14 @@ public class AccountClient
     {
         final var oAuthId = register(email);
         session.execute("UPDATE users SET admin=true WHERE email=?", email);
+        return oAuthId;
+    }
+
+    /** Create a user with corrupt internal data that will cause hibernate validation to fail */
+    public UUID registerCorruptUser(String email)
+    {
+        final var oAuthId = register(email);
+        session.execute("UPDATE users SET automatonSharedHandle='bogus!!!' WHERE email=?", email);
         return oAuthId;
     }
 }

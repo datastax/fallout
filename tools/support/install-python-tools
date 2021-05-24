@@ -1,0 +1,23 @@
+#!/bin/bash -e
+
+# Install packages from
+#
+#   lib/tools/<category>/<tool>/pyproject.toml
+#
+# ...into
+#
+#   run/tools/<category>/
+#     venvs/<tool>/
+#     bin/<tool>
+
+run_dir=${1?No run dir specified}
+
+this_dir="$(cd "$(dirname "$0")"; pwd)"
+lib_dir="$(dirname "$(dirname "$this_dir")")"
+
+rm -fr "$run_dir/tools"
+
+for pyproject_toml in "$lib_dir/tools"/*/*/pyproject.toml; do
+    tool_dir="$(dirname "$pyproject_toml")"
+    "$this_dir/install-python-tool" "$tool_dir" "$run_dir"
+done

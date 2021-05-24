@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,17 +26,17 @@ import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Uninterruptibles;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import com.datastax.fallout.harness.impl.FakeModule;
+import com.datastax.fallout.components.impl.FakeModule;
 import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.PropertyGroup;
+import com.datastax.fallout.service.FalloutConfiguration;
 
-import static com.datastax.fallout.harness.TestResultAssert.assertThat;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThatCode;
 
-public class ModuleLifetimeTest extends EnsembleFalloutTest
+public class ModuleLifetimeTest extends EnsembleFalloutTest<FalloutConfiguration>
 {
     @Test
     public void run_to_end_of_phase_modules_run_until_run_once_modules_complete()
@@ -55,8 +55,7 @@ public class ModuleLifetimeTest extends EnsembleFalloutTest
 
         final ActiveTestRunBuilder activeTestRunBuilder = createActiveTestRunBuilder()
             .withComponentFactory(new TestRunnerTestHelpers.MockingComponentFactory()
-                .mockNamed(Module.class, "run-once-fake", () -> new FakeModule()
-                {
+                .mockNamed(Module.class, "run-once-fake", () -> new FakeModule() {
                     @Override
                     public void run(Ensemble ensemble, PropertyGroup properties)
                     {
@@ -65,8 +64,7 @@ public class ModuleLifetimeTest extends EnsembleFalloutTest
                         super.run(ensemble, properties);
                     }
                 })
-                .mockNamed(Module.class, "run-to-end-of-phase-fake", () -> new FakeModule()
-                {
+                .mockNamed(Module.class, "run-to-end-of-phase-fake", () -> new FakeModule() {
                     @Override
                     public void run(Ensemble ensemble, PropertyGroup properties)
                     {
@@ -76,8 +74,7 @@ public class ModuleLifetimeTest extends EnsembleFalloutTest
                 }));
 
         final ActiveTestRun activeTestRun = activeTestRunBuilder
-            .withEnsembleFromYaml(yaml)
-            .withWorkloadFromYaml(yaml)
+            .withTestDefinitionFromYaml(yaml)
             .build();
 
         final CompletableFuture<TestResult> result = CompletableFuture
@@ -155,8 +152,7 @@ public class ModuleLifetimeTest extends EnsembleFalloutTest
 
         final ActiveTestRunBuilder activeTestRunBuilder = createActiveTestRunBuilder()
             .withComponentFactory(new TestRunnerTestHelpers.MockingComponentFactory()
-                .mockNamed(Module.class, "fake", () -> new FakeModule()
-                {
+                .mockNamed(Module.class, "fake", () -> new FakeModule() {
                     @Override
                     public void teardown(Ensemble ensemble, PropertyGroup properties)
                     {
@@ -168,8 +164,7 @@ public class ModuleLifetimeTest extends EnsembleFalloutTest
                 .mockNamed(Module.class, "phase-lifetime-fake", PhaseLifetimeFake::new));
 
         final ActiveTestRun activeTestRun = activeTestRunBuilder
-            .withEnsembleFromYaml(yaml)
-            .withWorkloadFromYaml(yaml)
+            .withTestDefinitionFromYaml(yaml)
             .build();
 
         final CompletableFuture<TestResult> result = CompletableFuture
@@ -198,8 +193,7 @@ public class ModuleLifetimeTest extends EnsembleFalloutTest
                     runOnceModule.set(module);
                     return module;
                 })
-                .mockNamed(Module.class, "phase-lifetime-fake", () -> new PhaseLifetimeFake()
-                {
+                .mockNamed(Module.class, "phase-lifetime-fake", () -> new PhaseLifetimeFake() {
                     @Override
                     public Object setup_BANG_(Object test, Object node)
                     {
@@ -228,8 +222,7 @@ public class ModuleLifetimeTest extends EnsembleFalloutTest
                 ));
 
         final ActiveTestRun activeTestRun = activeTestRunBuilder
-            .withEnsembleFromYaml(yaml)
-            .withWorkloadFromYaml(yaml)
+            .withTestDefinitionFromYaml(yaml)
             .build();
 
         final CompletableFuture<TestResult> result = CompletableFuture

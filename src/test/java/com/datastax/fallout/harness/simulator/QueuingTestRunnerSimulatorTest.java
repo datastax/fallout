@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,16 +19,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.collect.ImmutableList;
-import org.assertj.core.api.Assertions;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Timeout;
 
+import com.datastax.fallout.TestHelpers;
 import com.datastax.fallout.harness.JepsenApi;
-import com.datastax.fallout.runner.QueuingTestRunner;
-import com.datastax.fallout.runner.queue.TestRunQueue;
+import com.datastax.fallout.test.utils.WithPersistentTestOutputDir;
 
+import static com.datastax.fallout.assertj.Assertions.fail;
 import static com.datastax.fallout.harness.simulator.Simulator.debug;
 import static org.quicktheories.QuickTheory.qt;
 import static org.quicktheories.generators.SourceDSL.lists;
@@ -46,17 +44,14 @@ import static org.quicktheories.generators.SourceDSL.lists;
  * failing input possible), and we're making multiple assertions in each test.  To get around this, we ignore
  * all but the failing assertion when shrinking: see {@link #resetShrinkingAssertions()} and {@link #assertion}.
  */
-public class QueuingTestRunnerSimulatorTest
+
+// TODO: is this doc still relevant with junit5 instead of junit4?
+/** This doesn't appear to kill all the threads, or even the one running the test (it's only interrupted)
+ * This means that this test really needs to be run in a fork-per-class
+ * or (better) fork-per-method runner (which is a performance hit). */
+@Timeout(value = 5, unit = TimeUnit.MINUTES)
+public class QueuingTestRunnerSimulatorTest extends WithPersistentTestOutputDir
 {
-    /** This doesn't appear to kill all the threads, or even the one running the test (it's only interrupted);
-     * see the implementation of {@link org.junit.internal.runners.statements.FailOnTimeout#getResult}.
-     * This means that this test really needs to be run in a fork-per-class
-     * or (better) fork-per-method runner (which is a performance hit). */
-    @Rule
-    public Timeout timeout = Timeout.builder()
-        .withLookingForStuckThread(true)
-        .withTimeout(5, TimeUnit.MINUTES)
-        .build();
 
     private static volatile Optional<String> shrinkingForAssertion = Optional.empty();
 
@@ -88,7 +83,7 @@ public class QueuingTestRunnerSimulatorTest
 
     static void waitTimedOut(String name)
     {
-        assertion("wait." + name, () -> Assertions.fail(name + " timed out"));
+        assertion("wait." + name, () -> fail(name + " timed out"));
     }
 
     private int simulationId = 0;
@@ -98,15 +93,16 @@ public class QueuingTestRunnerSimulatorTest
      *  within the simulation, it requires a larger value for {@link Simulator#SYNCHRONIZATION_TIMEOUT}
      *  than necessary, which makes shrinking slower.  To prevent this, we initialize it here.
      */
-    @BeforeClass
+    @BeforeAll
     public static void initClojure()
     {
         JepsenApi.preload();
     }
 
-    @org.junit.Test
+    @org.junit.jupiter.api.Test
     public void runManySimulations()
     {
+        TestHelpers.setTestRunArtifactPath(persistentTestOutputDir());
         resetShrinkingAssertions();
         qt()
             .withFixedSeed(24690760670735L)
@@ -125,13 +121,14 @@ public class QueuingTestRunnerSimulatorTest
 
     private static List<TestRunPlan> p(TestRunPlan... ps)
     {
-        return ImmutableList.copyOf(ps);
+        return List.of(ps);
     }
 
-    @org.junit.Test
+    @org.junit.jupiter.api.Test
     public void runOneSimulation()
     {
-        new Simulator(++simulationId, ImmutableList.of(
+        TestHelpers.setTestRunArtifactPath(persistentTestOutputDir());
+        new Simulator(++simulationId, List.of(
             p(p(1, 8)))).simulate();
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,22 +20,23 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.quicktheories.core.Gen;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.TestHelpers;
-import com.datastax.fallout.ops.configmanagement.FakeConfigurationManager;
-import com.datastax.fallout.ops.provisioner.FakeProvisioner;
+import com.datastax.fallout.components.fakes.FakeConfigurationManager;
+import com.datastax.fallout.components.fakes.FakeProvisioner;
+import com.datastax.fallout.service.FalloutConfiguration;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.ops.NodeGroup.State.DESTROYED;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.quicktheories.QuickTheory.qt;
 import static org.quicktheories.generators.SourceDSL.arbitrary;
 import static org.quicktheories.generators.SourceDSL.lists;
 
-public class NodeGroupCheckStateTest extends TestHelpers.FalloutTest
+public class NodeGroupCheckStateTest extends TestHelpers.FalloutTest<FalloutConfiguration>
 {
     private static final Logger logger = LoggerFactory.getLogger(NodeGroupCheckStateTest.class);
 
@@ -67,8 +68,7 @@ public class NodeGroupCheckStateTest extends TestHelpers.FalloutTest
             new WritablePropertyGroup());
 
         NodeGroup nodeGroup = NodeGroupBuilder.create()
-            .withProvisioner(new FakeProvisioner()
-            {
+            .withProvisioner(new FakeProvisioner() {
                 @Override
                 protected NodeGroup.State checkStateImpl(NodeGroup nodeGroup)
                 {
@@ -79,8 +79,8 @@ public class NodeGroupCheckStateTest extends TestHelpers.FalloutTest
             .withPropertyGroup(new WritablePropertyGroup())
             .withNodeCount(1)
             .withName("test")
-            .withLoggers(new JobConsoleLoggers())
             .withTestRunArtifactPath(testRunArtifactPath())
+            .withTestRunScratchSpace(persistentTestScratchSpace())
             .build();
 
         nodeGroup.checkState().join();

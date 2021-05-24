@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,26 +18,25 @@ package com.datastax.fallout.ops;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-import com.google.common.collect.ImmutableSet;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.TestHelpers;
-import com.datastax.fallout.ops.configmanagement.FakeConfigurationManager;
-import com.datastax.fallout.ops.providers.FakeProvider;
-import com.datastax.fallout.ops.provisioner.FakeProvisioner;
+import com.datastax.fallout.components.fakes.FakeConfigurationManager;
+import com.datastax.fallout.components.fakes.FakeProvider;
+import com.datastax.fallout.components.fakes.FakeProvisioner;
+import com.datastax.fallout.service.FalloutConfiguration;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-public class NodeGroupProviderTest extends TestHelpers.FalloutTest
+public class NodeGroupProviderTest extends TestHelpers.FalloutTest<FalloutConfiguration>
 {
     private static class FakeConfigurationManagerWithProvider extends FakeConfigurationManager
     {
         @Override
-        public Set<Class<? extends Provider>> getAvailableProviders(
-            PropertyGroup nodeGroupProperties)
+        public Set<Class<? extends Provider>> getAvailableProviders(PropertyGroup nodeGroupProperties)
         {
-            return ImmutableSet.of(FakeProvider.class);
+            return Set.of(FakeProvider.class);
         }
 
         @Override
@@ -57,8 +56,8 @@ public class NodeGroupProviderTest extends TestHelpers.FalloutTest
             .withPropertyGroup(new WritablePropertyGroup())
             .withNodeCount(1)
             .withName("test")
-            .withLoggers(new JobConsoleLoggers())
             .withTestRunArtifactPath(testRunArtifactPath())
+            .withTestRunScratchSpace(persistentTestScratchSpace())
             .build();
 
         final CompletableFuture<FakeProvider> waitForProviderFuture =

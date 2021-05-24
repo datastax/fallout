@@ -39,12 +39,6 @@
                     <td>{{createdAtUtc}}</td>
                     <td data-value="{{sizeOnDiskBytes}}">{{sizeOnDisk}}</td>
                     <td>
-                        <a title="Show test definition"
-                           class="btn btn-success btn-xs"
-                           onclick="toggleInfo('{{name}}')" href="#">
-                            <i class="fa fa-list"></i>
-                        </a>
-
                     <div class="btn-group btn-group-xs" role="group">
                         {{^show.RESTORE_ACTIONS}}
 
@@ -88,19 +82,6 @@
                     </td>
                 {{/test}}
             </tr>
-
-            {{#test}}
-            <tr id="{{name}}-toggle" class="hidden">
-                <td colspan="3">
-                    <a class="btn btn-info"
-                       href="/tests/tools/create?email={{email}}&name={{name}}">Clone
-                        Test</a>
-                    <br/>
-                    <br/>
-                    <pre>{{definition}}</pre>
-                </td>
-            </tr>
-        {{/test}}
         {{/tests}}
 
     </tbody>

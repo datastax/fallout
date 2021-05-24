@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.tuple.Pair;
 
 import com.datastax.fallout.service.core.TestRun;
@@ -67,6 +68,7 @@ public class TestRunAbortedStatusUpdater extends TestRunStatusUpdater implements
      *  storage-specific processing, then notifies any listeners registered using {@link #addAbortListener}. */
     public synchronized void markFailedWithReason(TestRun.State finalState)
     {
+        Preconditions.checkArgument(finalState.failed());
         finalStateAfterFailure = Optional.of(finalStateAfterFailure.orElse(finalState));
         stateStorage.markFailedWithReason(finalState);
 

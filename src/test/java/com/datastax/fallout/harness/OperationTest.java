@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.net.MediaType;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import com.datastax.fallout.harness.impl.FakeModule;
+import com.datastax.fallout.components.impl.FakeModule;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
 public class OperationTest
 {
@@ -40,9 +40,7 @@ public class OperationTest
 
     private static Map<String, Object> fromJson(String json) throws IOException
     {
-        return jsonMapper.readValue(json, new TypeReference<Map<String, Object>>()
-        {
-        });
+        return jsonMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
     }
 
     private static Module module = new FakeModule();

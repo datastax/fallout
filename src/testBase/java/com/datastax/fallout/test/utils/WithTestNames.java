@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,76 +15,91 @@
  */
 package com.datastax.fallout.test.utils;
 
+import java.lang.reflect.Method;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.rules.TestName;
-import org.junit.runner.Description;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
+
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
 public abstract class WithTestNames
 {
-    @ClassRule
-    public static final TestClassRule testDescription = new TestClassRule();
+    private static Class<?> currentTestClass;
+    private Method currentTestMethod;
+    private String currentTestDisplayName;
 
-    @Rule
-    public final TestName testName = new TestName();
+    private static final Pattern YAML_FILENAME_MATCHER = Pattern.compile("\\[([^]]*\\.yaml)\\]");
+    private static final int MAX_SUFFIX_LEN = 30;
+
+    @BeforeAll
+    static void beforeAll(TestInfo testInfo)
+    {
+        assertThat(testInfo.getTestClass()).isNotEmpty();
+        currentTestClass = testInfo.getTestClass().get();
+    }
+
+    @BeforeEach
+    void beforeEach(TestInfo testInfo)
+    {
+        assertThat(testInfo.getTestMethod()).isNotEmpty();
+        currentTestMethod = testInfo.getTestMethod().get();
+        currentTestDisplayName = testInfo.getDisplayName();
+    }
 
     protected static Class<?> currentTestClass()
     {
-        return testDescription.getTestClass();
+        return currentTestClass;
     }
 
-    public static String currentTestClassName(Description description)
+    protected static String testClassName(Class<?> testClass)
     {
-        return TestClassRule.getTestClassName(description.getTestClass());
+        return testClass.getSimpleName();
     }
 
     protected static String currentTestClassName()
     {
-        return testDescription.getTestClassName();
+        return testClassName(currentTestClass());
     }
 
-    private static String fileNameFromTestRunName(String testRunName)
+    private static String stripBrackets(String displayName)
     {
-        int startIdx = testRunName.indexOf("[");
-        int endIdx = testRunName.indexOf(".yaml]");
-
-        // Replace testRunNames with a YAML file as the parameter with just the YAML file
-        if (startIdx > 0 && endIdx > startIdx)
-        {
-            // testExampleValidation[ExampleYaml-my-test-name.yaml]
-            // -> ExampleYaml-my-test-name
-            testRunName = testRunName.substring(startIdx + 1, endIdx);
-            // ExampleYaml-kubernetes/gke-bench
-            // -> ExampleYaml-kubernetes-gke-bench
-            testRunName = testRunName.replaceAll("/", "-");
-        }
-
-        // Replace the parameter of testRunNames with a hash code (to prevent filename length errors).
-        else if (startIdx > 0 && testRunName.charAt(testRunName.length() - 1) == ']')
-        {
-            endIdx = testRunName.indexOf("]");
-            if (endIdx > startIdx)
-            {
-                final int hashCode = Objects.hashCode(testRunName);
-                testRunName =
-                    testRunName.substring(0, startIdx + 1) +
-                        Integer.toHexString(hashCode) + "]";
-            }
-        }
-        return testRunName;
+        final var trimmedDisplayName = displayName.trim();
+        return trimmedDisplayName.startsWith("[") && trimmedDisplayName.endsWith("]") ?
+            trimmedDisplayName.substring(1, trimmedDisplayName.length() - 1) :
+            trimmedDisplayName;
     }
 
-    public static Optional<String> currentTestShortName(Description description)
+    protected static String fileNameFromTestRunName(Method testMethod, String displayName)
     {
-        return Optional.ofNullable(description.getMethodName())
-            .map(WithTestNames::fileNameFromTestRunName);
+        final var methodName = testMethod.getName();
+        // The default displayName in JUnit 5 is the method name + "()"
+        final var suffix = !displayName.equals(methodName + "()") ?
+            Optional.of(stripBrackets(displayName)) : Optional.<String>empty();
+
+        // Replace suffixes that specify a YAML file as the parameter with just the YAML file e.g.
+        // testExampleValidation[ExampleYaml-foo-2/some-test.yaml]
+        // -> ExampleYaml-foo-2-some-test.yaml
+        final var exampleYamlFileName =
+            suffix.filter(suffix_ -> suffix_.endsWith(".yaml"))
+                .map(suffix_ -> suffix_.replaceAll("/", "-"));
+
+        final var truncatedSuffix =
+            suffix
+                .map(suffix_ -> suffix_.length() > MAX_SUFFIX_LEN ?
+                    suffix_.substring(0, MAX_SUFFIX_LEN - 11) + "..." + Integer.toHexString(Objects.hashCode(suffix_)) :
+                    suffix_)
+                .map(suffix_ -> "[" + suffix_.replaceAll(" ", "-") + "]");
+
+        return exampleYamlFileName
+            .orElse(methodName + truncatedSuffix.orElse(""));
     }
 
     protected String currentTestShortName()
     {
-        return fileNameFromTestRunName(testName.getMethodName());
+        return fileNameFromTestRunName(currentTestMethod, currentTestDisplayName);
     }
 }

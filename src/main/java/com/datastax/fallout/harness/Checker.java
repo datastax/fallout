@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public abstract class Checker implements jepsen.checker.Checker, WorkloadCompone
 
     private String instanceName;
     private PropertyGroup checkerInstanceProperties;
-    protected Logger logger = classLogger;
+    private Logger logger = classLogger;
 
     public void setLogger(Logger logger)
     {
@@ -107,7 +107,7 @@ public abstract class Checker implements jepsen.checker.Checker, WorkloadCompone
         boolean checkResult = false;
         try
         {
-            checkResult = check(ensemble, historyList);
+            checkResult = checkHistory(ensemble, historyList);
         }
         catch (Throwable e)
         {
@@ -127,5 +127,5 @@ public abstract class Checker implements jepsen.checker.Checker, WorkloadCompone
         return PersistentArrayMap.create(resultsMap);
     }
 
-    public abstract boolean check(Ensemble ensemble, Collection<Operation> history);
+    public abstract boolean checkHistory(Ensemble ensemble, Collection<Operation> history);
 }

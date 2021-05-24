@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ public class HtmlMailUserMessenger implements UserMessenger
 
         SMTPAuthenticator auth = new SMTPAuthenticator(configuration.getSmtpUser(), configuration.getSmtpPass());
         javax.mail.Session session = javax.mail.Session.getInstance(props, auth);
-        String emailFrom = "donotreply@fallout-host.org";
+        String emailFrom = configuration.getSmtpFrom();
         MimeMessage mimeMsg = new MimeMessage(session);
 
         try

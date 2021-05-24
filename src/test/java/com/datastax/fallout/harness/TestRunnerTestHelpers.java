@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@ package com.datastax.fallout.harness;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -33,11 +33,10 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import org.apache.commons.io.FilenameUtils;
 import org.eclipse.jetty.util.BlockingArrayQueue;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.datastax.fallout.TestHelpers;
 import com.datastax.fallout.ops.PropertyBasedComponent;
@@ -50,12 +49,13 @@ import com.datastax.fallout.runner.ThreadedRunnableExecutorFactory;
 import com.datastax.fallout.runner.UserCredentialsFactory.UserCredentials;
 import com.datastax.fallout.runner.queue.InMemoryPendingQueue;
 import com.datastax.fallout.runner.queue.TestRunQueue;
+import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.Fakes;
+import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.Test;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.util.ComponentFactory;
-import com.datastax.fallout.util.ScopedLogger;
 import com.datastax.fallout.util.ServiceLoaderComponentFactory;
 import com.datastax.fallout.util.TypedComponentFactory;
 
@@ -66,7 +66,7 @@ public class TestRunnerTestHelpers
         return Test.createTest(
             owner,
             FilenameUtils.getBaseName(resourcePath),
-            EnsembleFalloutTest.readYamlFile("/testrunner-test-yamls/" + resourcePath));
+            EnsembleFalloutTest.readSharedYamlFile("/testrunner-test-yamls/" + resourcePath));
     }
 
     public static class MockingComponentFactory implements ComponentFactory
@@ -114,21 +114,30 @@ public class TestRunnerTestHelpers
 
         public TestRunQueueThatDiscardsRequeuedTestRuns()
         {
-            super(new InMemoryPendingQueue(), List::of, Duration.ofMinutes(1), testRun -> true);
+            super(new InMemoryPendingQueue(), (testRun, ex) -> {}, List::of, Duration.ofMinutes(1), testRun -> true);
         }
 
         @Override
-        public void take(BiConsumer<TestRun, Consumer<TestRun>> consumer)
+        public void take(BiConsumer<TestRun, UnprocessedHandler> consumer)
         {
-            super.take((job, requeueJob) -> consumer.accept(job, requeuedJobs::add));
+            super.take((testRun, unprocessedHandler) -> consumer.accept(testRun, new UnprocessedHandler() {
+                @Override
+                public void requeue()
+                {
+                    requeuedJobs.add(testRun);
+                }
+
+                @Override
+                public void handleException(Throwable ex)
+                {
+                    unprocessedHandler.handleException(ex);
+                }
+            }));
         }
 
         public TestRun takeRequeuedJob() throws InterruptedException
         {
-            try (ScopedLogger.Scoped ignored = logger.scopedInfo("takeRequeuedJob"))
-            {
-                return requeuedJobs.poll(1, TimeUnit.MINUTES);
-            }
+            return logger.withScopedInfo("takeRequeuedJob").get(() -> requeuedJobs.poll(1, TimeUnit.MINUTES));
         }
 
         public boolean hasNoRequeuedJobs()
@@ -137,11 +146,9 @@ public class TestRunnerTestHelpers
         }
     }
 
-    public static class QueuingTestRunnerTest extends TestHelpers.FalloutTest
+    @ExtendWith(MockitoExtension.class)
+    public static class QueuingTestRunnerTest<FC extends FalloutConfiguration> extends TestHelpers.FalloutTest<FC>
     {
-        @Rule
-        public MockitoRule mockitoRule = MockitoJUnit.rule();
-
         protected User user;
         protected Fakes.TestRunFactory testRunFactory = new Fakes.TestRunFactory();
 
@@ -150,13 +157,13 @@ public class TestRunnerTestHelpers
         /**
          *  Static Clojure initialisation within ActiveTestRun takes a few seconds; do it up front here
          */
-        @BeforeClass
+        @BeforeAll
         public static void initClojure()
         {
             JepsenApi.preload();
         }
 
-        @Before
+        @BeforeEach
         public void setUp()
         {
             user = getTestUser();
@@ -177,7 +184,8 @@ public class TestRunnerTestHelpers
             private Consumer<TestRun> testRunCompletionCallback = testRun -> {};
             private ResourceReservationLocks resourceReservationLocks = new ResourceReservationLocks();
             private Function<TestRun, Set<ResourceRequirement>> getResourceRequirements =
-                testRun -> Collections.emptySet();
+                testRun -> Set.of();
+            private Runnable processingHook = () -> {};
 
             public TestRunnerBuilder withResourceReservationLocks(ResourceReservationLocks resourceReservationLocks)
             {
@@ -223,6 +231,12 @@ public class TestRunnerTestHelpers
                 return this;
             }
 
+            public TestRunnerBuilder withProcessingHook(Runnable processingHook)
+            {
+                this.processingHook = processingHook;
+                return this;
+            }
+
             public QueuingTestRunner build()
             {
                 MockingComponentFactory componentFactory = new MockingComponentFactory();
@@ -239,20 +253,45 @@ public class TestRunnerTestHelpers
 
                 final ThreadedRunnableExecutorFactory executorFactory = new ThreadedRunnableExecutorFactory(
                     loggersFactory, testRunUpdater, activeTestRunFactory,
-                    falloutConfiguration())
-                {
+                    falloutConfiguration()) {
                     @Override
                     public RunnableExecutor create(TestRun testRun, UserCredentials userCredentials)
                     {
                         RunnableExecutor executor = super.create(testRun, userCredentials);
                         executor.getTestRunStatus().addInactiveCallback(
                             () -> testRunCompletionCallback.accept(testRun));
-                        return executor;
+
+                        return new RunnableExecutor() {
+                            @Override
+                            public TestRunStatus getTestRunStatus()
+                            {
+                                return executor.getTestRunStatus();
+                            }
+
+                            @Override
+                            public TestRun getTestRunCopyForReRun()
+                            {
+                                return executor.getTestRunCopyForReRun();
+                            }
+
+                            @Override
+                            public ReadOnlyTestRun getReadOnlyTestRun()
+                            {
+                                return executor.getReadOnlyTestRun();
+                            }
+
+                            @Override
+                            public void run()
+                            {
+                                processingHook.run();
+                                executor.run();
+                            }
+                        };
                     }
                 };
 
                 return new QueuingTestRunner(testRunUpdater, testRunQueue,
-                    (testRun) -> new UserCredentials(getTestUser()),
+                    (testRun) -> new UserCredentials(getTestUser(), Optional.empty()),
                     executorFactory,
                     getResourceRequirements,
                     resourceReservationLocks);

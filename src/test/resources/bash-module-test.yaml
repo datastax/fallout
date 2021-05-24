@@ -1,0 +1,26 @@
+exit_code: 1
+export:
+---
+ensemble:
+    server:
+        node.count: 1
+        provisioner: local
+        configuration_manager:
+            name: Test Configuration Manager
+            properties:
+                foo: abc
+    client: server
+
+workload:
+    phases:
+        - check-bash:
+              module: bash
+              properties:
+                  {{export}}
+                  script: |
+                      echo Hello World!
+                      exit {{exit_code}}
+
+    checkers:
+        verify_success:
+            checker: nofail

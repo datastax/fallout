@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -43,7 +45,6 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import io.netty.util.HashedWheelTimer;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.Utils;
@@ -57,7 +58,6 @@ import com.datastax.fallout.util.NamedThreadFactory;
  */
 public abstract class NodeResponse
 {
-    private static final Logger statsLogger = LoggerFactory.getLogger("NodeResponse.Stats");
     private static final String CMD_FAIL_LOG_PREFIX = "[CMD-FAIL] ";
 
     private final Node owner;
@@ -176,6 +176,11 @@ public abstract class NodeResponse
         public Duration checkInterval = DEFAULT_CHECK_INTERVAL;
         public IntPredicate exitCodeIsError = n -> n != 0;
 
+        public void nonZeroIsNoError()
+        {
+            this.exitCodeIsError = n -> false;
+        }
+
         public Optional<Logger> outputLogger(NodeResponse response)
         {
             return outputLogging ? Optional.of(logger(response)) : Optional.empty();
@@ -260,6 +265,14 @@ public abstract class NodeResponse
             .forSuccess();
     }
 
+    /**
+     * non-zero exit codes are not logged as errors
+     */
+    public boolean waitForOptionalSuccess()
+    {
+        return doWait().withNonZeroIsNoError().forSuccess();
+    }
+
     public static class NodeResponseWait
     {
         private final NodeResponse response;
@@ -332,7 +345,16 @@ public abstract class NodeResponse
          */
         public NodeResponseWait withNonZeroIsNoError()
         {
-            this.waitOptions.exitCodeIsError = n -> false;
+            this.waitOptions.nonZeroIsNoError();
+            return this;
+        }
+
+        /**
+         * predicate to determine which exit codes should be logged as errors
+         */
+        public NodeResponseWait withExitCodeIsError(IntPredicate exitCodeIsError)
+        {
+            this.waitOptions.exitCodeIsError = exitCodeIsError;
             return this;
         }
 
@@ -391,10 +413,12 @@ public abstract class NodeResponse
         {
             String logMsg = "addCompletionListener on already started NodeResponse: " + command;
             logger.warn(logMsg);
-            statsLogger.warn(logMsg);
         }
         completionListeners.add(completionListener);
     }
+
+    private static final Executor lineSupplierExecutor =
+        Executors.newCachedThreadPool(new NamedThreadFactory("CmdOut"));
 
     /**
      * An asynchronous wait.
@@ -421,7 +445,6 @@ public abstract class NodeResponse
         {
             String logMsg = "awaitAsync on already awaited NodeResponse: " + command;
             logger.warn(logMsg);
-            statsLogger.warn(logMsg);
         }
 
         asyncWaitStarted = true;
@@ -480,7 +503,6 @@ public abstract class NodeResponse
         }
 
         AtomicLong lastOutputLineTime = new AtomicLong(0);
-        AtomicLong longestTimeWithoutOutput = new AtomicLong(0);
         for (Context ctx : streams)
         {
             ctx.lineSupplier = CompletableFuture.supplyAsync(
@@ -500,20 +522,7 @@ public abstract class NodeResponse
                                 }
                                 ctx.handleLine(line);
                             }
-                            long nanoNow = System.nanoTime();
-                            long oldLastOutput = lastOutputLineTime.getAndSet(nanoNow);
-                            if (oldLastOutput > 0)
-                            {
-                                long delta = nanoNow - oldLastOutput;
-                                if (delta >= Duration.minutes(4).toNanos())
-                                {
-                                    long oldLongest = longestTimeWithoutOutput.get();
-                                    if (delta > oldLongest)
-                                    {
-                                        longestTimeWithoutOutput.set(delta);
-                                    }
-                                }
-                            }
+                            lastOutputLineTime.set(System.nanoTime());
                         }
                         return true;
                     }
@@ -522,11 +531,11 @@ public abstract class NodeResponse
                         logger.error("Error waiting for node response output", e);
                         return false;
                     }
-                });
+                }, lineSupplierExecutor);
         }
 
         AtomicBoolean wasNoOutputTimeout = new AtomicBoolean(false);
-        List<Utils.TimeoutCheck> timeoutChecks = Collections.emptyList();
+        List<Utils.TimeoutCheck> timeoutChecks = List.of();
         if (noOutputTimeout.isPresent())
         {
             long outputTimeoutNano = noOutputTimeout.get().toNanos();
@@ -572,7 +581,7 @@ public abstract class NodeResponse
                         catch (TimeoutException e)
                         {
                             logger.error(
-                                "Command{} timed out waiting for output streams to close; this may be due to a zombie process",
+                                "Command{} timed out waiting for output streams to close; this may be due to a zombie process, see FAL-1119",
                                 nodeInfo);
                         }
                     }
@@ -581,7 +590,7 @@ public abstract class NodeResponse
                 {
                     // Stop processing output since we will either kill this process due to timeout, or have already
                     // killed it.  For killed processes, this is a hack to get around children of the target process
-                    // keeping the stream open.
+                    // keeping the stream open; once FAL-1119 is done, it should no longer be necessary.
                     logger.debug("Command{} timed out or killed: cancelling output streams listeners", nodeInfo);
                     for (Context ctx : streams)
                     {
@@ -615,7 +624,6 @@ public abstract class NodeResponse
                                 }
                             }
                             logger.error(errorMsg, nodeInfo, exitCode, command);
-                            statsLogger.error(errorMsg, nodeInfo, exitCode, command);
                         }
                         else
                         {
@@ -629,28 +637,14 @@ public abstract class NodeResponse
                     {
                         String errorMsg = CMD_FAIL_LOG_PREFIX + "Command{} timed out due to no output after {}: {}";
                         logger.error(errorMsg, nodeInfo, waitOptions.noOutputTimeout.get(), command);
-                        statsLogger.error(errorMsg, nodeInfo, waitOptions.noOutputTimeout.get(), command);
                     }
                     else
                     {
                         String errorMsg = CMD_FAIL_LOG_PREFIX + "Command{} timed out after {}: {}";
                         logger.error(errorMsg, nodeInfo, timeout, command);
-                        statsLogger.error(errorMsg, nodeInfo, timeout, command);
                     }
 
                     this.kill();
-                }
-
-                long longestNoOutput = longestTimeWithoutOutput.get();
-                if (longestNoOutput > 0)
-                {
-                    statsLogger.info("The following command did not output anything for " +
-                        Duration.nanoseconds(longestNoOutput).toHM() + ": " + command);
-                }
-                if (noOutputTimeout.isPresent() && lastOutputLineTime.get() == 0)
-                {
-                    statsLogger
-                        .info("The following command had a no-output timeout but never output anything: " + command);
                 }
 
                 return completedWithoutTimeout;

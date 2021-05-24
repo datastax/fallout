@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.sse.InboundSseEvent;
 import javax.ws.rs.sse.SseEventSource;
 
-import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -31,55 +30,51 @@ import io.dropwizard.testing.ConfigOverride;
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
 import org.awaitility.core.ConditionFactory;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
+import com.datastax.fallout.components.fakes.FakeProvisioner;
+import com.datastax.fallout.components.impl.FakeModule;
 import com.datastax.fallout.harness.Module;
 import com.datastax.fallout.harness.Operation;
-import com.datastax.fallout.harness.impl.FakeModule;
 import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.Provisioner;
-import com.datastax.fallout.ops.provisioner.FakeProvisioner;
 import com.datastax.fallout.runner.CheckResourcesResult;
 import com.datastax.fallout.service.artifacts.ArtifactWatcherTest;
 import com.datastax.fallout.service.core.Test;
 import com.datastax.fallout.service.core.TestRun;
-import com.datastax.fallout.service.resources.FalloutServiceRule;
+import com.datastax.fallout.service.resources.FalloutAppExtension;
 import com.datastax.fallout.service.resources.ServerSentEvents;
 import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.ScopedLogger;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.artifacts.ArtifactWatcherTest.TIMESTAMP_RESOLUTION_SECONDS;
-import static com.datastax.fallout.service.core.TestRunAssert.assertThat;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
-import static javax.ws.rs.core.ResponseAssert.assertThat;
-import static org.assertj.core.api.Assertions.assertThat;
 
-public class LiveResourceTest extends TestResourceTestBase
+@Timeout(value = 90, unit = TimeUnit.SECONDS)
+public class LiveResourceTest extends TestResourceTestBase<FalloutAppExtension>
 {
     private static final ScopedLogger logger = ScopedLogger.getLogger(LiveResourceTest.class);
 
     private static final int HEART_BEAT_INTERVAL_SECONDS = 1;
     private static final int COALESCING_GRANULARITY_SECONDS = 1;
 
-    @ClassRule
-    public static final FalloutServiceRule FALLOUT_SERVICE_RULE = new FalloutServiceRule(
+    @RegisterExtension
+    public static final FalloutAppExtension FALLOUT_SERVICE = new FalloutAppExtension(
         ConfigOverride.config("serverSentEventsHeartBeatIntervalSeconds",
             Integer.toString(HEART_BEAT_INTERVAL_SECONDS)),
         ConfigOverride.config("artifactWatcherCoalescingIntervalSeconds",
             Integer.toString(COALESCING_GRANULARITY_SECONDS)));
 
-    @Rule
-    public final FalloutServiceRule.FalloutServiceResetRule FALLOUT_SERVICE_RESET_RULE =
-        FALLOUT_SERVICE_RULE.resetRule();
-
-    @Rule
-    public Timeout globalTimeout = Timeout.seconds(90);
+    public LiveResourceTest()
+    {
+        super(FALLOUT_SERVICE);
+    }
 
     private WebTarget getEventStreamTarget(String owner, String testName, String testRunID, String artifactPath)
     {
@@ -140,14 +135,13 @@ public class LiveResourceTest extends TestResourceTestBase
 
         private Optional<Pair<String, String>> readEvent()
         {
-            return logger.doWithScopedDebug(() -> {
+            return logger.withScopedDebug("readEvent").get(() -> {
                 final InboundSseEvent event = Exceptions.getUninterruptibly(eventQueue::take);
                 // Empty events are heartbeats: ignore them
                 return event.isEmpty() ?
                     Optional.empty() :
                     Optional.of(Pair.of(event.getName(), event.readData()));
-            },
-                "readEvent");
+            });
         }
 
         private Optional<Pair<String, String>> readUpdateEvent()
@@ -160,7 +154,7 @@ public class LiveResourceTest extends TestResourceTestBase
 
         private void readAtLeastOneUpdateEvent()
         {
-            logger.doWithScopedDebug(() -> {
+            logger.withScopedDebug("readAtLeastOneUpdateEvent").run(() -> {
                 await()
                     .atMost(CLIENT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .until(this::readUpdateEvent, Optional::isPresent);
@@ -168,8 +162,7 @@ public class LiveResourceTest extends TestResourceTestBase
                 {
                     readUpdateEvent();
                 }
-            },
-                "readAtLeastOneUpdateEvent");
+            });
         }
     }
 
@@ -178,7 +171,7 @@ public class LiveResourceTest extends TestResourceTestBase
     private final long CLIENT_TIMEOUT_SECONDS =
         HEART_BEAT_INTERVAL_SECONDS +
             COALESCING_GRANULARITY_SECONDS +
-            TIMESTAMP_RESOLUTION_SECONDS + 2;
+            TIMESTAMP_RESOLUTION_SECONDS + 10;
 
     private CountDownLatch testStarted;
     private BlockingQueue<String> moduleLogMessages;
@@ -186,31 +179,28 @@ public class LiveResourceTest extends TestResourceTestBase
     private TestRun testRun;
     private BlockingQueue<Boolean> streamOpenStates;
 
-    @Before
-    public void setup() throws IOException
+    @BeforeEach
+    public void setup()
     {
-        api = FALLOUT_SERVICE_RESET_RULE.userApi();
+        api = getFalloutServiceResetExtension().userApi();
         testStarted = new CountDownLatch(1);
         moduleLogMessages = new LinkedBlockingQueue<>();
 
-        FALLOUT_SERVICE_RULE.componentFactory()
+        FALLOUT_SERVICE.componentFactory()
             .clear()
-            .mockAll(Provisioner.class, () -> new FakeProvisioner()
-            {
+            .mockAll(Provisioner.class, () -> new FakeProvisioner() {
                 @Override
                 protected CheckResourcesResult reserveImpl(NodeGroup nodeGroup)
                 {
-                    logger.doWithScopedInfo(() -> testStarted.countDown(), "triggering testStarted: {}", testStarted);
+                    logger.withScopedInfo("triggering testStarted: {}", testStarted).run(() -> testStarted.countDown());
                     return super.reserveImpl(nodeGroup);
                 }
             })
-            .mockAll(Module.class, () -> new FakeModule()
-            {
+            .mockAll(Module.class, () -> new FakeModule() {
                 @Override
                 public void run(Ensemble ensemble, PropertyGroup properties)
                 {
-                    try (ScopedLogger.Scoped ignored = LiveResourceTest.logger.scopedInfo("run"))
-                    {
+                    LiveResourceTest.logger.withScopedInfo("run").run(() -> {
                         emit(Operation.Type.invoke);
                         while (true)
                         {
@@ -238,7 +228,7 @@ public class LiveResourceTest extends TestResourceTestBase
                                 break;
                             }
                         }
-                    }
+                    });
                 }
             });
 
@@ -248,7 +238,7 @@ public class LiveResourceTest extends TestResourceTestBase
         ServerSentEvents.setStreamOpenStatesListener(e -> Exceptions.runUnchecked(() -> streamOpenStates.put(e)));
     }
 
-    @After
+    @AfterEach
     public void teardown() throws InterruptedException
     {
         stopTest();
@@ -264,13 +254,11 @@ public class LiveResourceTest extends TestResourceTestBase
         return Awaitility.await().atMost(CLIENT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
-    private void startTest() throws InterruptedException
+    private void startTest()
     {
         testRun = startTest(test.getName());
-        logger.doWithScopedInfo(
-            () -> Exceptions
-                .runUnchecked(() -> assertThat(testStarted.await(CLIENT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue()),
-            "waiting for testStarted: {}", testStarted);
+        logger.withScopedInfo("waiting for testStarted: {}", testStarted).run(() -> Exceptions
+            .runUnchecked(() -> assertThat(testStarted.await(CLIENT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue()));
     }
 
     private void stopTest() throws InterruptedException
@@ -288,7 +276,7 @@ public class LiveResourceTest extends TestResourceTestBase
         testRun = runTest(test.getName());
     }
 
-    @org.junit.Test
+    @org.junit.jupiter.api.Test
     public void a_live_testrun_publishes_updates_and_handles_client_side_close() throws Exception
     {
         startTest();
@@ -309,7 +297,7 @@ public class LiveResourceTest extends TestResourceTestBase
         assertThat(pollStreamOpenStates()).isNull();
     }
 
-    @org.junit.Test
+    @org.junit.jupiter.api.Test
     public void a_live_stream_for_a_non_existent_file_returns_404() throws InterruptedException
     {
         startTest();
@@ -319,7 +307,7 @@ public class LiveResourceTest extends TestResourceTestBase
         assertThat(pollStreamOpenStates()).isNull();
     }
 
-    @org.junit.Test
+    @org.junit.jupiter.api.Test
     public void a_live_stream_for_a_non_existent_testrun_returns_404()
     {
         assertThat(getEventStream(
@@ -327,7 +315,7 @@ public class LiveResourceTest extends TestResourceTestBase
                 .hasStatusInfo(NOT_FOUND);
     }
 
-    @org.junit.Test
+    @org.junit.jupiter.api.Test
     public void a_non_live_testrun_responds_with_state_finished() throws Exception
     {
         runTest();
@@ -337,7 +325,7 @@ public class LiveResourceTest extends TestResourceTestBase
         }
     }
 
-    @org.junit.Test
+    @org.junit.jupiter.api.Test
     public void a_live_testrun_terminates_with_state_finished() throws Exception
     {
         startTest();

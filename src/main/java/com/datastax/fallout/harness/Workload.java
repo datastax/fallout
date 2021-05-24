@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -47,18 +47,23 @@ public class Workload
     public Workload(List<Phase> phases, Map<String, Checker> checkers, Map<String, ArtifactChecker> artifactCheckers)
     {
         this.phases = phases != null ? phases : new ArrayList<>();
-        this.checkers = checkers != null ? checkers : new HashMap<>();
-        this.artifactCheckers = artifactCheckers != null ? artifactCheckers : new HashMap<>();
+        this.checkers = checkers != null ? checkers : new LinkedHashMap<>();
+        this.artifactCheckers = artifactCheckers != null ? artifactCheckers : new LinkedHashMap<>();
     }
 
-    public Map<String, Checker> getCheckers()
+    public Map<String, Checker> getCheckersJepsenMap()
     {
         return checkers;
     }
 
-    public Map<String, ArtifactChecker> getArtifactCheckers()
+    public Collection<Checker> getCheckers()
     {
-        return artifactCheckers;
+        return checkers.values();
+    }
+
+    public Collection<ArtifactChecker> getArtifactCheckers()
+    {
+        return artifactCheckers.values();
     }
 
     public List<Phase> getPhases()

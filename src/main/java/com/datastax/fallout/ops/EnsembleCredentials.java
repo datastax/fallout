@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,8 +35,13 @@ public class EnsembleCredentials
         return userCredentials.owner;
     }
 
-    public FalloutConfiguration getFalloutConfiguration()
+    public User getRunAsUser()
     {
-        return falloutConfiguration;
+        return userCredentials.runAs.orElse(userCredentials.owner);
+    }
+
+    public <FC extends FalloutConfiguration> FC getFalloutConfiguration()
+    {
+        return (FC) falloutConfiguration;
     }
 }

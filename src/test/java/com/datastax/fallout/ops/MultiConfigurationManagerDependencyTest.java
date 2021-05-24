@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,22 +15,25 @@
  */
 package com.datastax.fallout.ops;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import java.util.List;
+import java.util.Set;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.STRICT_STUBS)
 public class MultiConfigurationManagerDependencyTest
 {
     static class ProviderA extends Provider
@@ -79,12 +82,6 @@ public class MultiConfigurationManagerDependencyTest
         }
     }
 
-    @Rule
-    public MockitoRule mockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
-
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
-
     @Mock
     ConfigurationManager cmA;
 
@@ -99,17 +96,17 @@ public class MultiConfigurationManagerDependencyTest
 
     private void givenProvides(ConfigurationManager cm, Class<? extends Provider> provider)
     {
-        given(cm.getAvailableProviders(any())).willReturn(ImmutableSet.of(provider));
+        given(cm.getAvailableProviders(any())).willReturn(Set.of(provider));
     }
 
     private void givenRequires(ConfigurationManager cm, Class<? extends Provider> provider)
     {
-        given(cm.getRequiredProviders(any())).willReturn(ImmutableSet.of(provider));
+        given(cm.getRequiredProviders(any())).willReturn(Set.of(provider));
     }
 
     private void thenExpectedOrderIs(ConfigurationManager first, ConfigurationManager second)
     {
-        MultiConfigurationManager multiCM = new MultiConfigurationManager(ImmutableList.of(second, first),
+        MultiConfigurationManager multiCM = new MultiConfigurationManager(List.of(second, first),
             new WritablePropertyGroup());
         assertThat(multiCM.getDelegates()).containsExactly(first, second);
     }
@@ -135,8 +132,8 @@ public class MultiConfigurationManagerDependencyTest
     {
         givenProvides(cmA, ProviderA.class);
         givenRequires(cmB1, ProviderB1.class);
-        thrown.expect(InvalidConfigurationException.class);
-        thrown.expectMessage("It is impossible to properly configure this set of Configuration Managers!");
-        new MultiConfigurationManager(ImmutableList.of(cmA, cmB1), new WritablePropertyGroup());
+        assertThatExceptionOfType(InvalidConfigurationException.class)
+            .isThrownBy(() -> new MultiConfigurationManager(List.of(cmA, cmB1), new WritablePropertyGroup()))
+            .withMessageStartingWith("It is impossible to properly configure this set of Configuration Managers!");
     }
 }

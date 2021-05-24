@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
 import com.datastax.fallout.service.FalloutConfiguration;
-import com.datastax.fallout.service.FalloutService;
+import com.datastax.fallout.service.FalloutServiceBase;
 
-public class FalloutQueueCommand extends FalloutServerCommand
+public class FalloutQueueCommand<FC extends FalloutConfiguration> extends FalloutMainServerCommand<FC>
 {
     public static final String DELEGATE_RUNNER_ID_OPTION_NAME = "runnerId";
 
-    public FalloutQueueCommand(FalloutService falloutService)
+    public FalloutQueueCommand(FalloutServiceBase<FC> falloutService)
     {
         super(falloutService, "queue",
             "Run fallout as a queue process, delegating testruns to a runner process");

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package com.datastax.fallout.service.core;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -51,9 +50,17 @@ import static com.datastax.fallout.runner.Artifacts.maybeStripGzSuffix;
 import static com.datastax.fallout.util.YamlUtils.dumpYaml;
 import static com.datastax.fallout.util.YamlUtils.loadYaml;
 
+/** WARNING when making changes to this class be aware that both the QUEUE ({@link
+ * com.datastax.fallout.runner.QueuingTestRunner}) and RUNNER ({@link com.datastax.fallout.runner.DirectTestRunner})
+ * processes write this class to the DB via {@link com.datastax.fallout.service.db.TestRunDAO}.
+ * Since a newer version of the QUEUE can be running at the same time as any number of older RUNNER
+ * processes, it must be EITHER possible for older versions of this layout to be serialized to the
+ * current DB schema OR a full shutdown of all RUNNER processes must be performed before redeploying. */
 @Table(name = "test_runs")
 public class TestRun implements ReadOnlyTestRun
 {
+    /** Also used as part of {@link com.datastax.fallout.runner.TestRunStatusUpdate} to communicate between
+     *  processes; check the documentation for that class for what to bear in mind when making changes */
     public enum State
     {
         /** Initial post-creation state */
@@ -110,6 +117,11 @@ public class TestRun implements ReadOnlyTestRun
         public boolean finished()
         {
             return this == FAILED || this == ABORTED || this == PASSED;
+        }
+
+        public boolean failed()
+        {
+            return this == FAILED || this == ABORTED || this == WAITING_FOR_RESOURCES;
         }
 
         public boolean resourcesChecked()
@@ -174,7 +186,10 @@ public class TestRun implements ReadOnlyTestRun
     private TestCompletionNotification slackPref;
 
     @Column
-    private Set<ResourceRequirement> resourceRequirements = Collections.emptySet();
+    private Set<ResourceRequirement> resourceRequirements = Set.of();
+
+    @Column
+    private Map<String, String> links = new HashMap<>();
 
     public TestRun()
     {
@@ -393,7 +408,8 @@ public class TestRun implements ReadOnlyTestRun
         return updateNeeded;
     }
 
-    public void updateArtifacts(Map<String, Long> artifacts)
+    /** Update the artifact list and return the overall size */
+    public Long updateArtifacts(Map<String, Long> artifacts)
     {
         this.artifacts = artifacts.entrySet().stream()
             .collect(Collectors.toMap(e -> {
@@ -404,6 +420,7 @@ public class TestRun implements ReadOnlyTestRun
                     unstripped : stripped;
             }, Map.Entry::getValue));
         this.artifactsLastUpdated = Date.from(Instant.now());
+        return this.artifacts.values().stream().mapToLong(Long::longValue).sum();
     }
 
     public String getParsedLogInfo()
@@ -414,12 +431,6 @@ public class TestRun implements ReadOnlyTestRun
     public void setParsedLogInfo(String parsedLogInfo)
     {
         this.parsedLogInfo = parsedLogInfo;
-    }
-
-    @JsonIgnore
-    public String getShortName()
-    {
-        return String.format("%s %s %s", owner, testName, testRunId);
     }
 
     /** Mark a testrun as having started. */
@@ -494,11 +505,23 @@ public class TestRun implements ReadOnlyTestRun
                 .filter(Objects::nonNull)
                 .flatMap(Collection::stream)));
 
-        reducedRequirements.sort(Comparator
-            .comparing((ResourceRequirement resourceRequirement) -> resourceRequirement.getResourceType().getProvider())
-            .thenComparing(resourceRequirement -> resourceRequirement.getResourceType().getTenant()));
-
+        reducedRequirements.sort(Comparator.comparing(ResourceRequirement::getResourceType));
         return reducedRequirements;
+    }
+
+    public Map<String, String> getLinks()
+    {
+        return links;
+    }
+
+    public void addLink(String linkname, String link)
+    {
+        links.put(linkname, link);
+    }
+
+    public void removeLinks()
+    {
+        links.clear();
     }
 
     @Override
@@ -507,7 +530,7 @@ public class TestRun implements ReadOnlyTestRun
     {
         return templateParams != null ?
             loadYaml(templateParams) :
-            Collections.emptyMap();
+            Map.of();
     }
 
     @JsonIgnore
@@ -517,7 +540,7 @@ public class TestRun implements ReadOnlyTestRun
         final Map<String, Object> paramsWithDefaults = new LinkedHashMap<>(
             definition != null ?
                 TestDefinition.loadDefaults(TestDefinition.splitDefaultsAndDefinition(definition).getLeft()) :
-                Collections.emptyMap());
+                Map.of());
 
         paramsWithDefaults.putAll(templateParams);
 
@@ -599,6 +622,8 @@ public class TestRun implements ReadOnlyTestRun
         if (resourceRequirements != null ? !resourceRequirements.equals(testRun.resourceRequirements) :
             testRun.resourceRequirements != null)
             return false;
+        if (links != null ? !links.equals(testRun.links) : testRun.links != null)
+            return false;
         return !(templateParams != null ? !templateParams.equals(testRun.templateParams) :
             testRun.templateParams != null);
     }
@@ -622,6 +647,7 @@ public class TestRun implements ReadOnlyTestRun
         result = 31 * result + (parsedLogInfo != null ? parsedLogInfo.hashCode() : 0);
         result = 31 * result + (templateParams != null ? templateParams.hashCode() : 0);
         result = 31 * result + (resourceRequirements != null ? resourceRequirements.hashCode() : 0);
+        result = 31 * result + (links != null ? links.hashCode() : 0);
         return result;
     }
 
@@ -646,6 +672,7 @@ public class TestRun implements ReadOnlyTestRun
             ", artifactsLastUpdated=" + artifactsLastUpdated +
             ", parsedLogInfo=" + parsedLogInfo +
             ", resourceRequirements=" + resourceRequirements +
+            ", links=" + links +
             '}';
     }
 }

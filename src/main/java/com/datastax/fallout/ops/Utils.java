@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,41 +15,42 @@
  */
 package com.datastax.fallout.ops;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOError;
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
+import java.io.StringReader;
+import java.net.InetSocketAddress;
+import java.nio.channels.SocketChannel;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.Uninterruptibles;
 import io.netty.util.HashedWheelTimer;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.datastax.fallout.components.common.provider.NodeInfoProvider;
+import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
 import com.datastax.fallout.ops.commands.NodeResponse;
 import com.datastax.fallout.util.Duration;
-import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.ShellUtils;
+
+import static java.util.stream.Collectors.joining;
 
 /**
  * Yup. we have one.
@@ -225,6 +226,17 @@ public class Utils
     }
 
     /**
+     * @see Utils#waitForQuietSuccess(Logger, Collection, NodeResponse.WaitOptionsAdjuster)
+     */
+    public static <T extends NodeResponse> boolean waitForQuietSuccess(
+        Logger logger, Collection<T> nodeResponses, Duration timeout)
+    {
+        return waitForQuietSuccess(logger, nodeResponses, wo -> {
+            wo.timeout = timeout;
+        });
+    }
+
+    /**
      * Like waitForSuccess but the waiting is done with the (default) no-output timeout disabled.
      *
      * You need to use this way of waiting when you know the command of the responses will output something initially,
@@ -287,6 +299,62 @@ public class Utils
         return waitForAllAsync(futures).join();
     }
 
+    public static boolean waitForPort(String hostname, int port, Logger logger)
+    {
+        return waitForPort(hostname, port, DEFAULT_TIMEOUT, logger, false);
+    }
+
+    public static boolean waitForPort(String hostname, int port, Duration timeout, Logger logger)
+    {
+        return waitForPort(hostname, port, timeout, logger, false);
+    }
+
+    /**
+     * Wait for a port to be open until a deadline is reached (+/- 1 second)
+     */
+    public static boolean waitForPort(String hostname, int port, Duration timeout, Logger logger, boolean quiet)
+    {
+        long deadlineNanos = System.nanoTime() + timeout.toNanos();
+
+        while (System.nanoTime() < deadlineNanos)
+        {
+            SocketChannel channel = null;
+
+            try
+            {
+                logger.info("Checking {}:{}", hostname, port);
+                channel = SocketChannel.open(new InetSocketAddress(hostname, port));
+            }
+            catch (IOException e)
+            {
+                Uninterruptibles.sleepUninterruptibly(1, TimeUnit.SECONDS);
+            }
+
+            if (channel != null)
+            {
+                try
+                {
+                    channel.close();
+                }
+                catch (IOException e)
+                {
+                    //Close quietly
+                }
+
+                logger.info("Connected to {}:{}", hostname, port);
+                return true;
+            }
+        }
+
+        //The port never opened
+        if (!quiet)
+        {
+            logger.warn("Failed to connect to {}:{} after {} sec", hostname, port, timeout.toSeconds());
+        }
+
+        return false;
+    }
+
     public static long parseLong(String value)
     {
         long multiplier = 1;
@@ -304,124 +372,112 @@ public class Utils
         return Long.parseLong(value) * multiplier;
     }
 
+    public static long parseMemory(String value)
+    {
+        long multiplier = 1;
+        value = value.trim().toLowerCase();
+        switch (value.charAt(value.length() - 1))
+        {
+            case 'g':
+                multiplier *= 1000;
+            case 'm':
+                multiplier *= 1000;
+            case 'k':
+                multiplier *= 1000;
+            case 'b':
+                value = value.substring(0, value.length() - 1);
+        }
+
+        return Long.parseLong(value) * multiplier;
+    }
+
     /**
-     * Parses the only value from a JSON singleton map.
-     * Example -k commitlog_directory output:
+     * Takes an input stream consisting of String representations of paths separated by newlines
+     * and returns a collection of String representations of those paths prepended with the provided prefix
      *
-     *  {
-     *    "0": "/var/lib/cassandra/data"
-     *  }
-     *
-     * Returns "/var/lib/cassandra/data"
-     *
-     * Example -k data_file_directories:
-     *
-     *  {
-     *    "0": [
-     *      "/var/lib/cassandra/data",
-     *      "/mnt/cass_data_disks/data1"
-     *    ]
-     *  }
-     *
-     * Returns ["/var/lib/cassandra/data", "/mnt/cass_data_disks/data1"]
+     * @param input Stream to use as input
+     * @param prefix Prefix to prepend to strings
+     * @return collection of Paths as strings
      */
-    public static <T> T parseJsonSingletonMap(String json)
+    public static Collection<String> parsePaths(String input, String prefix) throws IOException
     {
-        try
-        {
-            Map<String, T> output = (Map<String, T>) new ObjectMapper().readValue(json, Object.class);
+        Collection<String> paths = new HashSet<>();
 
-            if (output.size() != 1)
+        try (BufferedReader outputReader = new BufferedReader(new StringReader(input)))
+        {
+            String line;
+            while ((line = outputReader.readLine()) != null)
             {
-                throw new IllegalArgumentException(String.format(
-                    "toParse is only supposed to contain output fom one node but found:\n%s", json));
-            }
-
-            return output.values().iterator().next();
-        }
-        catch (IOException e)
-        {
-            throw new IllegalArgumentException(e);
-        }
-    }
-
-    public static Optional<byte[]> getResource(Object context, String resourceName)
-    {
-        Class clazz = context.getClass();
-        InputStream is = clazz.getClassLoader().getResourceAsStream(resourceName);
-
-        //Try with package namespace
-        if (is == null)
-        {
-            String p = clazz.getPackage().getName();
-            String prefix = String.join(File.separator, StringUtils.split(p, "."));
-            is = clazz.getClassLoader()
-                .getResourceAsStream(String.format("%s%s%s", prefix, File.separator, resourceName));
-        }
-
-        if (is != null)
-        {
-            try
-            {
-                ByteArrayOutputStream bao = new ByteArrayOutputStream();
-
-                while (is.available() > 0)
-                    bao.write(is.read());
-
-                return Optional.of(bao.toByteArray());
-            }
-            catch (IOException e)
-            {
-                throw new IOError(e);
+                paths.add(Paths.get(prefix, line.trim()).toString());
             }
         }
 
-        return Optional.empty();
+        return paths;
     }
 
-    public static void writeStringToFile(File file, String content)
+    private static Stream<String> getNodeInfo(List<Node> nodes, Function<NodeInfoProvider, String> fun)
     {
-        Exceptions.runUncheckedIO(() -> Files.write(file.toPath(), content.getBytes(StandardCharsets.UTF_8)));
+        return nodes.stream()
+            .map(n -> n.getProvider(NodeInfoProvider.class))
+            .map(fun);
     }
 
-    public static String readStringFromFile(File file)
+    public static Stream<String> getPublicNodeIps(List<Node> nodes)
     {
-        return Exceptions.getUncheckedIO(() -> FileUtils.readFileToString(file, Charset.forName("utf-8")));
+        return getNodeInfo(nodes, NodeInfoProvider::getPublicNetworkAddress);
     }
 
-    private static ObjectMapper jsonMapper = new ObjectMapper(new JsonFactory());
-
-    public static <T> T fromJson(String json, Class<T> clazz)
+    public static Stream<String> getPrivateNodeIps(List<Node> nodes)
     {
-        return Exceptions.getUncheckedIO(() -> jsonMapper.readValue(json, clazz));
+        return getNodeInfo(nodes, NodeInfoProvider::getPrivateNetworkAddress);
     }
 
-    public static Map<String, String> fromJsonMap(String json)
+    public static String getPublicNodeIpsCommaSeparated(List<Node> nodes)
     {
-        return Exceptions.getUncheckedIO(() -> jsonMapper.readValue(json, Map.class));
+        return getPublicNodeIps(nodes).collect(joining(","));
     }
 
-    public static List<String> fromJsonList(String json)
+    public static String getPrivateNodeIpsCommaSeparated(List<Node> nodes)
     {
-        return Exceptions.getUncheckedIO(() -> jsonMapper.readValue(json, List.class));
+        return getPrivateNodeIps(nodes).collect(joining(","));
     }
 
-    public static String json(Object object)
+    /**
+     * Determine whether or not two node groups should communicate via private IP addresses. When sharing a cloud
+     * provider, node groups should communicate via Private IPs. Public Ips should be used when dealing with node groups
+     * communicating over two different public clouds or when using a private client and public server
+     */
+    private static boolean usePrivateIps(NodeGroup client, NodeGroup server)
     {
-        return Exceptions.getUncheckedIO(() -> jsonMapper.writeValueAsString(object));
+        return client.getProvisioner().usePrivateIps(server.getProvisioner());
     }
 
-    public static JsonNode getJsonNode(String json, String pathToNode)
+    /**
+     * @return the IP needed to connect to the server node
+     */
+    public static String getContactPoint(Node clientNode, Node serverNode)
     {
-        JsonNode node = Exceptions.getUncheckedIO(() -> jsonMapper.readTree(json));
-        return node.at(pathToNode);
+        return getContactPoints(List.of(clientNode), List.of(serverNode)).get(0);
+    }
+
+    public static List<String> getContactPoints(List<Node> clientNodes, List<Node> serverNodes)
+    {
+        return usePrivateIps(clientNodes.get(0).getNodeGroup(), serverNodes.get(0).getNodeGroup()) ?
+            getPrivateNodeIps(serverNodes).collect(Collectors.toList()) : getPublicNodeIps(serverNodes).collect(
+                Collectors.toList());
+    }
+
+    public static String getContactPointsCommaSeparated(List<Node> clientNodes, List<Node> serverNodes)
+    {
+        return usePrivateIps(clientNodes.get(0).getNodeGroup(), serverNodes.get(0).getNodeGroup()) ?
+            getPrivateNodeIpsCommaSeparated(serverNodes) : getPublicNodeIpsCommaSeparated(serverNodes);
     }
 
     public static <T> List<T> pickInRandomOrder(List<T> candidates, int count, Random r)
     {
         if (candidates.isEmpty())
         {
-            return Collections.emptyList();
+            return List.of();
         }
         if (count <= 0)
         {
@@ -471,5 +527,40 @@ public class Utils
             log.error("Failed to loadComponents for " + componentClass, t);
             throw t;
         }
+    }
+
+    /**
+     * Executes a command on the first node of a nodegroup and returns stdOut on success
+     *
+     * @param nodeGroup
+     * @param cmd
+     * @return
+     */
+    public static Optional<String> captureStdOutFromFirstNodeOnSuccess(NodeGroup nodeGroup, String cmd)
+    {
+        FullyBufferedNodeResponse r = nodeGroup.getNodes().get(0).executeBuffered(cmd);
+        if (r.waitForOptionalSuccess())
+        {
+            return Optional.of(r.getStdout());
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Returns the first N lines of a given string comma separated
+     */
+    public static String getNLines(String s, int n)
+    {
+        return new BufferedReader(new StringReader(s)).lines().limit(n).collect(Collectors.joining(", "));
+    }
+
+    public static List<String> toSortedList(Set<String> set)
+    {
+        return toSortedList(set, Function.identity());
+    }
+
+    public static <T> List<String> toSortedList(Set<T> set, Function<T, String> toStringFunc)
+    {
+        return set.stream().map(toStringFunc).sorted().collect(Collectors.toList());
     }
 }

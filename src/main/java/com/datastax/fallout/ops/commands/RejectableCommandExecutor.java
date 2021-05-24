@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,9 @@
  */
 package com.datastax.fallout.ops.commands;
 
+import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 
@@ -36,15 +38,17 @@ public class RejectableCommandExecutor implements CommandExecutor
         this.delegate = delegate;
     }
 
-    @Override
-    public NodeResponse executeLocally(Node owner, String command, Map<String, String> environment)
+    public NodeResponse executeLocally(Node owner, String command, Map<String, String> environment,
+        Optional<Path> workingDirectory)
     {
-        return pool.addOrRejectCommand(owner, command, () -> delegate.executeLocally(owner, command, environment));
+        return pool.addOrRejectCommand(owner, command,
+            () -> delegate.executeLocally(owner, command, environment, workingDirectory));
     }
 
-    @Override
-    public NodeResponse executeLocally(Logger logger, String command, Map<String, String> environment)
+    public NodeResponse executeLocally(Logger logger, String command, Map<String, String> environment,
+        Optional<Path> workingDirectory)
     {
-        return pool.addOrRejectCommand(logger, command, () -> delegate.executeLocally(logger, command, environment));
+        return pool.addOrRejectCommand(logger, command,
+            () -> delegate.executeLocally(logger, command, environment, workingDirectory));
     }
 }

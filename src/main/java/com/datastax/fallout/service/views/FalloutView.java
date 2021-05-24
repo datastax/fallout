@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ import java.util.Optional;
 
 import io.dropwizard.views.View;
 
-import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.util.DateUtils;
+import com.datastax.fallout.util.JsonUtils;
 
 public class FalloutView extends View
 {
@@ -67,7 +67,8 @@ public class FalloutView extends View
 
     public static final Response error(String error)
     {
-        return Response.status(Response.Status.BAD_REQUEST).entity(String.format("{\"error\": %s}", Utils.json(error)))
+        return Response.status(Response.Status.BAD_REQUEST)
+            .entity(String.format("{\"error\": %s}", JsonUtils.toJson(error)))
             .build();
     }
 

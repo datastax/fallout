@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package com.datastax.fallout.service.resources.server;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
-import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
@@ -28,7 +27,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Form;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
@@ -39,7 +37,6 @@ import javax.ws.rs.core.UriInfo;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
@@ -47,14 +44,11 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -72,12 +66,9 @@ import java.util.zip.ZipOutputStream;
 
 import com.codahale.metrics.annotation.Timed;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import io.dropwizard.auth.Auth;
 import io.swagger.annotations.Api;
 import org.apache.commons.io.FileUtils;
@@ -88,27 +79,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
-import com.datastax.fallout.harness.ArtifactChecker;
-import com.datastax.fallout.harness.Checker;
-import com.datastax.fallout.harness.Module;
 import com.datastax.fallout.harness.TestDefinition;
-import com.datastax.fallout.ops.ConfigurationManager;
-import com.datastax.fallout.ops.FalloutPropertySpecs;
-import com.datastax.fallout.ops.NodeGroup;
-import com.datastax.fallout.ops.PropertyBasedComponent;
-import com.datastax.fallout.ops.PropertyGroup;
-import com.datastax.fallout.ops.PropertySpec;
-import com.datastax.fallout.ops.Provisioner;
-import com.datastax.fallout.ops.Utils;
-import com.datastax.fallout.ops.WritablePropertyGroup;
 import com.datastax.fallout.runner.ActiveTestRunFactory;
 import com.datastax.fallout.runner.Artifacts;
 import com.datastax.fallout.runner.QueuingTestRunner;
 import com.datastax.fallout.runner.UserCredentialsFactory;
 import com.datastax.fallout.service.FalloutConfiguration;
-import com.datastax.fallout.service.QueueAdminTask;
 import com.datastax.fallout.service.core.DeletedTest;
 import com.datastax.fallout.service.core.DeletedTestRun;
+import com.datastax.fallout.service.core.HasPermissions;
 import com.datastax.fallout.service.core.PerformanceReport;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.Test;
@@ -118,14 +97,17 @@ import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.service.db.PerformanceReportDAO;
 import com.datastax.fallout.service.db.TestDAO;
 import com.datastax.fallout.service.db.TestRunDAO;
+import com.datastax.fallout.service.db.UserGroupMapper;
 import com.datastax.fallout.service.views.FalloutView;
 import com.datastax.fallout.service.views.LinkedTestRuns;
 import com.datastax.fallout.service.views.LinkedTests;
 import com.datastax.fallout.service.views.MainView;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.ResourceUtils;
 import com.datastax.fallout.util.TestRunUtils;
 
 import static com.datastax.fallout.service.cli.GenerateNginxConf.NginxConfParams.NGINX_DIRECT_ARTIFACTS_LOCATION;
+import static com.datastax.fallout.service.resources.server.AccountResource.EMAIL_PATTERN;
 import static com.datastax.fallout.service.views.FalloutView.uriFor;
 import static com.datastax.fallout.service.views.LinkedTestRuns.TableDisplayOption.*;
 import static com.datastax.fallout.util.YamlUtils.loadYaml;
@@ -136,13 +118,11 @@ public class TestResource
 {
     private static final Logger logger = LoggerFactory.getLogger(TestResource.class);
 
-    public static final String EMAIL_PATTERN =
-        "[_A-Za-z0-9-]+(?:\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9]+(?:\\.[A-Za-z0-9]+)*(?:\\.[A-Za-z]{2,})";
-
     public static final String ID_PATTERN =
         "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 
-    public static final String NAME_PATTERN = "[0-9a-zA-Z\\.\\-_]+";
+    public static final String ALLOWED_NAME_CHARS = "0-9a-zA-Z\\.\\-_";
+    public static final String NAME_PATTERN = "[" + ALLOWED_NAME_CHARS + "]+";
 
     private static final YAMLMapper yamlMapper = new YAMLMapper();
     public static final Pattern namePattern = Pattern.compile(NAME_PATTERN);
@@ -153,13 +133,14 @@ public class TestResource
     private final UserCredentialsFactory userCredentialsFactory;
     private final PerformanceReportDAO reportDAO;
     private final QueuingTestRunner testRunner;
-    private final QueueAdminTask queueAdminTask;
     private final MainView mainView;
+    private final UserGroupMapper userGroupMapper;
 
     public TestResource(FalloutConfiguration configuration, TestDAO testDAO, TestRunDAO testRunDAO,
         ActiveTestRunFactory activeTestRunFactory,
         UserCredentialsFactory userCredentialsFactory, PerformanceReportDAO reportDAO,
-        QueuingTestRunner testRunner, QueueAdminTask queueAdminTask, MainView mainView)
+        QueuingTestRunner testRunner, MainView mainView,
+        UserGroupMapper userGroupMapper)
     {
         this.configuration = configuration;
         this.testDAO = testDAO;
@@ -168,8 +149,8 @@ public class TestResource
         this.userCredentialsFactory = userCredentialsFactory;
         this.reportDAO = reportDAO;
         this.testRunner = testRunner;
-        this.queueAdminTask = queueAdminTask;
         this.mainView = mainView;
+        this.userGroupMapper = userGroupMapper;
     }
 
     private Response saveTestAndBuildResponse(User user, Test test,
@@ -179,11 +160,9 @@ public class TestResource
         {
             activeTestRunFactory.validateTestDefinition(test, userCredentialsFactory);
         }
-        catch (Exception e)
+        catch (InvalidConfigurationException e)
         {
-            logger.info("createTestApi failed for " + user.getEmail(), e);
-            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
-                .entity(ExceptionUtils.getStackTrace(e)).build());
+            throw new WebApplicationException(e.getLocalizedMessage(), Response.Status.BAD_REQUEST);
         }
 
         testDAO.add(test);
@@ -238,7 +217,6 @@ public class TestResource
     @Timed
     @Produces(MediaType.TEXT_PLAIN)
     @Consumes(MediaType.APPLICATION_JSON)
-    @SuppressWarnings("unchecked")
     public Response validateTestApi(@Auth User user, TestForValidation testForValidation) throws IOException
     {
         final Test test = Test.createTest(user.getEmail(), "test_to_be_validated_but_not_saved",
@@ -293,7 +271,10 @@ public class TestResource
 
     private boolean authorizedToDelete(Optional<User> user, Test test)
     {
-        return user.map(u -> u.isAdmin() || test.isOwnedBy(u)).orElse(false);
+        return user
+            .map(u -> u.isAdmin() || test.canBeModifiedBy(userGroupMapper, u) ||
+                userGroupMapper.isInGroupOfCIUser(u, test.getOwner()))
+            .orElse(false);
     }
 
     @DELETE
@@ -325,10 +306,7 @@ public class TestResource
                 .entity("Cannot delete a test with unfinished test runs").build();
         }
 
-        if (!authorizedToDelete(Optional.of(user), test))
-        {
-            return Response.status(Response.Status.UNAUTHORIZED).build();
-        }
+        assertCanBeModifiedBy(userGroupMapper, user, test);
 
         List<PerformanceReport> perfReports = reportDAO.getAll().stream()
             .filter(perfReport -> perfReport.getReportTestRuns() != null &&
@@ -356,13 +334,12 @@ public class TestResource
         {
             if (!deleteForever)
             {
-                testRunDAO.dropAll(userEmail, name);
-                testDAO.drop(userEmail, name);
+                testDAO.deleteTestAndTestRuns(test);
             }
             else
             {
-                testDAO.delete(userEmail, name);
-                testRunDAO.deleteAll(userEmail, name);
+                testDAO.deleteForever(userEmail, name);
+                testRunDAO.deleteAllForever(userEmail, name);
             }
         }
         catch (Exception e)
@@ -382,22 +359,12 @@ public class TestResource
     public Response restoreTest(@Auth User user, @PathParam("userEmail") String userEmail,
         @PathParam("name") String name)
     {
-        DeletedTest deletedTest = testDAO.getDeleted(userEmail, name);
-
-        if (deletedTest == null)
-        {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        if (!authorizedToDelete(Optional.of(user), deletedTest))
-        {
-            return Response.status(Response.Status.UNAUTHORIZED).build();
-        }
+        DeletedTest deletedTest =
+            assertExistsAndCanBeModifiedBy(userGroupMapper, user, testDAO.getDeleted(userEmail, name));
 
         try
         {
-            testDAO.restore(deletedTest);
-            testRunDAO.restoreAll(userEmail, name);
+            testDAO.restoreTestAndTestRuns(deletedTest);
         }
         catch (Exception e)
         {
@@ -415,22 +382,12 @@ public class TestResource
     public Response deleteDeletedTestForever(@Auth User user, @PathParam("userEmail") String userEmail,
         @PathParam("name") String name)
     {
-        DeletedTest deletedTest = testDAO.getDeleted(userEmail, name);
-
-        if (deletedTest == null)
-        {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        if (!authorizedToDelete(Optional.of(user), deletedTest))
-        {
-            return Response.status(Response.Status.UNAUTHORIZED).build();
-        }
+        assertExistsAndCanBeModifiedBy(userGroupMapper, user, testDAO.getDeleted(userEmail, name));
 
         try
         {
-            testDAO.delete(userEmail, name);
-            testRunDAO.deleteAll(userEmail, name);
+            testDAO.deleteForever(userEmail, name);
+            testRunDAO.deleteAllForever(userEmail, name);
         }
         catch (Exception e)
         {
@@ -456,9 +413,7 @@ public class TestResource
     @Produces(MediaType.APPLICATION_JSON)
     public Test getTestApi(@PathParam("userEmail") String userEmail, @PathParam("name") String name)
     {
-        Test test = testDAO.get(userEmail, name);
-        assertTest(test);
-        return test;
+        return assertExists(testDAO.get(userEmail, name));
     }
 
     @GET
@@ -476,9 +431,7 @@ public class TestResource
     @Produces(MediaType.APPLICATION_JSON)
     public Test getDeletedTestApi(@PathParam("userEmail") String userEmail, @PathParam("name") String name)
     {
-        Test deletedTest = testDAO.getDeleted(userEmail, name);
-        assertTest(deletedTest);
-        return deletedTest;
+        return assertExists((Test) testDAO.getDeleted(userEmail, name));
     }
 
     @GET
@@ -491,8 +444,7 @@ public class TestResource
         if (!("definition".equals(name2) || name.equals(name2)))
             throw new WebApplicationException(Response.Status.NOT_FOUND);
 
-        Test test = testDAO.get(userEmail, name);
-        assertTest(test);
+        Test test = assertExists(testDAO.get(userEmail, name));
 
         return Response.ok(test.getDefinition().replace("\\n", "\n"))
             .header("Content-Type", "text/yaml")
@@ -524,8 +476,7 @@ public class TestResource
     private Response getTestRunDefinition(String email, String testName, String testRunId,
         Function<TestRun, String> definitionMethod)
     {
-        TestRun testRun = testRunDAO.getEvenIfDeleted(email, testName, UUID.fromString(testRunId));
-        assertTestRun(testRun);
+        TestRun testRun = assertExists(testRunDAO.getEvenIfDeleted(email, testName, UUID.fromString(testRunId)));
 
         if (testRun.getDefinition() == null)
             throw new WebApplicationException(String.format("No YAML found for run %s", testRunId),
@@ -552,9 +503,7 @@ public class TestResource
     @Produces(MediaType.APPLICATION_JSON)
     public List<Test> listTestsForUserApi(@PathParam("userEmail") String userEmail)
     {
-        List<Test> tests = testDAO.getAll(userEmail);
-        assertTests(tests);
-        return tests;
+        return testDAO.getAll(userEmail);
     }
 
     @GET
@@ -620,11 +569,10 @@ public class TestResource
 
         if (createTestRunParams.jsonTemplateParams == null)
         {
-            createTestRunParams.jsonTemplateParams = Collections.emptyMap();
+            createTestRunParams.jsonTemplateParams = Map.of();
         }
 
-        final Test test = testDAO.get(user.getEmail(), name);
-        assertTest(test);
+        final Test test = assertExists(testDAO.get(user.getEmail(), name));
 
         final TestRun testRun = test.createTestRun(createTestRunParams.jsonTemplateParams);
 
@@ -659,13 +607,9 @@ public class TestResource
         @PathParam("name") String name,
         @PathParam("testRunId") String testRunId, RerunParams rerunParams)
     {
-        if (!email.equals(user.getEmail()))
-        {
-            throw new WebApplicationException(Response.Status.FORBIDDEN);
-        }
-
-        final TestRun testRun = testRunDAO.get(email, name, UUID.fromString(testRunId));
-        assertTestRun(testRun);
+        final TestRun testRun =
+            assertExistsAndCanBeModifiedBy(userGroupMapper, user,
+                testRunDAO.get(email, name, UUID.fromString(testRunId)));
 
         TestRun rerun;
 
@@ -675,8 +619,7 @@ public class TestResource
         }
         else
         {
-            Test test = testDAO.get(testRun.getOwner(), testRun.getTestName());
-            assertTest(test);
+            Test test = assertExists(testDAO.get(testRun.getOwner(), testRun.getTestName()));
             rerun = test.createTestRun(testRun.getTemplateParamsMap());
             testDAO.update(test);
         }
@@ -695,7 +638,7 @@ public class TestResource
         @PathParam("testRunId") String testRunIdStr)
     {
         final UUID testRunId = UUID.fromString(testRunIdStr);
-        return fetchTestRunAndMaybeUpdateArtifacts(testRunId, () -> testRunDAO.get(email, name, testRunId));
+        return fetchTestRunAndMaybeUpdateArtifacts(() -> testRunDAO.get(email, name, testRunId));
     }
 
     public static URI uriForGetTestRunApi(TestRun testRun)
@@ -711,7 +654,7 @@ public class TestResource
     public TestRun getTestRunByTestRunIdApi(@PathParam("testRunId") String testRunIdStr)
     {
         final UUID testRunId = UUID.fromString(testRunIdStr);
-        return fetchTestRunAndMaybeUpdateArtifacts(testRunId, () -> testRunDAO.getByTestRunId(testRunId));
+        return fetchTestRunAndMaybeUpdateArtifacts(() -> testRunDAO.getByTestRunId(testRunId));
     }
 
     @GET
@@ -761,39 +704,44 @@ public class TestResource
     @Produces(MediaType.APPLICATION_JSON)
     public TestRun getNewestTestRunApi(@PathParam("userEmail") String email, @PathParam("name") String name)
     {
-        List<TestRun> testRuns = assertTestRuns(testRunDAO.getAll(email, name));
+        List<TestRun> testRuns = assertExists(testRunDAO.getAll(email, name));
         testRuns.sort(Comparator.comparing(TestRun::getCreatedAt).reversed()); // Sort by newest to oldest
 
         return testRuns.get(0); // Grab first index, should be the newest started run
     }
 
-    public static boolean canCancel(Optional<User> user, ReadOnlyTestRun testRun)
+    public static boolean canCancel(UserGroupMapper userGroupMapper, Optional<User> user, ReadOnlyTestRun testRun)
     {
         if (testRun == null || testRun.getState().finished())
         {
             return false;
         }
-        return authorizedToCancel(user, testRun);
+        return user.map(user_ -> testRun.canBeModifiedBy(userGroupMapper, user_)).orElse(false);
     }
 
-    public static boolean canDelete(Optional<User> user, ReadOnlyTestRun testRun)
+    public static boolean canDelete(UserGroupMapper userGroupMapper, Optional<User> user, ReadOnlyTestRun testRun)
     {
         if (testRun == null || !testRun.getState().finished())
         {
             return false;
         }
-        return authorizedToDelete(user, testRun);
+        return user.map(user_ -> testRun.canBeModifiedBy(userGroupMapper, user_)).orElse(false);
     }
 
-    public static boolean authorizedToCancel(Optional<User> user, ReadOnlyTestRun testRun)
+    public static <T extends HasPermissions> T assertCanBeModifiedBy(UserGroupMapper userGroupMapper, User user,
+        T subject)
     {
-        return user.map(u -> u.isAdmin() || testRun.isOwnedBy(u)).orElse(false);
+        if (!subject.canBeModifiedBy(userGroupMapper, user))
+        {
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
+        }
+        return subject;
     }
 
-    public static boolean authorizedToDelete(Optional<User> user, ReadOnlyTestRun testRun)
+    public static <T extends HasPermissions> T assertExistsAndCanBeModifiedBy(UserGroupMapper userGroupMapper,
+        User user, T subject)
     {
-        return user.map(u -> u.isAdmin() || testRun.isOwnedBy(u))
-            .orElse(false);
+        return assertCanBeModifiedBy(userGroupMapper, user, assertExists(subject));
     }
 
     @POST
@@ -804,21 +752,12 @@ public class TestResource
         @Auth User user, @PathParam("userEmail") String userEmail, @PathParam("name") String testName,
         @PathParam("testRunId") String testRunId)
     {
-        TestRun testRun = testRunDAO.get(userEmail, testName, UUID.fromString(testRunId));
-
-        if (testRun == null)
-        {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
+        final TestRun testRun = assertExistsAndCanBeModifiedBy(userGroupMapper, user,
+            testRunDAO.get(userEmail, testName, UUID.fromString(testRunId)));
 
         if (testRun.getState().finished())
         {
             return Response.notModified().build();
-        }
-
-        if (!authorizedToCancel(Optional.of(user), testRun))
-        {
-            return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
         logger.info("{}'s test run {} of {} was aborted by {}", userEmail, testRunId, testName, user.getEmail());
@@ -838,6 +777,31 @@ public class TestResource
             testRun.getTestRunId());
     }
 
+    /** Utility API to force update of artifacts when we've manually changed them outside of fallout */
+    @POST
+    @Path("{userEmail: " + EMAIL_PATTERN + "}/{name: " + NAME_PATTERN + "}/runs/{testRunId: " + ID_PATTERN +
+        "}/updateArtifacts/api")
+    @Timed
+    @Produces(MediaType.APPLICATION_JSON)
+    public void updateFinishedTestRunArtifacts(
+        @Auth User user, @PathParam("userEmail") String userEmail, @PathParam("name") String testName,
+        @PathParam("testRunId") String testRunId)
+    {
+        final TestRun testRun =
+            assertExistsAndCanBeModifiedBy(userGroupMapper, user,
+                testRunDAO.get(userEmail, testName, UUID.fromString(testRunId)));
+
+        if (!testRun.getState().finished())
+        {
+            throw new WebApplicationException(
+                Response.status(Response.Status.CONFLICT)
+                    .entity("Cannot update artifacts of an unfinished test run").build());
+        }
+
+        testDAO.updateTestRunArtifacts(testRun.getTestRunIdentifier(),
+            Exceptions.getUncheckedIO(() -> Artifacts.findTestRunArtifacts(configuration, testRun)));
+    }
+
     @DELETE
     @Path("{userEmail: " + EMAIL_PATTERN + "}/{name: " + NAME_PATTERN + "}/runs/{testRunId: " + ID_PATTERN + "}/api")
     @Timed
@@ -846,22 +810,13 @@ public class TestResource
         @PathParam("name") String testName,
         @PathParam("testRunId") String testRunId)
     {
-        TestRun testRun = testRunDAO.get(userEmail, testName, UUID.fromString(testRunId));
-
-        if (testRun == null)
-        {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
+        TestRun testRun = assertExistsAndCanBeModifiedBy(userGroupMapper,
+            user, testRunDAO.get(userEmail, testName, UUID.fromString(testRunId)));
 
         if (!testRun.getState().finished())
         {
             return Response.status(Response.Status.CONFLICT)
                 .entity("Cannot delete an unfinished test run").build();
-        }
-
-        if (!authorizedToDelete(Optional.of(user), testRun))
-        {
-            return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
         List<PerformanceReport> perfReports = reportDAO.getAll().stream()
@@ -891,8 +846,7 @@ public class TestResource
 
         try
         {
-            testRunDAO.drop(userEmail, testName, UUID.fromString(testRunId));
-            testDAO.changeSizeOnDiskBytes(testRun, -testRun.getArtifactsSizeBytes().orElse(0L));
+            testDAO.deleteTestRun(testRun);
         }
         catch (Exception e)
         {
@@ -911,17 +865,10 @@ public class TestResource
     public Response restoreTestRun(@Auth User user, @PathParam("userEmail") String userEmail,
         @PathParam("name") String testName, @PathParam("testRunId") String testRunId)
     {
-        DeletedTest deletedTest = testDAO.getDeleted(userEmail, testName);
         DeletedTestRun deletedTestRun = testRunDAO.getDeleted(userEmail, testName, UUID.fromString(testRunId));
         try
         {
-            testRunDAO.restore(deletedTestRun);
-            if (deletedTest != null)
-            {
-                deletedTest.setSizeOnDiskBytes(0L);
-                testDAO.restore(deletedTest);
-            }
-            testDAO.changeSizeOnDiskBytes(deletedTestRun);
+            testDAO.restoreTestRun(deletedTestRun);
         }
         catch (Exception e)
         {
@@ -941,108 +888,7 @@ public class TestResource
         @PathParam("name") String testName,
         @PathParam("testRunId") String testRunId)
     {
-        TestRun deletedTestRun = testRunDAO.getDeleted(userEmail, testName, UUID.fromString(testRunId));
-        assertTestRun(deletedTestRun);
-
-        return deletedTestRun;
-    }
-
-    public static class ComponentView extends FalloutView
-    {
-        final String prefix;
-        final String title;
-        final List<ComponentCategories> components;
-        final String defaultTxt;
-        final String cssClass;
-
-        public ComponentView(User user, String prefix, String title, String defaultTxt, String cssClass,
-            List<? extends PropertyBasedComponent> components, MainView mainView)
-        {
-            super("component.mustache", user, mainView);
-
-            this.title = title;
-            this.defaultTxt = defaultTxt;
-            this.prefix = prefix;
-            this.cssClass = cssClass;
-            this.components = components.stream()
-                .map(c -> new ComponentCategories(c))
-                .collect(Collectors.toList());
-        }
-
-        public static class ComponentCategories
-        {
-            final PropertyBasedComponent component;
-            final Collection<Category> componentCategories;
-
-            ComponentCategories(PropertyBasedComponent component)
-            {
-                this.component = component;
-                this.componentCategories = Category.getCategories(component, component.getPropertySpecs());
-            }
-
-            public String getName()
-            {
-                return this.component.name().toLowerCase();
-            }
-        }
-    }
-
-    @GET
-    @Path("/tools/admin")
-    @Timed
-    @Produces(MediaType.TEXT_HTML)
-    public FalloutView getAdmin(@Auth User user)
-    {
-        return new TestAdminView(user, testRunner);
-    }
-
-    private static void requireAdminTo(User user, String operationDescription)
-    {
-        if (!user.isAdmin())
-        {
-            throw new WebApplicationException("You must be an admin to " + operationDescription,
-                Response.Status.FORBIDDEN);
-        }
-    }
-
-    @POST
-    @Path("/requestShutdown/api")
-    @Timed
-    @Produces(MediaType.APPLICATION_JSON)
-    public void requestShutdownAPI(@Auth User user)
-    {
-        requireAdminTo(user, "request shutdown");
-        queueAdminTask.requestShutdown(user.getEmail());
-    }
-
-    @POST
-    @Path("/cancelShutdown/api")
-    @Timed
-    @Produces(MediaType.APPLICATION_JSON)
-    public void cancelShutdown(@Auth User user)
-    {
-        requireAdminTo(user, "cancel shutdown");
-        queueAdminTask.cancelShutdown();
-    }
-
-    @POST
-    @Path("/abortAndRequeueRunningTestRuns/api")
-    @Timed
-    @Produces(MediaType.APPLICATION_JSON)
-    public List<TestRun> abortAndRequeueRunningTestRuns(@Auth User user)
-    {
-        requireAdminTo(user, "abort and requeue running tests");
-        if (!testRunner.isShutdownRequested())
-        {
-            throw new WebApplicationException("A shutdown must be requested first", Response.Status.FORBIDDEN);
-        }
-        if (testRunner.testsHaveBeenAbortedAndRequeued())
-        {
-            throw new WebApplicationException("Abort and requeue should only be used once while a shutdown is " +
-                "requested", Response.Status.FORBIDDEN);
-        }
-
-        return testRunner.abortAndRequeueRunningTestRuns();
+        return assertExists(testRunDAO.getDeleted(userEmail, testName, UUID.fromString(testRunId)));
     }
 
     @PUT
@@ -1051,8 +897,7 @@ public class TestResource
     @Consumes(MediaType.APPLICATION_JSON)
     public Response tagTest(@Auth User user, @PathParam("name") String testName, List<String> tags)
     {
-        Test test = testDAO.get(user.getEmail(), testName);
-        assertTest(test);
+        Test test = assertExists(testDAO.get(user.getEmail(), testName));
 
         test.setTags(new HashSet<>(tags));
         testDAO.add(test);
@@ -1066,10 +911,7 @@ public class TestResource
     @Produces(MediaType.APPLICATION_JSON)
     public Set<String> getTestTags(@Auth User user, @PathParam("name") String testName)
     {
-        Test test = testDAO.get(user.getEmail(), testName);
-        assertTest(test);
-
-        return test.getTags();
+        return assertExists(testDAO.get(user.getEmail(), testName)).getTags();
     }
 
     @GET
@@ -1097,20 +939,15 @@ public class TestResource
         if (email != null && name != null)
             test = testDAO.get(email, name);
 
-        assertTest(test);
-
-        return new TestBuilderView(user, test, true);
+        return new TestBuilderView(user, assertExists(test), true);
     }
 
     public class TestBuilderView extends FalloutView
     {
         final Test test;
         final boolean edit;
-        final PropertySpec<NodeGroup.State> runLevelSpec =
-            FalloutPropertySpecs.launchRunLevelPropertySpec;
         final String defaultTestDefinition =
-            Utils.getResource(this, "default-test-definition.yaml")
-                .map(byteArray -> new String(byteArray, StandardCharsets.UTF_8))
+            ResourceUtils.loadResourceAsString(this, "default-test-definition.yaml")
                 .orElse("");
 
         public TestBuilderView(User user, Test test)
@@ -1123,438 +960,6 @@ public class TestResource
             super("test-create.mustache", user, mainView);
             this.test = test;
             this.edit = edit;
-        }
-    }
-
-    @POST
-    @Path("/tools/create")
-    @Timed
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response checkTest(@Auth User user,
-        @FormParam("ensemble.server.cluster.size") Integer serverNodes,
-        @FormParam("ensemble.client.cluster.size") Integer clientNodes,
-        @FormParam("ensemble.server.cluster.runlevel") String serverRunLevel,
-        @FormParam("ensemble.client.cluster.runlevel") String clientRunLevel,
-        Form formData)
-    {
-
-        if (serverNodes == null)
-            return FalloutView.error("Number of nodes required for ensemble server group");
-
-        if (serverNodes <= 0 || serverNodes >= 1024)
-            return FalloutView.error("Invalid number of nodes specified for ensemble server group");
-
-        MultivaluedMap<String, String> formMap = formData.asMap();
-
-        try
-        {
-
-            //Server group
-            WritablePropertyGroup serverProvisionerProperties = new WritablePropertyGroup();
-            Provisioner serverProvisioner = getComponentAndProperties(formMap, "Server Provisioner", "server-prv",
-                serverProvisionerProperties, Provisioner.class);
-
-            List<Pair<PropertyBasedComponent, PropertyGroup>> serverCMList = new ArrayList<>();
-            for (int i = 1; i < 10; i++)
-            {
-                String cmType = formMap.getFirst(String.format("server-cm%d-type", i));
-                if (cmType == null || cmType.isEmpty())
-                    continue;
-
-                WritablePropertyGroup properties = new WritablePropertyGroup();
-                ConfigurationManager cm = getComponentAndProperties(formMap, "Server Configuration Manager #" + i,
-                    "server-cm" + i, properties, ConfigurationManager.class);
-
-                serverCMList.add(Pair.of(cm, properties));
-            }
-
-            if (serverCMList.isEmpty())
-                return FalloutView.error("Server Configuration Manager Required");
-
-            //Client group
-            WritablePropertyGroup clientProvisionerProperties = null;
-            Provisioner clientProvisioner = null;
-            List<Pair<PropertyBasedComponent, PropertyGroup>> clientCMList = null;
-
-            //Special check for Client Provisioner
-            if (!formMap.getFirst("client-prv-type").isEmpty())
-            {
-
-                if (clientNodes == null)
-                    return FalloutView.error("Number of nodes required for ensemble client group");
-
-                if (clientNodes <= 0 || clientNodes >= 1024)
-                    return FalloutView.error("Invalid number of nodes specified for ensemble server group");
-
-                clientProvisionerProperties = new WritablePropertyGroup();
-                clientProvisioner = getComponentAndProperties(formMap, "Client Provisioner", "client-prv",
-                    clientProvisionerProperties, Provisioner.class);
-
-                clientCMList = new ArrayList<>();
-                for (int i = 1; i < 10; i++)
-                {
-                    String cmType = formMap.getFirst(String.format("client-cm%d-type", i));
-                    if (cmType == null || cmType.isEmpty())
-                        continue;
-
-                    WritablePropertyGroup properties = new WritablePropertyGroup();
-                    ConfigurationManager cm = getComponentAndProperties(formMap, "Client Configuration Manager #" + i,
-                        "client-cm" + i, properties, ConfigurationManager.class);
-
-                    clientCMList.add(Pair.of(cm, properties));
-                }
-
-                if (clientCMList.isEmpty())
-                    return FalloutView.error("Client Configuration Manager Required");
-            }
-
-            //Phases
-            List<Map<String, Pair<PropertyBasedComponent, PropertyGroup>>> phaseLists = new ArrayList<>();
-
-            for (int p = 1; p < 100; p++)
-            {
-                Map<String, Pair<PropertyBasedComponent, PropertyGroup>> modules = new LinkedHashMap<>();
-                for (int m = 1; m < 100; m++)
-                {
-                    String prefix = String.format("phase%d-mod%d", p, m);
-                    String modName = formMap.getFirst(prefix);
-                    if (modName == null || modName.trim().isEmpty())
-                        continue;
-
-                    if (!namePattern.matcher(modName).matches())
-                        return FalloutView.error(String.format(
-                            "Phase #%d, Module #%d name must be alphanumeric (no spaces, use ._- chars)", p, m));
-
-                    WritablePropertyGroup properties = new WritablePropertyGroup();
-                    Module module = getComponentAndProperties(formMap,
-                        String.format("Phase #%d Module '%s'", p, modName), prefix, properties, Module.class);
-
-                    if (modules.put(modName, Pair.of(module, properties)) != null)
-                        return FalloutView
-                            .error(String.format("Duplicate module name detected in Phase #%d: %s", p, modName));
-                }
-
-                if (!modules.isEmpty())
-                    phaseLists.add(modules);
-            }
-
-            if (phaseLists.isEmpty())
-                return FalloutView.error("At least one Phase required");
-
-            //Checkers (optional)
-            Map<String, Pair<PropertyBasedComponent, PropertyGroup>> checkerList = new LinkedHashMap<>();
-            for (int c = 0; c < 100; c++)
-            {
-                String prefix = String.format("checker%d", c);
-
-                String checkerName = formMap.getFirst(prefix);
-                if (checkerName == null || checkerName.trim().isEmpty())
-                    continue;
-
-                if (!namePattern.matcher(checkerName).matches())
-                    return FalloutView
-                        .error(String.format("Checker #%d name must be alphanumeric (no spaces, use ._- chars)", c));
-
-                String checkerType = formMap.getFirst(String.format("checker%d-type", c));
-                if (checkerType == null || checkerType.trim().isEmpty())
-                    return FalloutView.error("Checker type missing for: " + checkerName);
-
-                WritablePropertyGroup properties = new WritablePropertyGroup();
-                Checker checker =
-                    getComponentAndProperties(formMap, "Checker " + checkerName, prefix, properties, Checker.class);
-
-                if (checkerList.put(checkerName, Pair.of(checker, properties)) != null)
-                    return FalloutView.error("Duplicate checker name detected: " + checkerName);
-            }
-
-            // Artifact Checkers (optional)
-            Map<String, Pair<PropertyBasedComponent, PropertyGroup>> artifactCheckerList = new LinkedHashMap<>();
-            for (int c = 0; c < 100; c++)
-            {
-                String prefix = String.format("artifact_checker%d", c);
-
-                String artifactCheckerName = formMap.getFirst(prefix);
-                if (artifactCheckerName == null || artifactCheckerName.trim().isEmpty())
-                    continue;
-
-                if (!namePattern.matcher(artifactCheckerName).matches())
-                    return FalloutView.error(
-                        String.format("Artifact Checker #%d name must be alphanumeric (no spaces, use ._- chars)", c));
-
-                String artifactCheckerType = formMap.getFirst(String.format("artifact_checker%d-type", c));
-                if (artifactCheckerType == null || artifactCheckerType.trim().isEmpty())
-                    return FalloutView.error("Artifact Checker type missing for: " + artifactCheckerName);
-
-                WritablePropertyGroup properties = new WritablePropertyGroup();
-                ArtifactChecker checker = getComponentAndProperties(formMap, "Artifact Checker " + artifactCheckerName,
-                    prefix, properties, ArtifactChecker.class);
-
-                if (artifactCheckerList.put(artifactCheckerName, Pair.of(checker, properties)) != null)
-                    return FalloutView.error("Duplicate artifact_checker name detected: " + artifactCheckerName);
-            }
-
-            String yaml = buildYaml(serverNodes, serverRunLevel, serverProvisioner, serverProvisionerProperties,
-                serverCMList, clientNodes, clientRunLevel, clientProvisioner, clientProvisionerProperties,
-                clientCMList, phaseLists, checkerList, artifactCheckerList);
-
-            return Response.ok().entity(ImmutableMap.of("yaml", yaml)).build();
-        }
-        catch (InstantiationException | IllegalAccessException | JsonProcessingException e)
-        {
-            throw new WebApplicationException(e.getMessage());
-        }
-        catch (IllegalArgumentException e)
-        {
-            return FalloutView.error(e.getMessage());
-        }
-    }
-
-    private StringBuilder space(StringBuilder sb, int spaces)
-    {
-        for (int i = 0; i < spaces; i++)
-            sb.append(" ");
-
-        return sb;
-    }
-
-    private StringBuilder addComponentYaml(StringBuilder sb, int offset, String title, String type,
-        PropertyBasedComponent component, PropertyGroup properties) throws JsonProcessingException
-    {
-        space(sb, offset).append(title).append(":\n");
-        space(sb, offset + 4).append(type).append(": ").append(component.name()).append("\n");
-
-        String prefix = component.prefix();
-        if (!properties.isEmpty())
-        {
-            space(sb, offset + 4).append("properties:\n");
-
-            for (Map.Entry<String, Object> entry : properties.getProperties().entrySet())
-            {
-                space(sb, offset + 6).append(entry.getKey().replace(prefix, "")).append(": ")
-                    .append(entry.getValue() instanceof String ? entry.getValue() :
-                        yamlMapper.writeValueAsString(entry.getValue()))
-                    .append("\n");
-            }
-        }
-
-        return sb;
-    }
-
-    private StringBuilder addComponentYaml(StringBuilder sb, boolean isInArray, int offset, String title, String type,
-        List<Pair<PropertyBasedComponent, PropertyGroup>> list) throws JsonProcessingException
-    {
-        space(sb, offset);
-
-        if (isInArray)
-            sb.append("- ");
-
-        sb.append(title).append(":\n");
-
-        for (Pair<PropertyBasedComponent, PropertyGroup> item : list)
-        {
-            String prefix = item.getLeft().prefix();
-            space(sb, offset + 2).append("- ").append(type).append(": ").append(item.getLeft().name()).append("\n");
-
-            if (!item.getRight().isEmpty())
-            {
-                space(sb, offset + 4).append("properties:\n");
-
-                for (Map.Entry<String, Object> entry : item.getRight().getProperties().entrySet())
-                {
-                    space(sb, offset + 6).append(entry.getKey().replace(prefix, "")).append(": ")
-                        .append(entry.getValue() instanceof String ? entry.getValue() :
-                            yamlMapper.writeValueAsString(entry.getValue()))
-                        .append("\n");
-                }
-            }
-        }
-
-        return sb;
-    }
-
-    private String buildYaml(Integer serverNodes, String serverRunLevel, Provisioner serverProvisioner,
-        PropertyGroup serverProvisionerProperties, List<Pair<PropertyBasedComponent, PropertyGroup>> serverCmList,
-        Integer clientNodes, String clientRunLevel, Provisioner clientProvisioner,
-        PropertyGroup clientProvisionerProperties, List<Pair<PropertyBasedComponent, PropertyGroup>> clientCmList,
-        List<Map<String, Pair<PropertyBasedComponent, PropertyGroup>>> phaseLists,
-        Map<String, Pair<PropertyBasedComponent, PropertyGroup>> checkerList,
-        Map<String, Pair<PropertyBasedComponent, PropertyGroup>> artifactCheckerList) throws JsonProcessingException
-    {
-        String space = "  ";
-        StringBuilder sb = new StringBuilder();
-
-        //Ensemble Section
-        sb.append("#\n# Test ensemble\n#\n");
-        sb.append("ensemble:\n");
-
-        //Server Section
-        sb.append(space).append("server:\n");
-        space(sb, 4).append("node.count: ").append(serverNodes).append("\n");
-        space(sb, 4).append("runlevel: ").append(serverRunLevel).append("\n");
-        addComponentYaml(sb, 4, "provisioner", "name", serverProvisioner, serverProvisionerProperties);
-        addComponentYaml(sb, false, 4, "configuration_manager", "name", serverCmList);
-        sb.append("\n");
-
-        //Client Section
-        if (clientProvisioner == null)
-        {
-            sb.append(space).append("client: server");
-        }
-        else
-        {
-            sb.append(space).append("client:\n");
-            space(sb, 4).append("node.count: ").append(clientNodes).append("\n");
-            space(sb, 4).append("runlevel: ").append(clientRunLevel).append("\n");
-            addComponentYaml(sb, 4, "provisioner", "name", clientProvisioner, clientProvisionerProperties);
-            addComponentYaml(sb, false, 4, "configuration_manager", "name", clientCmList);
-        }
-
-        //Workload section
-        sb.append("\n#\n# Test workload\n#\n");
-        sb.append("workload:\n");
-        sb.append(space).append("phases:\n");
-
-        for (Map<String, Pair<PropertyBasedComponent, PropertyGroup>> phase : phaseLists)
-        {
-            boolean first = true;
-            for (Map.Entry<String, Pair<PropertyBasedComponent, PropertyGroup>> entry : phase.entrySet())
-            {
-                addComponentYaml(sb, (first ? 4 : 6), ((first ? "- " : "") + entry.getKey()), "module",
-                    entry.getValue().getLeft(), entry.getValue().getRight());
-                first = false;
-            }
-        }
-
-        if (!checkerList.isEmpty())
-        {
-            sb.append(space).append("checkers:\n");
-
-            for (Map.Entry<String, Pair<PropertyBasedComponent, PropertyGroup>> entry : checkerList.entrySet())
-                addComponentYaml(sb, 4, entry.getKey(), "checker", entry.getValue().getLeft(),
-                    entry.getValue().getRight());
-        }
-
-        if (!artifactCheckerList.isEmpty())
-        {
-            sb.append(space).append("artifact_checkers:\n");
-
-            for (Map.Entry<String, Pair<PropertyBasedComponent, PropertyGroup>> entry : artifactCheckerList.entrySet())
-                addComponentYaml(sb, 4, entry.getKey(), "artifact_checker", entry.getValue().getLeft(),
-                    entry.getValue().getRight());
-        }
-
-        return sb.toString();
-    }
-
-    public static <T extends PropertyBasedComponent> T getComponentAndProperties(MultivaluedMap<String, String> form,
-        String title, String prefix, WritablePropertyGroup properties, Class<T> clazz)
-        throws IllegalAccessException, InstantiationException, IllegalArgumentException
-    {
-        List<T> types = Utils.loadComponents(clazz);
-
-        String typeName = form.getFirst(prefix + "-type");
-
-        if (typeName == null || typeName.trim().isEmpty())
-            throw new IllegalArgumentException(String.format("%s must be selected", title));
-
-        Optional<T> foundType = types.stream().filter(t -> t.name().equalsIgnoreCase(typeName.trim())).findFirst();
-
-        if (!foundType.isPresent())
-            throw new IllegalArgumentException(String.format("Unknown name for %s : %s", title, typeName));
-
-        T type = foundType.get();
-
-        for (PropertySpec p : type.getPropertySpecs())
-        {
-            List<String> values = form.get(String.format("%s-prop-%s", prefix, p.name()));
-
-            if (values == null || values.isEmpty())
-                continue;
-
-            if (values.size() > 1)
-                properties.put(p.name(), values);
-
-            String val = values.get(0);
-
-            if (val.trim().length() > 0)
-            {
-                //skip over defaults
-                if (p.defaultValue().isPresent())
-                {
-                    if (((PropertySpec.Value<?>) p.defaultValue().get()).value.toString().equals(val))
-                        continue;
-                }
-
-                properties.put(p.name(), val);
-            }
-        }
-
-        try
-        {
-            properties.validate(type.getPropertySpecs(), true);
-        }
-        catch (PropertySpec.ValidationException e)
-        {
-            throw new IllegalArgumentException(String.format("%s problem: %s", title, e.getMessage()));
-        }
-
-        return type;
-    }
-
-    public static class Category
-    {
-        final String category;
-        final String parentPropertyName;
-        final List<PropertySpec> properties;
-        final Object owner;
-
-        Category(Object owner, String parentPropertyName, String category, List<PropertySpec> properties)
-        {
-            this.owner = owner;
-            this.category = category;
-            this.parentPropertyName = parentPropertyName;
-            this.properties = properties;
-        }
-
-        boolean isDependent()
-        {
-            for (PropertySpec p : properties)
-                if (!p.dependsOn().isPresent())
-                    return false;
-
-            return true;
-        }
-
-        private void add(PropertySpec spec)
-        {
-            properties.add(spec);
-        }
-
-        public static Collection<Category> getCategories(Object owner, List<PropertySpec> specs)
-        {
-            Map<String, Map<String, Category>> parentMap = new LinkedHashMap<>();
-
-            for (PropertySpec<?> s : specs)
-            {
-                //Filter out any properties with system aliases we use on this page
-                if (s.alias().isPresent() && s.alias().get().startsWith(FalloutPropertySpecs.prefix))
-                    continue;
-
-                //Filter out any properties with the internal category
-                if (s.category().isPresent() && s.category().get().equals("internal"))
-                    continue;
-
-                String parent = s.dependsOn().isPresent() ? s.dependsOn().get().name() : "";
-                String category = s.category().isPresent() ? s.category().get() : "";
-                Map<String, Category> categoryMap = parentMap.computeIfAbsent(parent, k -> new LinkedHashMap<>());
-                Category c =
-                    categoryMap.computeIfAbsent(category, c1 -> new Category(owner, parent, c1, Lists.newArrayList()));
-                c.add(s);
-            }
-
-            return parentMap.values().stream().flatMap(m -> m.values().stream())
-                .sorted((c1, c2) -> c1.isDependent() ? c2.isDependent() ? 0 : 1 : c2.isDependent() ? -1 : 0)
-                .collect(Collectors.toList());
         }
     }
 
@@ -1584,7 +989,8 @@ public class TestResource
 
     private static String linkForShowTests(String ownerEmail)
     {
-        return FalloutView.linkFor(ownerEmail, TestResource.class, "showTests", ownerEmail);
+        String shortEmail = ownerEmail.replace("@datastax.com", "");
+        return FalloutView.linkFor(shortEmail, TestResource.class, "showTests", ownerEmail);
     }
 
     @GET
@@ -1594,8 +1000,7 @@ public class TestResource
     public FalloutView showTestRuns(@Auth Optional<User> user, @PathParam("userEmail") String email,
         @PathParam("name") String name)
     {
-        final Test test = testDAO.getEvenIfDeleted(email, name);
-        assertTest(test);
+        final Test test = assertExists(testDAO.getEvenIfDeleted(email, name));
 
         boolean deleted = test instanceof DeletedTest;
         final List<TestRun> testRuns = fetchTestRunsAndMaybeUpdateArtifacts(email, name, deleted ?
@@ -1631,7 +1036,7 @@ public class TestResource
         @PathParam("name") String name, @PathParam("testRunId") String testRunIdStr)
     {
         final UUID testRunId = UUID.fromString(testRunIdStr);
-        final TestRun testRun = fetchTestRunAndMaybeUpdateArtifacts(testRunId,
+        final TestRun testRun = fetchTestRunAndMaybeUpdateArtifacts(
             () -> testRunDAO.getEvenIfDeleted(email, name, testRunId));
         return new TestDetailsView(user, name, testRun, configuration);
     }
@@ -1643,6 +1048,11 @@ public class TestResource
     {
         TestRun testRun = testRunDAO.getByTestRunId(UUID.fromString(testRunId));
         return Response.temporaryRedirect(uriForShowTestRunArtifacts(testRun)).build();
+    }
+
+    public static URI uriForShowTestRunArtifactsById(ReadOnlyTestRun testRun)
+    {
+        return uriFor(TestResource.class, "showTestRunArtifactsById", testRun.getTestRunId());
     }
 
     public static URI uriForShowTestRunArtifacts(ReadOnlyTestRun testRun)
@@ -1666,8 +1076,7 @@ public class TestResource
         @PathParam("name") String name, @PathParam("testRunId") String testRunId,
         @PathParam("artifactPath") String artifactPath)
     {
-        TestRun testRun = testRunDAO.get(email, name, UUID.fromString(testRunId));
-        assertTestRun(testRun);
+        TestRun testRun = assertExists(testRunDAO.get(email, name, UUID.fromString(testRunId)));
         return new LiveArtifactView(user, testRun, artifactPath);
     }
 
@@ -1772,14 +1181,11 @@ public class TestResource
         }
     }
 
-    private TestRun fetchTestRunAndMaybeUpdateArtifacts(UUID testRunId, Supplier<TestRun> getFromDB)
+    private TestRun fetchTestRunAndMaybeUpdateArtifacts(Supplier<TestRun> getFromDB)
     {
-        final TestRun testRun = getFromDB.get();
-        if (testRun != null)
-        {
-            updateTestRunArtifactsIfNeededAndWriteDB(testRun);
-        }
-        return assertTestRun(testRun);
+        final TestRun testRun = assertExists(getFromDB.get());
+        updateTestRunArtifactsIfNeededAndWriteDB(testRun);
+        return testRun;
     }
 
     private List<TestRun> fetchTestRunsAndMaybeUpdateArtifacts(String email, String testName,
@@ -1790,43 +1196,22 @@ public class TestResource
             .collect(Collectors.toList());
     }
 
-    private void assertTest(Test test)
+    private static <T> T assertExists(T subject)
     {
-        if (test == null)
+        if (subject == null)
         {
-            throwNotFoundException("No test found");
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
+        return subject;
     }
 
-    private void assertTests(List<Test> tests)
+    private static <T> List<T> assertExists(List<T> subjects)
     {
-        if (tests.isEmpty())
+        if (subjects.isEmpty())
         {
-            throwNotFoundException("No tests found");
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
-    }
-
-    private TestRun assertTestRun(TestRun testRun)
-    {
-        if (testRun == null)
-        {
-            throwNotFoundException("No test run found");
-        }
-        return testRun;
-    }
-
-    private List<TestRun> assertTestRuns(List<TestRun> testRuns)
-    {
-        if (testRuns.isEmpty())
-        {
-            throwNotFoundException("No test runs found");
-        }
-        return testRuns;
-    }
-
-    private void throwNotFoundException(String message)
-    {
-        throw new WebApplicationException(message, Response.Status.NOT_FOUND);
+        return subjects;
     }
 
     public class TestView extends FalloutView
@@ -1846,21 +1231,21 @@ public class TestResource
             this.tests = new LinkedTests(user, tests, createCanDeletePredicate())
                 .hide(LinkedTests.TableDisplayOption.RESTORE_ACTIONS, LinkedTests.TableDisplayOption.OWNER);
             this.runningTestRuns =
-                new LinkedTestRuns(user,
+                new LinkedTestRuns(userGroupMapper, user,
                     runningTestRuns.stream()
                         .filter(testRun -> testRun.getOwner().equals(email))
                         .collect(Collectors.toList()))
                             .hide(OWNER, FINISHED_AT, RESULTS, TEMPLATE_PARAMS, RESTORE_ACTIONS, RESOURCE_REQUIREMENTS,
                                 DELETE_MANY, SIZE_ON_DISK);
             this.queuedTestRuns =
-                new LinkedTestRuns(user, true,
+                new LinkedTestRuns(userGroupMapper, user, true,
                     testRunner.getQueuedTestRuns().stream()
                         .filter(testRun -> testRun.getOwner().equals(email))
                         .collect(Collectors.toList()))
                             .hide(OWNER, FINISHED_AT, RESULTS, TEMPLATE_PARAMS, RESTORE_ACTIONS, RESOURCE_REQUIREMENTS,
                                 DELETE_MANY, SIZE_ON_DISK);
             this.recentTestRuns =
-                new LinkedTestRuns(user,
+                new LinkedTestRuns(userGroupMapper, user,
                     testRunDAO.getRecentFinishedTestRuns().stream()
                         .filter(testRun -> testRun.getOwner().equals(email))
                         .collect(Collectors.toList()))
@@ -1894,7 +1279,7 @@ public class TestResource
             super("testruns.mustache", user, mainView);
             this.email = email;
 
-            this.testRuns = new LinkedTestRuns(user, testRuns)
+            this.testRuns = new LinkedTestRuns(userGroupMapper, user, testRuns)
                 .hide(OWNER, TEST_NAME, RESTORE_ACTIONS, RESOURCE_REQUIREMENTS);
             this.name = test.getName();
 
@@ -1926,23 +1311,6 @@ public class TestResource
         public boolean isOwner()
         {
             return user != null && user.getEmail().equals(email);
-        }
-    }
-
-    public class TestAdminView extends FalloutView
-    {
-        final LinkedTestRuns runningTestRuns;
-        final LinkedTestRuns queuedTestRuns;
-
-        public TestAdminView(User user, QueuingTestRunner testRunner)
-        {
-            super("test-admin.mustache", user, mainView);
-
-            runningTestRuns = new LinkedTestRuns(Optional.of(user), testRunner.getRunningTestRunsOrderedByDuration())
-                .hide(FINISHED_AT, RESULTS, TEMPLATE_PARAMS, RESTORE_ACTIONS, DELETE_MANY, SIZE_ON_DISK);
-
-            queuedTestRuns = new LinkedTestRuns(Optional.of(user), true, testRunner.getQueuedTestRuns())
-                .hide(FINISHED_AT, RESULTS, TEMPLATE_PARAMS, RESTORE_ACTIONS, DELETE_MANY, SIZE_ON_DISK);
         }
     }
 
@@ -1998,8 +1366,8 @@ public class TestResource
 
             this.name = name;
             this.testRun = run;
-            this.testRuns = new LinkedTestRuns(user, ImmutableList.of(testRun))
-                .hide(OWNER, TEST_NAME, TEST_RUN, RESULTS, DEFINITION, ARTIFACTS_LINK, MUTATION_ACTIONS,
+            this.testRuns = new LinkedTestRuns(userGroupMapper, user, List.of(testRun))
+                .hide(OWNER, TEST_NAME, TEST_RUN, RESULTS, ARTIFACTS_LINK, MUTATION_ACTIONS,
                     RESTORE_ACTIONS, DELETE_MANY);
             this.configuration = configuration;
             this.deleted = run instanceof DeletedTestRun;
@@ -2008,8 +1376,11 @@ public class TestResource
 
             artifactsWithSize = testRun.getArtifacts();
 
-            this.artifacts = artifactsWithSize.keySet().stream().map(p -> Paths.get(p)).collect(Collectors.toList());
-            Collections.sort(this.artifacts, Comparator.comparing(java.nio.file.Path::toAbsolutePath));
+            this.artifacts = artifactsWithSize.keySet()
+                .stream()
+                .map(p -> Paths.get(p))
+                .sorted(Comparator.comparing(java.nio.file.Path::toAbsolutePath))
+                .collect(Collectors.toList());
         }
 
         public boolean hasArtifacts()
@@ -2058,7 +1429,7 @@ public class TestResource
                     //Listings are sorted
                     //Only process the same path part once
                     //since recursion will grab any children
-                    if (last != null && next.equals(last))
+                    if (next.equals(last))
                         continue;
 
                     boolean isDirectory = it.hasNext();
@@ -2140,13 +1511,16 @@ public class TestResource
     {
         final LinkedTests tests;
         final LinkedTestRuns deletedTestRuns;
+        final long deletedTtlDays;
 
         public TrashBinView(Optional<User> user, List<DeletedTest> tests, List<DeletedTestRun> testRuns)
         {
             super("deleted-tests.mustache", user, mainView);
             this.tests = new LinkedTests(user, tests, createCanDeletePredicate());
             this.deletedTestRuns =
-                new LinkedTestRuns(user, testRuns).hide(MUTATION_ACTIONS, TEMPLATE_PARAMS, DELETE_MANY, SIZE_ON_DISK);
+                new LinkedTestRuns(userGroupMapper, user, testRuns).hide(MUTATION_ACTIONS, TEMPLATE_PARAMS, DELETE_MANY,
+                    SIZE_ON_DISK);
+            deletedTtlDays = testDAO.deletedTtl().toDays();
         }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,27 +16,26 @@
 package com.datastax.fallout.ops;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.google.common.collect.ImmutableList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.datastax.fallout.components.common.provider.NodeInfoProvider;
 import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
 import com.datastax.fallout.ops.commands.NodeCommandExecutor;
 import com.datastax.fallout.ops.commands.NodeResponse;
-import com.datastax.fallout.ops.providers.NodeInfoProvider;
+import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.Exceptions;
 
@@ -65,7 +64,7 @@ public class Node implements HasProperties
 
     protected Node(NodeCommandExecutor nodeCommandExecutor, Provisioner provisioner,
         ConfigurationManager configurationManager, NodeGroup nodeGroup, int groupOrdinal,
-        int ensembleOrdinal, JobLoggers loggers, Path localArtifactPath) throws IOException
+        int ensembleOrdinal, JobLoggers loggers, Path localArtifactPath)
     {
         this.nodeCommandExecutor = nodeCommandExecutor;
         this.provisioner = provisioner;
@@ -77,7 +76,7 @@ public class Node implements HasProperties
         this.providers = new ConcurrentHashMap<>();
         this.logger = loggers.create(getId(), Paths.get(nodeGroup.getName(), getFolderName(), "fallout-node.log"));
 
-        Files.createDirectories(localArtifactPath);
+        FileUtils.createDirs(localArtifactPath);
     }
 
     public boolean waitForSuccess(String command)
@@ -183,8 +182,13 @@ public class Node implements HasProperties
     {
         synchronized (providers)
         {
-            if (providers.put(provider.name(), provider) != null)
-                logger.info("Replacing existing provider " + provider.name());
+            String providerName = provider.name();
+            if (providers.containsKey(providerName))
+            {
+                logger.info("Replacing existing provider " + providerName);
+                providers.get(providerName).unregister();
+            }
+            providers.put(providerName, provider);
             providers.notifyAll();
         }
     }
@@ -366,7 +370,7 @@ public class Node implements HasProperties
     {
         synchronized (providers)
         {
-            return ImmutableList.copyOf(providers.values());
+            return List.copyOf(providers.values());
         }
     }
 

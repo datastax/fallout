@@ -6,40 +6,57 @@
     this.clearMessages = function() {
         $("#action-error, #action-success, #action-info").html("").hide();
     };
+
     this.showErrorMessage = function(message) {
         clearMessages();
         _showMessage("#action-error", message);
     };
+
     this.appendErrorMessage = function(message) {
         _showMessage("#action-error", $("#action-error").html() + message);
     };
+
+    // .text() escapes the input, which is then retrieved using .html()
+    let escapedHtml = text => $("<p/>").text(text).html();
+
+    let escapedHtmlLines = text =>
+        text.split("\n").map(escapedHtml).join("<br/>");
+
     this.showAjaxErrorMessage = function(data) {
+        let container = $("#action-error").empty();
+
         if (data.responseJSON != null && data.responseJSON.errors != null) {
-            var fullErrorString = "<ul>";
+            let errors = $("<ul/>")
             for (var i = 0; i < data.responseJSON.errors.length; i++)
             {
-                fullErrorString += "<li>" + data.responseJSON.errors[i] + "</li>";
+                errors.append($("<li/>").text(data.responseJSON.errors[i]))
             }
-            fullErrorString.concat("</ul>");
-            showErrorMessage(fullErrorString);
+            container.append(errors);
         }
 
         // io.dropwizard.jersey.errors.ErrorMessage
         else if (data.responseJSON != null && data.responseJSON.message != null) {
-            var message = "<h5>" + data.responseJSON.message + "</h5>";
+            container.append($("<h5/>")
+                .html(escapedHtmlLines(data.responseJSON.message)));
+
             if (data.responseJSON.details != null) {
-                message = message + "<p>" + data.responseJSON.details;
+                container.append($("<p/>")
+                    .html(escapedHtmlLines(data.responseJSON.details)));
             }
+
             if (data.responseJSON.code != null) {
-                message = message + "<h5>HTTP code " + data.responseJSON.code + "</h5>";
+                container.append($("<h5/>")
+                    .text("HTTP code " + data.responseJSON.code));
             }
-            showErrorMessage(message.replace(/\n/g, "</br>"));
         }
 
         else {
-            showErrorMessage("<pre>" + JSON.stringify(data, null, 2) + "</pre>");
+            container.append($("<pre/>").text(JSON.stringify(data, null, 2)));
         }
+
+        container.show();
     };
+
     this.showMessage = function(message) {
         clearMessages();
         _showMessage("#action-success", message);
@@ -47,6 +64,7 @@
             $("#action-success").hide();
         }, 10000);
     };
+
     this.showInfoMessage = function(message) {
         clearMessages();
         _showMessage("#action-info", message);

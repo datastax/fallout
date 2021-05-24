@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package com.datastax.fallout.runner;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -22,15 +23,18 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import com.datastax.fallout.harness.ActiveTestRun;
 import com.datastax.fallout.harness.TestRunAbortedStatusUpdater;
+import com.datastax.fallout.harness.TestRunLinkUpdater;
 import com.datastax.fallout.harness.TestRunStatus;
 import com.datastax.fallout.ops.JobLoggers;
 import com.datastax.fallout.runner.UserCredentialsFactory.UserCredentials;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
+import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.NamedThreadFactory;
 import com.datastax.fallout.util.ScopedLogger;
 
@@ -63,16 +67,40 @@ public class ThreadedRunnableExecutorFactory implements RunnableExecutorFactory
         private final JobLoggers loggers;
         private final AtomicallyPersistedTestRun testRun;
         private final TestRunAbortedStatusUpdater testRunStatus;
+        private final TestRunLinkUpdater testRunLinkUpdater;
 
         private ThreadedRunnableExecutor(TestRun testRun, UserCredentials userCredentials)
         {
             this.userCredentials = userCredentials;
-            loggers = loggersFactory.create(testRun);
+            loggers = loggersFactory.create(testRun, userCredentials);
 
             this.testRun = new AtomicallyPersistedTestRun(testRun, testRunUpdater);
+
+            final Supplier<Map<String, Long>> findTestRunArtifacts = () -> this.testRun.get(
+                testRun_ -> Exceptions.getUncheckedIO(() -> Artifacts.findTestRunArtifacts(configuration, testRun_)));
+
             testRunStatus = new TestRunAbortedStatusUpdater(
-                new TestRunStateStorage(this.testRun, loggers.getShared(), configuration));
+                new TestRunStateStorage(this.testRun, loggers.getShared(), findTestRunArtifacts));
+            testRunLinkUpdater = testRunLinkUpdater(this.testRun);
             testRunStatus.addInactiveCallback(loggers::close);
+            testRunStatus.addInactiveCallback(testRunLinkUpdater::removeLinks);
+        }
+
+        private TestRunLinkUpdater testRunLinkUpdater(AtomicallyPersistedTestRun testRun)
+        {
+            return new TestRunLinkUpdater() {
+                @Override
+                public void add(String linkName, String link)
+                {
+                    testRun.update(_testRun -> _testRun.addLink(linkName, link));
+                }
+
+                @Override
+                public void removeLinks()
+                {
+                    testRun.update(TestRun::removeLinks);
+                }
+            };
         }
 
         @Override
@@ -96,7 +124,8 @@ public class ThreadedRunnableExecutorFactory implements RunnableExecutorFactory
         @Override
         public void run()
         {
-            activeTestRunFactory.create(testRun.get(Function.identity()), userCredentials, loggers, testRunStatus)
+            activeTestRunFactory.create(testRun.get(Function.identity()), userCredentials, loggers, testRunStatus,
+                testRunLinkUpdater)
                 .ifPresent(ThreadedRunnableExecutorFactory.this::runAsync);
         }
     }
@@ -114,7 +143,7 @@ public class ThreadedRunnableExecutorFactory implements RunnableExecutorFactory
         {
             executorService.shutdown();
 
-            logger.doWithScopedInfo(() -> {
+            logger.withScopedInfo("Waiting for existing testruns to terminate").run(() -> {
                 try
                 {
                     executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.HOURS);
@@ -123,8 +152,7 @@ public class ThreadedRunnableExecutorFactory implements RunnableExecutorFactory
                 {
                     logger.error("Interrupted while waiting for ThreadedExecutorFactory's executor to terminate", e);
                 }
-            },
-                "Waiting for existing testruns to terminate");
+            });
         }
     }
 

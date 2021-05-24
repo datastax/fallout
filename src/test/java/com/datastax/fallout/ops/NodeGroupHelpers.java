@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package com.datastax.fallout.ops;
 
 import com.datastax.fallout.runner.CheckResourcesResult;
 
-import static com.datastax.fallout.runner.CheckResourcesResultAssert.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
 public class NodeGroupHelpers
 {

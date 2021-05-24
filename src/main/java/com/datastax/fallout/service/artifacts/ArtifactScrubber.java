@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package com.datastax.fallout.service.artifacts;
 
 import java.nio.file.Path;
 import java.util.UUID;
+import java.util.concurrent.locks.ReentrantLock;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.netty.util.HashedWheelTimer;
@@ -29,15 +30,16 @@ import com.datastax.fallout.util.ScopedLogger;
 
 public class ArtifactScrubber extends PeriodicTask
 {
-    private static ScopedLogger logger = ScopedLogger.getLogger("ArtifactScrubber");
+    private static final ScopedLogger logger = ScopedLogger.getLogger("ArtifactScrubber");
     private TestRunDAO testRunDAO;
     private Path rootArtifactPath;
     private UserDAO userDAO;
 
-    public ArtifactScrubber(boolean startPaused, HashedWheelTimer timer, Duration delay, Duration repeat,
+    public ArtifactScrubber(boolean startPaused, HashedWheelTimer timer, ReentrantLock runningTaskLock,
+        Duration delay, Duration repeat,
         Path rootArtifactPath, TestRunDAO testRunDAO, UserDAO userDAO)
     {
-        super(startPaused, timer, delay, repeat);
+        super(startPaused, timer, runningTaskLock, delay, repeat);
         this.rootArtifactPath = rootArtifactPath;
         this.testRunDAO = testRunDAO;
         this.userDAO = userDAO;
@@ -86,6 +88,11 @@ public class ArtifactScrubber extends PeriodicTask
 
             for (String testrunid : testFilePath)
             {
+                if (isPaused())
+                {
+                    break;
+                }
+
                 deleteOrphanedTestRunArtifacts(email, test, testrunid);
             }
         }
@@ -94,11 +101,16 @@ public class ArtifactScrubber extends PeriodicTask
     @VisibleForTesting
     public void checkForOrphanedArtifacts()
     {
-        try (ScopedLogger.Scoped ignored = logger.scopedInfo("Checking for orphaned artifacts"))
-        {
+        // Loop through emails, but does not account for missing users
+        logger.withScopedInfo("Checking for orphaned artifacts").run(() -> {
             // Loop through emails, but does not account for missing users
             for (String email : userDAO.getAllEmails())
             {
+                if (isPaused())
+                {
+                    break;
+                }
+
                 final Path emailPath = rootArtifactPath.resolve(email);
                 String[] emailFilePath = emailPath.toFile().list();
 
@@ -112,7 +124,7 @@ public class ArtifactScrubber extends PeriodicTask
                     deleteOrphanedTestArtifacts(email, test);
                 }
             }
-        }
+        });
     }
 
     @Override

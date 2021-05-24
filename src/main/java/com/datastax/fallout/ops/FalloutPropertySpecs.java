@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,20 @@ public class FalloutPropertySpecs
     private static final Logger logger = LoggerFactory.getLogger(FalloutPropertySpecs.class);
     public static final String prefix = "fallout.system.";
 
+    public static final PropertySpec<String> userPropertySpec = PropertySpecBuilder.createStr(prefix)
+        .name("user.name")
+        .description("The username specified under caller's user profile")
+        .internal()
+        .required()
+        .build();
+
+    public static final PropertySpec<String> publicKeyPropertySpec = PropertySpecBuilder.createStr(prefix)
+        .name("user.publickey")
+        .description("The public key specified under caller's user profile")
+        .required()
+        .internal()
+        .build();
+
     public static final PropertySpec<String> generatedClusterNamePropertySpec = PropertySpecBuilder.createName(prefix)
         .name("ui.cluster.name")
         .description("Cluster name")
@@ -33,17 +47,18 @@ public class FalloutPropertySpecs
         .internal()
         .build();
 
-    public static final PropertySpec<NodeGroup.State> launchRunLevelPropertySpec = PropertySpecBuilder.create(prefix)
-        .name("runlevel")
-        .description("Launch runlevel for cluster on test start")
-        .defaultOf(NodeGroup.State.STARTED_SERVICES_RUNNING)
-        .options(NodeGroup.State.DESTROYED,
-            NodeGroup.State.CREATED,
-            NodeGroup.State.STARTED_SERVICES_UNCONFIGURED,
-            NodeGroup.State.STARTED_SERVICES_CONFIGURED,
-            NodeGroup.State.STARTED_SERVICES_RUNNING)
-        .internal()
-        .build();
+    public static final PropertySpec<NodeGroup.State> launchRunLevelPropertySpec =
+        PropertySpecBuilder.createEnum(prefix, NodeGroup.State.class)
+            .name("runlevel")
+            .description("Launch runlevel for cluster on test start")
+            .defaultOf(NodeGroup.State.STARTED_SERVICES_RUNNING)
+            .options(NodeGroup.State.DESTROYED,
+                NodeGroup.State.CREATED,
+                NodeGroup.State.STARTED_SERVICES_UNCONFIGURED,
+                NodeGroup.State.STARTED_SERVICES_CONFIGURED,
+                NodeGroup.State.STARTED_SERVICES_RUNNING)
+            .internal()
+            .build();
 
     public static final PropertySpec<String> testRunUrl = PropertySpecBuilder.createStr(prefix)
         .name("testrun.url")

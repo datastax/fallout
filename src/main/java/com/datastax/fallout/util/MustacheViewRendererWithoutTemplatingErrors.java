@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import io.dropwizard.views.mustache.MustacheViewRenderer;
 
 public class MustacheViewRendererWithoutTemplatingErrors extends MustacheViewRenderer
 {
-    /** Ignore thrown exceptions caused by Broken Pipe: it's not wanted in fallout logs */
+    /** Ignore thrown exceptions caused by Broken Pipe: it's not wanted in fallout logs, see FAL-1129 */
     @Override
     public void render(View view, Locale locale, OutputStream output) throws IOException
     {

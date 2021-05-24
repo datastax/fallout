@@ -1,0 +1,22 @@
+ensemble:
+  local_files:
+    - path: hello-world.txt
+      data: Hello World!
+
+  server:
+    node.count: 1
+    provisioner:
+      name: local
+
+  client: server
+
+workload:
+  phases:
+    - ref-in-string:
+        module: bash
+        properties:
+          script: cat <<file:hello-world.txt>> > $FALLOUT_ARTIFACT_DIR/hello-world.out
+
+  checkers:
+    nofail:
+      checker: nofail

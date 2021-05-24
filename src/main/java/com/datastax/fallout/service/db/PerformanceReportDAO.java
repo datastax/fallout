@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,12 +72,14 @@ public class PerformanceReportDAO implements Managed
         reportMapper.delete(email, reportId);
     }
 
+    @Override
     public void start() throws Exception
     {
         reportMapper = driverManager.getMappingManager().mapper(PerformanceReport.class);
         allAccessor = driverManager.getMappingManager().createAccessor(ReportAccessor.class);
     }
 
+    @Override
     public void stop() throws Exception
     {
 

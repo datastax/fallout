@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import org.assertj.core.api.Assertions;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.TestHelpers;
-import com.datastax.fallout.ops.provisioner.LocalProvisioner;
+import com.datastax.fallout.components.common.provisioner.LocalProvisioner;
+import com.datastax.fallout.service.FalloutConfiguration;
 
-import static com.datastax.fallout.runner.CheckResourcesResultAssert.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
-public class DelegateActionOrderTest extends TestHelpers.FalloutTest
+public class DelegateActionOrderTest extends TestHelpers.FalloutTest<FalloutConfiguration>
 {
     List<ActionMethod> executionOrder = new ArrayList<>();
 
@@ -68,7 +66,7 @@ public class DelegateActionOrderTest extends TestHelpers.FalloutTest
         @Override
         public Set<Class<? extends Provider>> getRequiredProviders(PropertyGroup properties)
         {
-            return ImmutableSet.of(DependencyProvider.class);
+            return Set.of(DependencyProvider.class);
         }
 
         @Override
@@ -123,7 +121,7 @@ public class DelegateActionOrderTest extends TestHelpers.FalloutTest
         @Override
         public Set<Class<? extends Provider>> getAvailableProviders(PropertyGroup properties)
         {
-            return ImmutableSet.of(DependencyProvider.class);
+            return Set.of(DependencyProvider.class);
         }
 
         @Override
@@ -173,7 +171,7 @@ public class DelegateActionOrderTest extends TestHelpers.FalloutTest
     public void delegates_are_configured_in_dependency_order_and_unconfigured_in_dependency_order()
     {
         MultiConfigurationManager mcm = new MultiConfigurationManager(
-            ImmutableList.of(new ProvidesConfigurationManager(), new DependantConfigurationManager()),
+            List.of(new ProvidesConfigurationManager(), new DependantConfigurationManager()),
             new WritablePropertyGroup());
         NodeGroup testGroup = NodeGroupBuilder.create()
             .withProvisioner(new LocalProvisioner())
@@ -182,12 +180,13 @@ public class DelegateActionOrderTest extends TestHelpers.FalloutTest
             .withName("test-group")
             .withNodeCount(1)
             .withTestRunArtifactPath(testRunArtifactPath())
+            .withTestRunScratchSpace(persistentTestScratchSpace())
             .build();
 
         assertThat(testGroup.transitionState(NodeGroup.State.STARTED_SERVICES_RUNNING).join()).wasSuccessful();
         assertThat(testGroup.transitionState(NodeGroup.State.DESTROYED).join()).wasSuccessful();
 
-        Assertions.assertThat(executionOrder).containsExactly(
+        assertThat(executionOrder).containsExactly(
             ActionMethod.PROVIDES_CONFIGURES,
             ActionMethod.DEPENDANT_CONFIGURES,
             ActionMethod.PROVIDES_STARTS,

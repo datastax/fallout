@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,13 @@
  */
 package com.datastax.fallout.ops;
 
+import java.util.Set;
+
 import com.google.common.base.Preconditions;
 
-public abstract class EnsembleComponent implements PropertyBasedComponent
+import com.datastax.fallout.harness.EnsembleValidator;
+
+public abstract class EnsembleComponent implements PropertyBasedComponent, HasAvailableProviders
 {
     private NodeGroup nodeGroup;
 
@@ -32,4 +36,16 @@ public abstract class EnsembleComponent implements PropertyBasedComponent
     {
         return nodeGroup;
     }
+
+    public void validateEnsemble(EnsembleValidator validator)
+    {
+    }
+
+    @Override
+    public Set<Class<? extends Provider>> getAvailableProviders()
+    {
+        return getAvailableProviders(nodeGroup.getProperties());
+    }
+
+    abstract public Set<Class<? extends Provider>> getAvailableProviders(PropertyGroup propertyGroup);
 }

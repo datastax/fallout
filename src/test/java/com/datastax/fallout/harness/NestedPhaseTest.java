@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,15 @@
  */
 package com.datastax.fallout.harness;
 
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
+import com.datastax.fallout.service.FalloutConfiguration;
 
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static com.datastax.fallout.assertj.Assertions.assertThatExceptionOfType;
 
-public class NestedPhaseTest extends EnsembleFalloutTest
+public class NestedPhaseTest extends EnsembleFalloutTest<FalloutConfiguration>
 {
     @Test
     public void testSerialTopLevelPhases()
@@ -71,13 +72,12 @@ public class NestedPhaseTest extends EnsembleFalloutTest
     {
         assertThatExceptionOfType(InvalidConfigurationException.class)
             .isThrownBy(() -> createActiveTestRunBuilder()
-                .withEnsembleFromYaml(readYamlFile("nested-phase-yamls/duplicate-modules.yaml"))
-                .withWorkloadFromYaml(readYamlFile("nested-phase-yamls/duplicate-modules.yaml"))
+                .withTestDefinitionFromYaml(readYamlFile("nested-phase-yamls/duplicate-modules.yaml"))
                 .build())
             .withMessage("Duplicate module or subphase aliases: text3.1");
     }
 
-    @Ignore("Flaky: to be fixed")
+    @Disabled("To be fixed in FAL-780.")
     @Test
     public void testNestedPhaseLifetimeModules()
     {

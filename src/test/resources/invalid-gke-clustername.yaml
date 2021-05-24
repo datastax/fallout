@@ -1,0 +1,19 @@
+ensemble:
+  server:
+    node.count: 3
+    provisioner:
+      name: gke
+      properties:
+        # invalid 40 char cluster name
+        name: '0123456789012345678901234567890123456789'
+        project: eng-test-tools
+        region: us-west2
+        machine.type: n1-standard-1
+    configuration_manager:
+      - name: noop
+  client: server
+
+workload:
+  phases:
+    - my_module:
+        module: noop

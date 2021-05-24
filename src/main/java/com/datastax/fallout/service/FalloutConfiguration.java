@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.datastax.fallout.service;
 import javax.validation.Valid;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
 import java.net.URI;
@@ -25,32 +26,36 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Optional;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
 import io.dropwizard.Configuration;
+import io.dropwizard.jackson.Jackson;
 import io.dropwizard.logging.AbstractAppenderFactory;
+import io.dropwizard.logging.AppenderFactory;
 import io.dropwizard.logging.DefaultLoggingFactory;
 import io.dropwizard.logging.FileAppenderFactory;
+import io.dropwizard.logging.LoggerConfiguration;
 import io.dropwizard.logging.LoggingFactory;
 import io.dropwizard.metrics.graphite.GraphiteReporterFactory;
-import org.hibernate.validator.constraints.NotEmpty;
-import org.slf4j.Logger;
 
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
 import com.datastax.fallout.ops.JobFileLoggers;
 import com.datastax.fallout.ops.PropertyBasedComponent;
+import com.datastax.fallout.ops.utils.FileUtils;
+import com.datastax.fallout.runner.ResourceLimit;
 import com.datastax.fallout.service.auth.SecurityUtil;
+import com.datastax.fallout.service.core.GrafanaTenantUsageData;
 import com.datastax.fallout.util.Exceptions;
 
 /**
@@ -98,6 +103,12 @@ public class FalloutConfiguration extends Configuration
     @JsonIgnore
     private Optional<Integer> runnerId = Optional.empty();
 
+    /**
+     * Only allows people with datastax emails to register
+     */
+    @JsonProperty
+    private boolean datastaxOnly = false;
+
     /** Forces local commands to use Java 8: for testing fallout itself only */
     @JsonProperty
     private boolean forceJava8ForLocalCommands = false;
@@ -111,6 +122,9 @@ public class FalloutConfiguration extends Configuration
 
     @JsonProperty
     private boolean useNginxToServeArtifacts = false;
+
+    @JsonProperty
+    private String smtpFrom;
 
     @JsonProperty
     private String smtpUser;
@@ -134,10 +148,7 @@ public class FalloutConfiguration extends Configuration
     private String externalUrl = "http://localhost:8080";
 
     @JsonProperty
-    private String pathToGithubPrivateKey = System.getenv("GITHUB_PRIV_KEY_PATH");
-
-    @JsonProperty
-    private String githubOauthToken = System.getenv("GITHUB_OAUTH_TOKEN");
+    private boolean useTeamOpenstackCredentials = false;
 
     @JsonProperty
     private boolean logTestRunsToConsole = false;
@@ -157,8 +168,14 @@ public class FalloutConfiguration extends Configuration
     @JsonIgnore
     private Optional<Integer> delegateRunnerId = Optional.empty();
 
+    @JsonProperty
+    private List<GrafanaTenantUsageData> grafanaTenantUsageData;
+
     @JsonIgnore
     private Optional<String> defaultAdminCreds = Optional.ofNullable(System.getenv(ADMIN_CREDS_ENV_VAR));
+
+    @JsonProperty
+    private List<ResourceLimit> resourceLimits = List.of();
 
     public enum AuthenticationMode
     {
@@ -268,6 +285,16 @@ public class FalloutConfiguration extends Configuration
         this.keyspace = keyspace;
     }
 
+    public String getSmtpFrom()
+    {
+        return smtpFrom;
+    }
+
+    public void setSmtpFrom(String smtpFrom)
+    {
+        this.smtpFrom = smtpFrom;
+    }
+
     public String getSmtpUser()
     {
         return smtpUser;
@@ -293,28 +320,19 @@ public class FalloutConfiguration extends Configuration
         return smtpPort;
     }
 
+    public boolean isDatastaxOnly()
+    {
+        return datastaxOnly;
+    }
+
     public boolean forceJava8ForLocalCommands()
     {
         return forceJava8ForLocalCommands;
     }
 
-    public String getPathToGithubPrivateKey()
+    public boolean getUseTeamOpenstackCredentials()
     {
-        return pathToGithubPrivateKey;
-    }
-
-    public Optional<String> getGithubOauthToken(Logger logger)
-    {
-        if (Strings.isNullOrEmpty(githubOauthToken))
-        {
-            logger.error(
-                "No Github OAUTH token provided.  " +
-                    "Please either set the GITHUB_OAUTH_TOKEN environment variable, or set the " +
-                    "githubOauthToken value in fallout.yml");
-            return Optional.empty();
-        }
-
-        return Optional.of(githubOauthToken);
+        return useTeamOpenstackCredentials;
     }
 
     public boolean logTestRunsToConsole()
@@ -368,6 +386,14 @@ public class FalloutConfiguration extends Configuration
         return getRunDir(runnerId);
     }
 
+    @JsonIgnore
+    public Path getToolsDir()
+    {
+        return Optional.ofNullable(System.getenv("FALLOUT_TOOLS_DIR"))
+            .map(Paths::get)
+            .orElseGet(() -> getRunDir().resolve("tools"));
+    }
+
     public static Path getPidFile(Path falloutHome, Optional<Integer> runnerId)
     {
         return getRunDir(falloutHome, runnerId).resolve(PID_FILE);
@@ -419,8 +445,8 @@ public class FalloutConfiguration extends Configuration
     @JsonIgnore
     public Stream<URI> getExistingRunnerURIsExcludingDelegate()
     {
-        return Exceptions
-            .getUncheckedIO(() -> Files.list(getFalloutHome().resolve(SERVER_RUN_DIR.resolve(RUNNERS_SUB_DIR))))
+        return FileUtils.listDir(getFalloutHome().resolve(SERVER_RUN_DIR.resolve(RUNNERS_SUB_DIR)))
+            .stream()
             .filter(Files::isDirectory)
             .filter(dir -> {
                 try
@@ -448,6 +474,16 @@ public class FalloutConfiguration extends Configuration
     public boolean getStartPaused()
     {
         return startPaused;
+    }
+
+    public List<GrafanaTenantUsageData> getGrafanaTenantUsageData()
+    {
+        return grafanaTenantUsageData;
+    }
+
+    public List<ResourceLimit> getResourceLimits()
+    {
+        return resourceLimits;
     }
 
     @AutoValue
@@ -522,46 +558,80 @@ public class FalloutConfiguration extends Configuration
         this.server = factory;
     }
 
+    private <A extends AppenderFactory<?>> void modifyAppenders(Class<A> clazz,
+        List<? extends AppenderFactory<?>> appenders,
+        Consumer<A> appenderModifier)
+    {
+        appenders.stream()
+            .filter(clazz::isInstance)
+            .map(clazz::cast)
+            .forEach(appenderModifier);
+    }
+
+    /** Updates all configured loggers with the current setting of {@link #getLogDir()} */
+    public <A extends AppenderFactory<?>> void modifyAppenders(Class<A> clazz, Consumer<A> appenderModifier)
+    {
+        final LoggingFactory loggingFactory = getLoggingFactory();
+        final var objectMapper = Jackson.newObjectMapper();
+
+        if (loggingFactory instanceof DefaultLoggingFactory)
+        {
+            // Root appenders will have been defined as AppenderFactories
+            final var defaultLoggingFactory = (DefaultLoggingFactory) loggingFactory;
+            modifyAppenders(clazz, defaultLoggingFactory.getAppenders(), appenderModifier);
+
+            // Appenders on individual loggers will be defined as JsonNodes;
+            // see {@link DefaultLoggingFactory#configureLoggers}
+            for (var nameAndNode : defaultLoggingFactory.getLoggers().entrySet())
+            {
+                final var jsonNode = nameAndNode.getValue();
+                if (!jsonNode.isObject())
+                {
+                    continue;
+                }
+
+                final LoggerConfiguration configuration;
+
+                try
+                {
+                    configuration = objectMapper.treeToValue(jsonNode, LoggerConfiguration.class);
+                }
+                catch (JsonProcessingException e)
+                {
+                    throw new IllegalArgumentException("Wrong format of logger '" + nameAndNode.getKey() + "'", e);
+                }
+
+                modifyAppenders(clazz, configuration.getAppenders(), appenderModifier);
+
+                nameAndNode.setValue(objectMapper.valueToTree(configuration));
+            }
+        }
+    }
+
     /** Updates all configured loggers with a fixed consistent format if no format has been set */
     public void updateLogFormat()
     {
-        final LoggingFactory loggingFactory = getLoggingFactory();
-        if (loggingFactory instanceof DefaultLoggingFactory)
+        modifyAppenders(AbstractAppenderFactory.class, appender -> {
+            appender.setLogFormat(JobFileLoggers.FALLOUT_PATTERN);
+        });
+    }
+
+    private void updateLogFilename(Supplier<String> getter, Consumer<String> setter)
+    {
+        String logFileName = getter.get();
+        if (logFileName != null && !logFileName.isBlank())
         {
-            ((DefaultLoggingFactory) loggingFactory).getAppenders().stream()
-                .filter(appender -> appender instanceof AbstractAppenderFactory<?>)
-                .map(appender -> (AbstractAppenderFactory<?>) appender)
-                .filter(appender -> Strings.isNullOrEmpty(appender.getLogFormat()))
-                .forEach(appender -> {
-                    appender.setLogFormat(JobFileLoggers.FALLOUT_PATTERN);
-                });
+            setter.accept(getLogDir().resolve(Paths.get(logFileName).getFileName()).toString());
         }
     }
 
     /** Updates all configured loggers with the current setting of {@link #getLogDir()} */
     public void updateLogDir()
     {
-        BiConsumer<Supplier<String>, Consumer<String>> updateLogFilename = (getter, setter) -> {
-            String logFileName = getter.get();
-            if (logFileName != null)
-            {
-                setter.accept(getLogDir().resolve(Paths.get(logFileName).getFileName()).toString());
-            }
-        };
-
-        final LoggingFactory loggingFactory = getLoggingFactory();
-        if (loggingFactory instanceof DefaultLoggingFactory)
-        {
-            ((DefaultLoggingFactory) loggingFactory).getAppenders().stream()
-                .filter(appender -> appender instanceof FileAppenderFactory<?>)
-                .map(appender -> (FileAppenderFactory<?>) appender)
-                .forEach(appender -> {
-                    updateLogFilename.accept(
-                        appender::getCurrentLogFilename, appender::setCurrentLogFilename);
-                    updateLogFilename.accept(
-                        appender::getArchivedLogFilenamePattern, appender::setArchivedLogFilenamePattern);
-                });
-        }
+        modifyAppenders(FileAppenderFactory.class, appender -> {
+            updateLogFilename(appender::getCurrentLogFilename, appender::setCurrentLogFilename);
+            updateLogFilename(appender::getArchivedLogFilenamePattern, appender::setArchivedLogFilenamePattern);
+        });
     }
 
     /** Disables all configured loggers and sets logging to console */

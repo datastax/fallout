@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@ package com.datastax.fallout.harness;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,41 +31,45 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.datastax.fallout.components.cassandra.CassandraContactPointProvider;
+import com.datastax.fallout.components.common.configuration_manager.NoopConfigurationManager;
+import com.datastax.fallout.components.common.provisioner.LocalProvisioner;
+import com.datastax.fallout.components.fallout_system.NoErrorChecker;
+import com.datastax.fallout.components.fallout_system.SmartLogChecker;
+import com.datastax.fallout.components.tools.ToolComponent;
+import com.datastax.fallout.components.tools.ToolExecutor;
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
-import com.datastax.fallout.harness.artifact_checkers.SmartLogChecker;
-import com.datastax.fallout.harness.checkers.NoErrorChecker;
 import com.datastax.fallout.ops.ConfigurationManager;
 import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.EnsembleBuilder;
 import com.datastax.fallout.ops.EnsembleCredentials;
 import com.datastax.fallout.ops.FalloutPropertySpecs;
+import com.datastax.fallout.ops.HasProperties;
 import com.datastax.fallout.ops.JobLoggers;
 import com.datastax.fallout.ops.LocalFilesHandler;
 import com.datastax.fallout.ops.MultiConfigurationManager;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.NodeGroupBuilder;
-import com.datastax.fallout.ops.Product;
 import com.datastax.fallout.ops.PropertyBasedComponent;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.Provider;
 import com.datastax.fallout.ops.Provisioner;
+import com.datastax.fallout.ops.TestRunScratchSpaceFactory.TestRunScratchSpace;
+import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.ops.WritablePropertyGroup;
 import com.datastax.fallout.ops.commands.CommandExecutor;
 import com.datastax.fallout.ops.commands.LocalCommandExecutor;
 import com.datastax.fallout.ops.commands.RejectableNodeCommandExecutor;
-import com.datastax.fallout.ops.configmanagement.NoopConfigurationManager;
-import com.datastax.fallout.ops.provisioner.LocalProvisioner;
 import com.datastax.fallout.runner.UserCredentialsFactory.UserCredentials;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.TestRun;
+import com.datastax.fallout.service.core.TestRunIdentifier;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.service.resources.server.TestResource;
 import com.datastax.fallout.util.ComponentFactory;
@@ -88,16 +92,14 @@ public class ActiveTestRunBuilder
     private CommandExecutor commandExecutor = new LocalCommandExecutor();
 
     private EnsembleBuilder ensembleBuilder;
-    private boolean ensembleOwner = true;
-    private String testRunName;
+    private TestRunIdentifier testRunIdentifier;
     private Path testRunArtifactPath;
     private FalloutConfiguration configuration;
     private TestRun testRun;
 
-    private String workloadYaml;
-    private String ensembleYaml;
-    private Function<Ensemble, List<CompletableFuture<Boolean>>> resourceChecker =
-        (e) -> List.of(CompletableFuture.completedFuture(true));
+    private String testDefinitionYaml;
+    private Function<Ensemble, List<CompletableFuture<Boolean>>> resourceChecker = ensemble -> List.of();
+    private Function<Ensemble, Boolean> postSetupHook = ensemble -> true;
 
     //Create a builder for each Ensemble group by default
     private final NodeGroupBuilder observerBuilder = NodeGroupBuilder.create();
@@ -107,9 +109,20 @@ public class ActiveTestRunBuilder
     //Workload is both phases of modules and checkers
     private Workload workload;
     private TestRunAbortedStatusUpdater testRunStatusUpdater;
+    private TestRunLinkUpdater testRunLinkUpdater = new NullTestRunLinkUpdater();
 
     private UserCredentials userCredentials;
     private JobLoggers loggers;
+    private TestRunScratchSpace testRunScratchSpace;
+    private Optional<LocalFilesHandler> explicitLocalFilesHandler = Optional.empty();
+
+    enum DeprecatedPropertiesHandling
+    {
+        FAIL_VALIDATION,
+        LOG_WARNING
+    }
+
+    private DeprecatedPropertiesHandling deprecatedPropertiesHandling = DeprecatedPropertiesHandling.LOG_WARNING;
 
     public static ActiveTestRunBuilder create()
     {
@@ -118,6 +131,18 @@ public class ActiveTestRunBuilder
 
     private ActiveTestRunBuilder()
     {
+    }
+
+    private LocalFilesHandler getLocalFilesHandler()
+    {
+        return explicitLocalFilesHandler.orElseGet(LocalFilesHandler::empty);
+    }
+
+    public ActiveTestRunBuilder handleDeprecatedPropertiesWith(
+        DeprecatedPropertiesHandling deprecatedPropertiesHandling)
+    {
+        this.deprecatedPropertiesHandling = deprecatedPropertiesHandling;
+        return this;
     }
 
     public ActiveTestRunBuilder withComponentFactory(ComponentFactory componentFactory)
@@ -138,6 +163,12 @@ public class ActiveTestRunBuilder
         return this;
     }
 
+    public ActiveTestRunBuilder withPostSetupHook(Function<Ensemble, Boolean> postSetupHook)
+    {
+        this.postSetupHook = postSetupHook;
+        return this;
+    }
+
     private void validateYamlKeys(Map<String, Object> yamlMap, Set<String> validKeys, String logContext)
     {
         Set<String> yamlMapKeys = new HashSet<>();
@@ -145,8 +176,8 @@ public class ActiveTestRunBuilder
         yamlMapKeys.removeAll(validKeys);
         if (yamlMapKeys.size() > 0)
         {
-            String exceptionMsg = "Found invalid yaml keys " + logContext + ": " + yamlMapKeys.toString() +
-                ". Only valid keys are " + validKeys.toString();
+            String exceptionMsg = "Found invalid yaml keys " + logContext + ": " + Utils.toSortedList(yamlMapKeys) +
+                ". Only valid keys are " + Utils.toSortedList(validKeys);
             throw new InvalidConfigurationException(exceptionMsg);
         }
     }
@@ -160,13 +191,12 @@ public class ActiveTestRunBuilder
      * Internal helper to build an Ensemble from YAML.
      * This takes in the whole test YAML and internally sets up the EnsembleBuilder to use for this test run.
      */
-    @SuppressWarnings("unchecked")
     private void prepareEnsemble(String testYaml)
     {
         logger.trace("Preparing ensemble from yaml {}", testYaml);
 
         Map<String, Object> yamlMap = loadYaml(testYaml);
-        validateTopLevelYamlKeys(yamlMap, ImmutableSet.of("ensemble", "workload"));
+        validateTopLevelYamlKeys(yamlMap, Set.of("ensemble", "workload"));
         prepareEnsemble(yamlMap);
     }
 
@@ -190,6 +220,10 @@ public class ActiveTestRunBuilder
                         {
                             readNodeGroup(subEnsembleGroup, subEnsembleValue);
                         }
+                        break;
+                    case "local_files":
+                        explicitLocalFilesHandler = Optional.of(LocalFilesHandler.fromMaps(
+                            (List<Map<String, Object>>) entry.getValue(), testRunArtifactPath, commandExecutor));
                         break;
                     default:
                         readNodeGroup(ensembleGroup, ensembleValue);
@@ -258,7 +292,7 @@ public class ActiveTestRunBuilder
         }
 
         Map<String, Object> config = (Map) ensembleValue;
-        validateYamlKeys(config, ImmutableSet.of("name", NODE_COUNT_KEY, "runlevel", "runlevel.final", "provisioner",
+        validateYamlKeys(config, Set.of("name", NODE_COUNT_KEY, "runlevel", "runlevel.final", "provisioner",
             "configuration_manager", "mark_for_reuse", "local_files"), "below nodegroup " + ensembleGroup);
         ngBuilder.withName("" + config.getOrDefault("name", ensembleGroup.toLowerCase()));
 
@@ -280,6 +314,7 @@ public class ActiveTestRunBuilder
             propertyGroup.put(FalloutPropertySpecs.launchRunLevelPropertySpec.name(), launchRunLevel);
         }
 
+        /** See docs for {@link ActiveTestRun#getStateForTearDownTransition} and {@link NodeGroup#finalRunLevel} */
         String finalRunLevelVal = (String) config.get("runlevel.final");
         Boolean mfr = (Boolean) config.get("mark_for_reuse");
 
@@ -299,18 +334,26 @@ public class ActiveTestRunBuilder
         if (testRun != null)
         {
             URI testRunUrl = URI.create(configuration.getExternalUrl())
-                .resolve(TestResource.uriForShowTestRunArtifacts(testRun));
+                .resolve(TestResource.uriForShowTestRunArtifactsById(testRun));
             propertyGroup.put(FalloutPropertySpecs.testRunUrl.name(), testRunUrl.toString());
             propertyGroup.put(FalloutPropertySpecs.testRunId.name(), testRun.getTestRunId().toString());
         }
 
-        LocalFilesHandler localFilesHandler = new LocalFilesHandler(List.of());
         List<Map<String, Object>> localFiles = (List<Map<String, Object>>) config.get("local_files");
         if (localFiles != null)
         {
-            localFilesHandler = new LocalFilesHandler(localFiles);
-            ngBuilder.withLocalFilesHandler(localFilesHandler);
+            if (explicitLocalFilesHandler.isPresent())
+            {
+                throw new InvalidConfigurationException(String.format("Ensemble group: %s: there can be only " +
+                    "one local_files entry in the test definition, and it should be specified at the ensemble level " +
+                    "rather than in individual nodegroups", ensembleGroup));
+            }
+
+            explicitLocalFilesHandler = Optional.of(
+                LocalFilesHandler.fromMaps(localFiles, testRunArtifactPath, commandExecutor));
         }
+
+        ensembleBuilder.withLocalFilesHandler(getLocalFilesHandler());
 
         //Handle provisioner spec.
         Map<String, Object> provisionerMap;
@@ -330,7 +373,7 @@ public class ActiveTestRunBuilder
             throw new InvalidConfigurationException("Missing provisioner under ensemble group: " + ensembleGroup);
         }
 
-        validateYamlKeys(provisionerMap, ImmutableSet.of("name", "properties"),
+        validateYamlKeys(provisionerMap, Set.of("name", "properties"),
             "below provisioner of nodegroup " + ensembleGroup);
         String provisionerName = (String) provisionerMap.get("name");
         if (provisionerName == null)
@@ -342,12 +385,27 @@ public class ActiveTestRunBuilder
         ngBuilder.withProvisioner(provisioner);
         ngBuilder.withNodeCommandExecutor(new RejectableNodeCommandExecutor(testRunStatusUpdater, provisioner));
 
+        if (provisioner.markedForReuse(propertyGroup))
+        {
+            if (mfr != null)
+            {
+                throw new InvalidConfigurationException(
+                    "Cannot set mark_for_reuse in both the nodegroup and provisioner properties.");
+            }
+            if (finalRunLevelVal != null)
+            {
+                throw new InvalidConfigurationException(
+                    "Cannot set mark_for_reuse and runlevel.final at the same time.");
+            }
+            ngBuilder.withFinalRunLevel(Optional.empty());
+        }
+
         //Handle config management spec
         Object configManagerValue = config.get("configuration_manager");
         List<Object> cmValues;
         if (configManagerValue == null)
         {
-            cmValues = Lists.newArrayList("noop");
+            cmValues = List.of("noop");
         }
         else if (configManagerValue instanceof List)
         {
@@ -355,12 +413,14 @@ public class ActiveTestRunBuilder
         }
         else
         {
-            cmValues = Lists.newArrayList(configManagerValue);
+            cmValues = List.of(configManagerValue);
         }
 
         List<ConfigurationManager> cmList = new ArrayList<>(cmValues.size());
+        int cmPosition = 0;
         for (Object cmValue : cmValues)
         {
+            cmPosition++;
             Map<String, Object> configManagerMap;
             if (cmValue instanceof String)
             {
@@ -377,14 +437,14 @@ public class ActiveTestRunBuilder
                     "invalid configuration_manager settings ensemble group: " + ensembleGroup);
             }
 
-            validateYamlKeys(configManagerMap, ImmutableSet.of("name", "properties"),
+            validateYamlKeys(configManagerMap, Set.of("name", "properties"),
                 "below configuration_manager of nodegroup " + ensembleGroup);
             String configManagerName = (String) configManagerMap.get("name");
             if (configManagerName == null)
                 throw new InvalidConfigurationException(
                     "invalid configuration_manager settings for ensemble group:" + ensembleGroup);
 
-            String cmAlias = ensembleGroup + "-" + configManagerName;
+            String cmAlias = ensembleGroup + "-" + cmPosition + "-" + configManagerName;
             ConfigurationManager cm = createPropertyBasedComponent(ConfigurationManager.class, cmAlias,
                 configManagerName, (Map) configManagerMap.get("properties"), propertyGroup);
             cm.setFalloutConfiguration(configuration);
@@ -397,7 +457,7 @@ public class ActiveTestRunBuilder
 
         Set<Class<? extends Provider>> ngAvailableProviders = new HashSet<>();
         ngAvailableProviders.addAll(provisioner.getAvailableProviders(propertyGroup));
-        ngAvailableProviders.addAll(localFilesHandler.getAvailableProviders());
+        ngAvailableProviders.addAll(getLocalFilesHandler().getAvailableProviders());
 
         ConfigurationManager cm = cmList.size() > 1 ?
             new MultiConfigurationManager(cmList, ngAvailableProviders, propertyGroup) :
@@ -407,6 +467,8 @@ public class ActiveTestRunBuilder
 
         //Finally set the property group
         ngBuilder.withPropertyGroup(propertyGroup);
+
+        propertyGroup.setRefExpander(getLocalFilesHandler());
     }
 
     private NodeGroupBuilder getOrCreateLocalBuilder()
@@ -469,33 +531,21 @@ public class ActiveTestRunBuilder
                 (ensembleGroup == null ? "" : ensembleGroup) + "': " + key);
     }
 
-    /**
-     * Associates an Ensemble created from testYaml with this ActiveTestRunBuilder
-     * @param testYaml
-     * @return self
-     */
-    public ActiveTestRunBuilder withEnsembleFromYaml(String testYaml)
+    public ActiveTestRunBuilder withTestDefinitionFromYaml(String testDefinitionYaml)
     {
-        Preconditions.checkState(ensembleBuilder == null,
-            "Cannot provide an ensembleYaml if an EnsembleBuilder is already set!");
-        ensembleYaml = testYaml;
+        this.testDefinitionYaml = testDefinitionYaml;
         return this;
     }
 
     /**
-     * Associates existing ensemblebuilder with this ActiveTestRunBuilder
-     *
-     * @param ensembleBuilder an existing ensemblebuilder
-     * @param testOwnsEnsemble indicates if this test runner should take care of tearing down ensemble when finished
-     * @return
+     * <b>Only for use in testing</b>. Associates existing ensemblebuilder with this {@link
+     * ActiveTestRunBuilder}, bypassing the creation of {@link NodeGroupBuilder}s that would
+     * normally be created by parsing the ensemble YAML passed in via {@link #withTestDefinitionFromYaml}
      */
-    public ActiveTestRunBuilder withEnsembleBuilder(EnsembleBuilder ensembleBuilder, boolean testOwnsEnsemble)
+    @VisibleForTesting
+    public ActiveTestRunBuilder withEnsembleBuilder(EnsembleBuilder ensembleBuilder)
     {
-        Preconditions.checkState(ensembleYaml == null,
-            "Cannot provide an EnsembleBuilder if an ensembleYaml is already set!");
         this.ensembleBuilder = ensembleBuilder;
-        this.ensembleOwner = testOwnsEnsemble;
-
         return this;
     }
 
@@ -515,7 +565,6 @@ public class ActiveTestRunBuilder
 
     public ActiveTestRunBuilder destroyEnsembleAfterTest(boolean destroy)
     {
-        this.ensembleOwner = destroy;
         return this;
     }
 
@@ -526,13 +575,12 @@ public class ActiveTestRunBuilder
      * @param testYaml
      * @return
      */
-    @SuppressWarnings("unchecked")
     private Workload prepareWorkload(String testYaml)
     {
         logger.debug("Preparing workload from yaml {}", testYaml);
 
         Map<String, Object> yamlMap = loadYaml(testYaml);
-        validateTopLevelYamlKeys(yamlMap, ImmutableSet.of("ensemble", "workload"));
+        validateTopLevelYamlKeys(yamlMap, Set.of("ensemble", "workload"));
         return prepareWorkload(yamlMap);
     }
 
@@ -548,7 +596,7 @@ public class ActiveTestRunBuilder
             throw new InvalidConfigurationException("Workload is not a Jepsen test name or Fallout workload");
         }
         Map workloadMap = (Map) workload;
-        validateYamlKeys(workloadMap, ImmutableSet.of("phases", "checkers", "artifact_checkers"), "below workload");
+        validateYamlKeys(workloadMap, Set.of("phases", "checkers", "artifact_checkers"), "below workload");
         List<Map<String, Object>> rawYamlForPhases = (List<Map<String, Object>>) workloadMap.get("phases");
         Map<String, Object> yamlCheckers = (Map<String, Object>) workloadMap.get("checkers");
         Map<String, Object> yamlArtifactCheckers = (Map<String, Object>) workloadMap.get("artifact_checkers");
@@ -558,10 +606,13 @@ public class ActiveTestRunBuilder
             throw new InvalidConfigurationException("Phases section required");
         }
 
+        final var toolExecutor = new ToolExecutor(commandExecutor, configuration.getToolsDir());
+
         List<Phase> topLevelPhases = new ArrayList<>();
         for (Map<String, Object> items : rawYamlForPhases)
         {
-            topLevelPhases.add(parsePhase(String.format("top-level-%d", rawYamlForPhases.indexOf(items)), items));
+            topLevelPhases.add(parsePhase(String.format("top-level-%d", rawYamlForPhases.indexOf(items)), items,
+                toolExecutor));
         }
         logger.debug(topLevelPhases.toString());
 
@@ -572,8 +623,8 @@ public class ActiveTestRunBuilder
                 String.join(", ", duplicateModuleAliases));
         }
 
-        Map<String, Checker> checkers = parseCheckers(yamlCheckers);
-        Map<String, ArtifactChecker> artifactCheckers = parseArtifactCheckers(yamlArtifactCheckers);
+        Map<String, Checker> checkers = parseCheckers(yamlCheckers, toolExecutor);
+        Map<String, ArtifactChecker> artifactCheckers = parseArtifactCheckers(yamlArtifactCheckers, toolExecutor);
 
         return new Workload(topLevelPhases, checkers, artifactCheckers);
     }
@@ -601,13 +652,19 @@ public class ActiveTestRunBuilder
          2. Phases in a list are executed serially
          3. Modules and subphases in the same phase are executed concurrently
      */
-    private Phase parsePhase(String name, Map<String, Object> yaml)
+    private Phase parsePhase(String name, Map<String, Object> yaml,
+        ToolExecutor toolExecutor)
     {
         Map<String, Module> phaseModules = new HashMap<>();
         Map<String, List<Phase>> phaseLists = new HashMap<>();
         for (Map.Entry<String, Object> entry : yaml.entrySet())
         {
             String alias = entry.getKey();
+            if (!alias.matches("\\S+"))
+            {
+                throw new InvalidConfigurationException(
+                    "Phase name must only contain non whitespace characters: '" + alias + "'");
+            }
             if (entry.getValue() instanceof List)
             {
                 List<Phase> subPhases = new ArrayList<>();
@@ -616,7 +673,8 @@ public class ActiveTestRunBuilder
                 {
                     try
                     {
-                        subPhases.add(parsePhase(String.format("%s-%d", alias, i++), (Map<String, Object>) subPhase));
+                        subPhases.add(parsePhase(String.format("%s-%d", alias, i++), (Map<String, Object>) subPhase,
+                            toolExecutor));
                     }
                     catch (ClassCastException e)
                     {
@@ -631,36 +689,38 @@ public class ActiveTestRunBuilder
             }
             else
             {
-                Module moduleInstance = parseWorkloadComponent("module", Module.class, entry);
+                Module moduleInstance = parseWorkloadComponent("module", Module.class, entry, toolExecutor);
                 phaseModules.put(moduleInstance.getInstanceName(), moduleInstance);
             }
         }
         return new Phase(name, phaseLists, phaseModules);
     }
 
-    private Map<String, Checker> parseCheckers(Map<String, Object> yamlCheckers)
+    private Map<String, Checker> parseCheckers(Map<String, Object> yamlCheckers,
+        ToolExecutor toolExecutor)
     {
-        Map<String, Checker> res = new HashMap<>();
+        Map<String, Checker> res = new LinkedHashMap<>();
         if (yamlCheckers != null)
         {
             for (Map.Entry<String, Object> entry : yamlCheckers.entrySet())
             {
-                Checker checkerInstance = parseWorkloadComponent("checker", Checker.class, entry);
+                Checker checkerInstance = parseWorkloadComponent("checker", Checker.class, entry, toolExecutor);
                 res.put(checkerInstance.getInstanceName(), checkerInstance);
             }
         }
         return res;
     }
 
-    private Map<String, ArtifactChecker> parseArtifactCheckers(Map<String, Object> yamlArtifactCheckers)
+    private Map<String, ArtifactChecker> parseArtifactCheckers(Map<String, Object> yamlArtifactCheckers,
+        ToolExecutor toolExecutor)
     {
-        Map<String, ArtifactChecker> res = new HashMap<>();
+        Map<String, ArtifactChecker> res = new LinkedHashMap<>();
         if (yamlArtifactCheckers != null)
         {
             for (Map.Entry<String, Object> entry : yamlArtifactCheckers.entrySet())
             {
                 ArtifactChecker artifactCheckerInstance =
-                    parseWorkloadComponent("artifact_checker", ArtifactChecker.class, entry);
+                    parseWorkloadComponent("artifact_checker", ArtifactChecker.class, entry, toolExecutor);
                 res.put(artifactCheckerInstance.getInstanceName(), artifactCheckerInstance);
             }
         }
@@ -668,7 +728,7 @@ public class ActiveTestRunBuilder
     }
 
     private <T extends WorkloadComponent> T parseWorkloadComponent(String typeKey, Class<T> clazz,
-        Map.Entry<String, Object> entry)
+        Map.Entry<String, Object> entry, ToolExecutor toolExecutor)
     {
         String alias = entry.getKey();
         if (!(entry.getValue() instanceof Map))
@@ -677,7 +737,7 @@ public class ActiveTestRunBuilder
                 "Missing " + typeKey + " information under workload step: " + alias);
         }
 
-        Set<String> allowedKeys = Sets.newHashSet(typeKey, "properties");
+        Set<String> allowedKeys = Set.of(typeKey, "properties");
         Map<String, Object> componentData = (Map) entry.getValue();
         validateYamlKeys(componentData, allowedKeys, "below " + typeKey + " '" + alias + "'");
         if (!componentData.containsKey(typeKey))
@@ -696,6 +756,11 @@ public class ActiveTestRunBuilder
         WritablePropertyGroup componentProps = new WritablePropertyGroup();
         T componentInstance = createPropertyBasedComponent(clazz, alias, typeName, propertyMap, componentProps);
         componentInstance.setProperties(componentProps);
+        if (componentInstance instanceof ToolComponent)
+        {
+            ((ToolComponent) componentInstance).setToolExecutor(toolExecutor);
+        }
+        componentProps.setRefExpander(getLocalFilesHandler());
         return componentInstance;
     }
 
@@ -713,12 +778,15 @@ public class ActiveTestRunBuilder
             throw new InvalidConfigurationException(String.format("Cannot use %s on a shared endpoint!", name));
         }
 
+        instance.setInstanceName(alias);
+
         logger.debug("Created instance with description " + instance.description() + " for component with name " +
             name + " under entry " + alias);
 
         if (propertyMap != null)
         {
             String prefix = instance.prefix();
+
             for (Map.Entry<String, Object> configEntry : propertyMap.entrySet())
             {
                 String key = prefix + configEntry.getKey();
@@ -729,19 +797,7 @@ public class ActiveTestRunBuilder
                 propertyGroup.put(key, configEntry.getValue());
             }
         }
-        instance.setInstanceName(alias);
         return instance;
-    }
-
-    /**
-     * Associates a workload built from the provided testYaml with this instance
-     * @param testYaml
-     * @return this
-     */
-    public ActiveTestRunBuilder withWorkloadFromYaml(String testYaml)
-    {
-        workloadYaml = testYaml;
-        return this;
     }
 
     /**
@@ -760,14 +816,9 @@ public class ActiveTestRunBuilder
         return this;
     }
 
-    /**
-     * Sets the name of this testrun. Used to store artifacts locally by testrunname
-     * @param testRunName
-     * @return this
-     */
-    public ActiveTestRunBuilder withTestRunName(String testRunName)
+    public ActiveTestRunBuilder withTestRunIdentifier(TestRunIdentifier testRunIdentifier)
     {
-        this.testRunName = testRunName;
+        this.testRunIdentifier = testRunIdentifier;
         return this;
     }
 
@@ -789,6 +840,12 @@ public class ActiveTestRunBuilder
         return this;
     }
 
+    public ActiveTestRunBuilder withTestRunScratchSpace(TestRunScratchSpace testRunScratchSpace)
+    {
+        this.testRunScratchSpace = testRunScratchSpace;
+        return this;
+    }
+
     public ActiveTestRunBuilder withResourceChecker(
         Function<Ensemble, List<CompletableFuture<Boolean>>> resourceChecker)
     {
@@ -796,35 +853,44 @@ public class ActiveTestRunBuilder
         return this;
     }
 
-    /**
-     * Checks if all modules used in the test support the installed product.
-     * We assume that if no product is installed, the test is valid.
-     * We assume all server groups install the same product.
-     * @param modules all modules in the workload
-     * @param serverGroup a server groups in the ensemble
-     * @return true if all modules support the installed product, else false
-     */
-    private void validateProduct(List<Module> modules, NodeGroup serverGroup, ValidationResult validationResult)
+    public ActiveTestRunBuilder withTestRunLinkUpdater(TestRunLinkUpdater testRunLinkUpdater)
     {
-        Optional<Product> installedProduct = serverGroup.getConfigurationManager().product(serverGroup);
+        this.testRunLinkUpdater = testRunLinkUpdater;
+        return this;
+    }
 
-        if (!installedProduct.isPresent())
+    /**
+     * Ensures that each nodeGroup has at most one installed product.
+     * @param serverGroup a server group in the ensemble
+     */
+    private void validateProduct(NodeGroup serverGroup, ValidationResult validationResult)
+    {
+        try
         {
-            logger
-                .warn("No product installed. We are not going to validate if the modules used are legal. You either " +
-                    "meant to install a product and messed up, or didn't and you know what you're doing.");
-            return;
-        }
+            // Providers whose presence indicates an installed product
+            Set<Class<? extends Provider>> productProviders = Set.of(CassandraContactPointProvider.class);
+            Set<Class<? extends Provider>> availableProviders = new HashSet<>();
 
-        for (Module module : modules)
-        {
-            // If the installed product IS NOT supported by a single module, we fail.
-            if (!module.getSupportedProducts().contains(installedProduct.get()))
+            productProviders.forEach(provider -> availableProviders.addAll(serverGroup.getAvailableProviders()
+                .stream()
+                .filter(provider::isAssignableFrom)
+                .collect(Collectors.toList())));
+
+            if (availableProviders.isEmpty())
             {
-                validationResult.addError(
-                    String.format("Installed product is %s, and you are using module %s which does not support it.",
-                        installedProduct.get(), module.name()));
+                logger.warn("No product installed. We are not going to validate if the modules used are legal. " +
+                    "You either meant to install a product and messed up, or didn't and you know what you're doing.");
             }
+            if (availableProviders.size() > 1)
+            {
+                validationResult.addError(String.format("NodeGroup '%s' failed validation: at most one of product " +
+                    "providers '%s' is allowed but found '%s'",
+                    serverGroup.getId(), productProviders, availableProviders));
+            }
+        }
+        catch (PropertySpec.ValidationException e)
+        {
+            validationResult.addError(e.getMessage());
         }
     }
 
@@ -833,8 +899,23 @@ public class ActiveTestRunBuilder
         Set<String> seenExplicitClusterNames = new HashSet<>();
         final User user = userCredentials.owner;
 
+        boolean serversUsePrivateCloud = ensemble.getServerGroups().stream()
+            .anyMatch(nodeGroup -> nodeGroup.getProvisioner().cloudVisibility() == Provisioner.CloudVisibility.PRIVATE);
+
+        boolean clientsUsePublicCloud = ensemble.getClientGroups().stream()
+            .anyMatch(nodeGroup -> nodeGroup.getProvisioner().cloudVisibility() == Provisioner.CloudVisibility.PUBLIC);
+
+        if (serversUsePrivateCloud && clientsUsePublicCloud &&
+            (ensemble.getServerGroups().size() == 1 || ensemble.getClientGroups().size() == 1))
+        {
+            validationResult.addError("You may not have server node groups on private clouds " +
+                "while client node groups are on public clouds, as they will not be able to communicate!");
+        }
+
         for (NodeGroup g : ensemble.getUniqueNodeGroupInstances())
         {
+            boolean useGroupCredentials = g.getProvisioner().useGroupCredentials(configuration);
+
             Optional<String> explicitClusterName = g.explicitClusterName();
             if (explicitClusterName.isPresent())
             {
@@ -850,14 +931,15 @@ public class ActiveTestRunBuilder
             else
             {
                 putGeneratedClusterName(g, g.getProvisioner().generateClusterName(
-                    g, testRunName, testRun, user));
+                    g, useGroupCredentials ? Optional.of(user) : Optional.empty(),
+                    testRunIdentifier));
             }
 
             while (true)
             {
                 try
                 {
-                    List<PropertySpec> combinedSpecs = ImmutableList.<PropertySpec>builder()
+                    List<PropertySpec<?>> combinedSpecs = ImmutableList.<PropertySpec<?>>builder()
                         .addAll(g.getProvisioner().getPropertySpecs())
                         .addAll(g.getConfigurationManager().getPropertySpecs())
                         .build();
@@ -880,17 +962,33 @@ public class ActiveTestRunBuilder
                     }
 
                     PropertySpec<?> failedSpec = e.failedSpecs.get(0);
-                    List<Optional<String>> aliases = Arrays.asList(failedSpec.alias(), failedSpec.deprecatedName());
+                    List<Optional<String>> aliases = List.of(failedSpec.alias(), failedSpec.deprecatedName());
                     boolean found = false;
                     for (Optional<String> alias : aliases)
                     {
                         //Add in any aliased information and retry
-                        if (alias.isPresent() && g.getProperties().get(alias.get()) == null)
+                        if (alias.isPresent() && !g.getProperties().hasProperty(alias.get()))
                         {
                             if (alias.get().equals(FalloutPropertySpecs.generatedClusterNamePropertySpec.name()))
                             {
                                 putGeneratedClusterName(g,
-                                    generateClusterName(g, testRunName, testRun, userCredentials.owner));
+                                    generateClusterName(g,
+                                        useGroupCredentials ? Optional.of(userCredentials.owner) : Optional.empty(),
+                                        testRunIdentifier));
+                                found = true;
+                                break;
+                            }
+
+                            if (alias.get().equals(FalloutPropertySpecs.publicKeyPropertySpec.name()))
+                            {
+                                String publicKey = "NONE";
+                                if (user != null && user.getPublicSshKey() != null &&
+                                    !user.getPublicSshKey().trim().isEmpty())
+                                {
+                                    publicKey = user.getPublicSshKey();
+                                }
+                                g.getWritableProperties().put(FalloutPropertySpecs.publicKeyPropertySpec.name(),
+                                    publicKey);
                                 found = true;
                                 break;
                             }
@@ -909,6 +1007,7 @@ public class ActiveTestRunBuilder
             try
             {
                 provisioner.validateProperties(g.getProperties());
+                provisioner.validateNodeGroup(g);
             }
             catch (PropertySpec.ValidationException e)
             {
@@ -925,6 +1024,13 @@ public class ActiveTestRunBuilder
                 validationResult.addError(String.format("ConfigurationManager %s had validation exception: %s",
                     cfgMgr.getInstanceName(), e.getMessage()));
             }
+            EnsembleValidator provisionerValidator = new EnsembleValidator(provisioner, g.getProperties(), ensemble,
+                validationResult);
+            provisioner.validateEnsemble(provisionerValidator);
+
+            EnsembleValidator cfgMgrValidator = new EnsembleValidator(cfgMgr, g.getProperties(), ensemble,
+                validationResult);
+            cfgMgr.validateEnsemble(cfgMgrValidator);
         }
     }
 
@@ -948,7 +1054,7 @@ public class ActiveTestRunBuilder
                     module.getInstanceName(), e.getMessage()));
             }
         }
-        for (Checker checker : workload.getCheckers().values())
+        for (Checker checker : workload.getCheckers())
         {
             try
             {
@@ -960,7 +1066,7 @@ public class ActiveTestRunBuilder
                     checker.getInstanceName(), e.getMessage()));
             }
         }
-        for (ArtifactChecker artifactChecker : workload.getArtifactCheckers().values())
+        for (ArtifactChecker artifactChecker : workload.getArtifactCheckers())
         {
             try
             {
@@ -974,73 +1080,88 @@ public class ActiveTestRunBuilder
         }
     }
 
-    private void validateProviders(Ensemble ensemble, ValidationResult validationResult)
+    private void validateModuleEnsembleRequirements(Ensemble ensemble, ValidationResult validationResult)
     {
-        try
-        {
-            Set<Class<? extends Provider>> providersNeeded = workload.getAllModules()
-                .stream()
-                .map(Module::getRequiredProviders)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toSet());
-
-            Set<Class<? extends Provider>> providersAvailable = ensemble.getUniqueNodeGroupInstances().stream()
-                .map(NodeGroup::getAvailableProviders)
-                .flatMap(Set::stream)
-                .collect(Collectors.toSet());
-
-            Set<Class<? extends Provider>> missingProviders = new HashSet<>();
-
-            for (Class<? extends Provider> provider : providersNeeded)
-            {
-                if (providersAvailable.stream()
-                    .noneMatch(p -> provider.isAssignableFrom(p) || p == provider))
-                {
-                    missingProviders.add(provider);
-                }
-            }
-
-            if (!missingProviders.isEmpty())
-            {
-                validationResult.addError(
-                    String.format("The following providers are required by your test, but were not installed: %s",
-                        missingProviders));
-            }
-        }
-        catch (PropertySpec.ValidationException e)
-        {
-            validationResult.addError(String.format("Validation exception: %s", e.getMessage()));
-        }
-    }
-
-    public Ensemble buildEnsemble()
-    {
-        try (ValidationResult validationResult = new ValidationResult())
-        {
-            return buildEnsemble(validationResult);
-        }
+        workload.getAllModules().forEach(module -> {
+            EnsembleValidator ensembleValidator =
+                new EnsembleValidator(module, module.getProperties(), ensemble, validationResult);
+            module.validateEnsemble(ensembleValidator);
+        });
     }
 
     private Ensemble buildEnsemble(ValidationResult validationResult)
     {
-        if (ensembleYaml != null)
+        if (testDefinitionYaml != null)
         {
             ensembleBuilder = new EnsembleBuilder();
-            prepareEnsemble(ensembleYaml);
+            prepareEnsemble(testDefinitionYaml);
         }
 
         Ensemble ensemble = ensembleBuilder
-            .withTestRunId(testRunName)
+            .withTestRunId(testRunIdentifier.getTestRunId())
             .withCredentials(new EnsembleCredentials(userCredentials, configuration))
             .withDefaultControllerGroup(createLocalBuilder())
             .withDefaultObserverGroup(createLocalBuilder())
             .withTestRunAbortedStatus(testRunStatusUpdater)
             .withLoggers(loggers)
-            .build(testRunArtifactPath);
+            .withTestRunLinkUpdater(testRunLinkUpdater)
+            .build(testRunArtifactPath, testRunScratchSpace);
 
+        ensemble.createAllLocalFiles(validationResult);
         validateEnsemblePropertySpecs(ensemble, validationResult);
 
         return ensemble;
+    }
+
+    private Stream<PropertySpec<?>> getPropertySpecsWithDeprecatedNames(Ensemble ensemble)
+    {
+        Set<NodeGroup> nodeGroups = ensemble.getUniqueNodeGroupInstances();
+
+        // collect all Components with propertySpec (PropertyBasedComponent) into a Stream
+        Stream<? extends PropertyBasedComponent> propertyBasedComponents = Stream.of(
+            workload.getAllModules(),
+            workload.getCheckers(),
+            workload.getArtifactCheckers(),
+            nodeGroups.stream().map(NodeGroup::getConfigurationManager).collect(Collectors.toList()),
+            nodeGroups.stream().map(NodeGroup::getProvisioner).collect(Collectors.toList())
+        ).flatMap(Collection::stream);
+
+        return propertyBasedComponents
+            .flatMap(p -> p.getPropertySpecs().stream())
+            .filter(propertySpec -> propertySpec.deprecatedName().isPresent());
+    }
+
+    private Set<String> getPropertyNames(Ensemble ensemble)
+    {
+        Stream<? extends HasProperties> hasPropertyStream = Stream.of(
+            ensemble.getUniqueNodeGroupInstances(),
+            workload.getArtifactCheckers(),
+            workload.getCheckers(),
+            workload.getAllModules()
+        ).flatMap(Collection::stream);
+
+        return hasPropertyStream
+            .flatMap(hasProperties -> hasProperties.getProperties().asMap().keySet().stream())
+            .collect(Collectors.toSet());
+    }
+
+    /**
+     * @return Stream of Deprecated property spec specified in the active test run
+     */
+    public Stream<PropertySpec<?>> getPropertyWithDeprecatedName(Ensemble ensemble)
+    {
+        Set<String> propertyNames = getPropertyNames(ensemble);
+        return getPropertySpecsWithDeprecatedNames(ensemble)
+            .filter(propertySpec -> propertyNames.contains(propertySpec.deprecatedName().get()));
+    }
+
+    private void validateDeprecatedProperties(Ensemble ensemble, ValidationResult validationResult)
+    {
+        getPropertyWithDeprecatedName(ensemble)
+            .map(propertySpec -> String.format("Property name '%s' is deprecated in test run '%s'. Use '%s' instead",
+                propertySpec.deprecatedShortName().get(), testRunIdentifier, propertySpec.shortName()))
+            .forEach(deprecatedPropertiesHandling == DeprecatedPropertiesHandling.FAIL_VALIDATION ?
+                validationResult::addError : logger::warn);
     }
 
     /**
@@ -1049,9 +1170,9 @@ public class ActiveTestRunBuilder
      */
     public ActiveTestRun build()
     {
-        Preconditions.checkArgument(testRunName != null, "testRunName is missing");
-        Preconditions.checkArgument(ensembleBuilder != null || ensembleYaml != null, "Ensemble is missing");
-        Preconditions.checkArgument(workload != null || workloadYaml != null, "Workload is missing");
+        Preconditions.checkArgument(testRunIdentifier != null, "testRunIdentifier is missing");
+        Preconditions.checkArgument(ensembleBuilder != null || testDefinitionYaml != null, "Ensemble is missing");
+        Preconditions.checkArgument(workload != null || testDefinitionYaml != null, "Workload is missing");
         Preconditions.checkArgument(testRunStatusUpdater != null, "TestRunStatusUpdater is missing");
         Preconditions.checkArgument(loggers != null, "loggers is missing");
         Preconditions.checkArgument(resourceChecker != null, "resourceChecker is missing");
@@ -1062,9 +1183,9 @@ public class ActiveTestRunBuilder
         {
             ensemble = buildEnsemble(validationResult);
 
-            if (workloadYaml != null)
+            if (testDefinitionYaml != null)
             {
-                workload = prepareWorkload(workloadYaml);
+                workload = prepareWorkload(testDefinitionYaml);
             }
 
             String implicitCheckerPrefix = "fallout-";
@@ -1084,20 +1205,23 @@ public class ActiveTestRunBuilder
 
             workload.setLoggers(loggers);
 
-            for (NodeGroup serverGroup : ensemble.getServerGroups())
+            if (configuration.getUseTeamOpenstackCredentials() &&
+                userCredentials.owner != null && userCredentials.owner.getGroup() == null)
             {
-                validateProduct(workload.getAllModules(), serverGroup, validationResult);
+                validationResult.addError("User " + userCredentials.owner.getEmail() + " has no user group set.");
             }
 
+            ensemble.getServerGroups().forEach(ng -> validateProduct(ng, validationResult));
             validateWorkLoad(validationResult);
-            validateProviders(ensemble, validationResult);
+            validateModuleEnsembleRequirements(ensemble, validationResult);
+            validateDeprecatedProperties(ensemble, validationResult);
         }
 
-        return new ActiveTestRun(ensemble, workload, testRunStatusUpdater, ensembleOwner, testRunArtifactPath,
-            resourceChecker);
+        return new ActiveTestRun(ensemble, workload, testRunStatusUpdater, testRunArtifactPath,
+            resourceChecker, postSetupHook, testRunScratchSpace);
     }
 
-    private static class ValidationResult implements AutoCloseable
+    public static class ValidationResult implements AutoCloseable
     {
         private List<String> errors = new ArrayList<>();
 
@@ -1118,4 +1242,16 @@ public class ActiveTestRunBuilder
         }
     }
 
+    public static class NoOpValidationResult extends ValidationResult
+    {
+        @Override
+        public void addError(String error)
+        {
+        }
+
+        @Override
+        public void close()
+        {
+        }
+    }
 }

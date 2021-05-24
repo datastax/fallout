@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,9 @@ public interface TestRunStatus
     /** Add a callback that must be run after the test run has completed
      *  with the state {@link TestRun.State#WAITING_FOR_RESOURCES} */
     void addResourcesUnavailableCallback(Runnable onResourcesUnavailable);
+
+    /** Add a callback that must be run after the test run has become active */
+    void addActiveCallback(Runnable onActive);
 
     /** Add a callback that must be run after the test run has become inactive */
     void addInactiveCallback(Runnable onInactive);

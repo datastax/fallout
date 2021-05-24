@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -51,7 +50,7 @@ public class Artifacts
         return buildTestArtifactPath(Paths.get(configuration.getArtifactPath()), userEmail, testName);
     }
 
-    public static Path buildTestRunArtifactPath(Path rootArtifactPath, TestRun testRun)
+    public static Path buildTestRunArtifactPath(Path rootArtifactPath, ReadOnlyTestRun testRun)
     {
         return buildTestArtifactPath(rootArtifactPath, testRun).resolve(testRun.getTestRunId().toString());
     }
@@ -80,7 +79,7 @@ public class Artifacts
     {
         if (!Files.isDirectory(testRunArtifactPath, LinkOption.NOFOLLOW_LINKS))
         {
-            return Collections.emptyMap();
+            return Map.of();
         }
 
         return Files.find(testRunArtifactPath, 10, (path, attr) -> !attr.isDirectory(), FileVisitOption.FOLLOW_LINKS)

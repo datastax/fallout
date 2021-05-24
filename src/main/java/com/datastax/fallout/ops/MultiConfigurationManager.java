@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,9 @@
 package com.datastax.fallout.ops;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -32,8 +30,10 @@ import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
+import com.datastax.fallout.harness.EnsembleValidator;
 import com.datastax.fallout.service.FalloutConfiguration;
-import com.datastax.fallout.util.ScopedLogger;
+
+import static com.datastax.fallout.ops.NodeGroup.State.TransitionDirection;
 
 /**
  * Wraps multiple CMs together, the order in which the delegates
@@ -42,11 +42,11 @@ import com.datastax.fallout.util.ScopedLogger;
 public class MultiConfigurationManager extends ConfigurationManager
 {
     private final ImmutableList<ConfigurationManager> delegates;
-    private final List<PropertySpec> allSpecs;
+    private final List<PropertySpec<?>> allSpecs;
 
     public MultiConfigurationManager(List<ConfigurationManager> delegates, PropertyGroup nodegroupProperties)
     {
-        this(delegates, Collections.emptySet(), nodegroupProperties);
+        this(delegates, Set.of(), nodegroupProperties);
     }
 
     public MultiConfigurationManager(List<ConfigurationManager> delegates,
@@ -55,8 +55,8 @@ public class MultiConfigurationManager extends ConfigurationManager
         Preconditions.checkArgument(!delegates.isEmpty(), "There must be at least one delegate CM");
         this.delegates =
             determineConfigurationOrder(delegates, nodeGroupAvailableProviders, nodegroupProperties);
-        logger.info("Successfully determined MultiConfigurationManager configuration order: {}",
-            delegates.stream().map(PropertyBasedComponent::name).collect(Collectors.toList()));
+        logger().info("Successfully determined MultiConfigurationManager configuration order: {}",
+            this.delegates.stream().map(PropertyBasedComponent::name).collect(Collectors.toList()));
 
         this.allSpecs = delegates.stream().flatMap(cm -> cm.getPropertySpecs().stream()).collect(Collectors.toList());
     }
@@ -105,53 +105,17 @@ public class MultiConfigurationManager extends ConfigurationManager
             .collect(Collectors.toSet());
     }
 
-    @Override
-    public Optional<Product> product(NodeGroup serverGroup)
+    private <T> boolean doForTransition(BiFunction<ConfigurationManager, T, Boolean> f, T t,
+        TransitionDirection direction)
     {
-        Set<Product> products = delegates.stream()
-            .map(d -> d.product(serverGroup))
-            .flatMap(o -> o.map(Stream::of).orElseGet(Stream::empty))
-            .collect(Collectors.toSet());
-
-        if (products.size() > 1)
-        {
-            throw new InvalidConfigurationException(String.format("Multiple products to install specified!: %s",
-                products.stream().map(Enum::toString).collect(Collectors.joining(", ", "[", "]"))));
-        }
-
-        return products.stream().findFirst();
-    }
-
-    private <T> boolean applyActionToAllDelegates(BiFunction<ConfigurationManager, T, Boolean> f, T t)
-    {
-        return applyActionToAllDelegates(f, t, false);
-    }
-
-    private <T> boolean applyActionToAllDelegates(BiFunction<ConfigurationManager, T, Boolean> f, T t,
-        boolean inReverseDelegateOrder)
-    {
-        return getDelegatesStream(inReverseDelegateOrder)
-            .map(cm -> f.apply(cm, t))
-            .reduce(true, (acc, cur) -> acc && cur);
-    }
-
-    private Stream<ConfigurationManager> getDelegatesStream(boolean inReverseDelegateOrder)
-    {
-        return inReverseDelegateOrder ?
+        Preconditions.checkArgument(direction != TransitionDirection.NONE);
+        boolean downwardTransition = direction == TransitionDirection.DOWN;
+        Stream<ConfigurationManager> delegatesStream = downwardTransition ?
             Lists.reverse(delegates).stream() :
             delegates.stream();
-    }
-
-    @Override
-    public boolean configureAndRegisterProviders(NodeGroup nodeGroup)
-    {
-        return applyActionToAllDelegates(ConfigurationManager::configureAndRegisterProviders, nodeGroup);
-    }
-
-    @Override
-    protected boolean configureImpl(NodeGroup nodeGroup)
-    {
-        return applyActionToAllDelegates(ConfigurationManager::configureImpl, nodeGroup);
+        return downwardTransition ?
+            delegatesStream.map(cm -> f.apply(cm, t)).reduce(true, (acc, cur) -> acc && cur) :
+            delegatesStream.allMatch(cm -> f.apply(cm, t)); // fail fast
     }
 
     @Override
@@ -196,9 +160,15 @@ public class MultiConfigurationManager extends ConfigurationManager
                 unsatisfiedDependenciesErrorBuilder
                     .append("It is impossible to properly configure this set of Configuration Managers!");
                 unprocessedDelegates
-                    .forEach(unprocessedDelegate -> unsatisfiedDependenciesErrorBuilder.append(String.format(
-                        " Cannot satisfy dependencies of the %s configuration manager which requires Providers: %s",
-                        unprocessedDelegate.name(), unprocessedDelegate.getRequiredProviders(nodegroupProperties))));
+                    .forEach(unprocessedDelegate -> {
+                        // deterministic order for output (so tests can assert error with a fixed string)
+                        List<String> requiredProviders = Utils.toSortedList(
+                            unprocessedDelegate.getRequiredProviders(nodegroupProperties),
+                            x -> x.getSimpleName());
+                        unsatisfiedDependenciesErrorBuilder.append(String.format(
+                            " Cannot satisfy dependencies of the %s configuration manager which requires Providers: %s",
+                            unprocessedDelegate.name(), requiredProviders));
+                    });
                 throw new InvalidConfigurationException(unsatisfiedDependenciesErrorBuilder.toString());
             }
         }
@@ -216,62 +186,76 @@ public class MultiConfigurationManager extends ConfigurationManager
     }
 
     @Override
+    public boolean configureAndRegisterProviders(NodeGroup nodeGroup)
+    {
+        return doForTransition(ConfigurationManager::configureAndRegisterProviders, nodeGroup,
+            TransitionDirection.UP);
+    }
+
+    @Override
+    protected boolean configureImpl(NodeGroup nodeGroup)
+    {
+        return doForTransition(ConfigurationManager::configureImpl, nodeGroup, TransitionDirection.UP);
+    }
+
+    @Override
     public boolean registerProviders(Node node)
     {
-        return applyActionToAllDelegates(ConfigurationManager::registerProviders, node);
-    }
-
-    @Override
-    public boolean unregisterProviders(Node node)
-    {
-        return applyActionToAllDelegates(ConfigurationManager::unregisterProviders, node, true);
-    }
-
-    @Override
-    protected boolean unconfigureImpl(NodeGroup nodeGroup)
-    {
-        return applyActionToAllDelegates(ConfigurationManager::unconfigureImpl, nodeGroup, true);
+        return doForTransition(ConfigurationManager::registerProviders, node, TransitionDirection.UP);
     }
 
     @Override
     protected boolean startImpl(NodeGroup nodeGroup)
     {
-        return applyActionToAllDelegates(ConfigurationManager::startImpl, nodeGroup);
+        return doForTransition(ConfigurationManager::startImpl, nodeGroup, TransitionDirection.UP);
+    }
+
+    @Override
+    protected boolean unconfigureImpl(NodeGroup nodeGroup)
+    {
+        return doForTransition(ConfigurationManager::unconfigureImpl, nodeGroup,
+            TransitionDirection.DOWN);
+    }
+
+    @Override
+    public boolean unregisterProviders(Node node)
+    {
+        return doForTransition(ConfigurationManager::unregisterProviders, node,
+            TransitionDirection.DOWN);
     }
 
     @Override
     protected boolean stopImpl(NodeGroup nodeGroup)
     {
-        return applyActionToAllDelegates(ConfigurationManager::stopImpl, nodeGroup, true);
+        return doForTransition(ConfigurationManager::stopImpl, nodeGroup, TransitionDirection.DOWN);
     }
 
     @Override
     protected NodeGroup.State checkStateImpl(NodeGroup nodeGroup)
     {
-        try (ScopedLogger.Scoped ignored = logger.scopedInfo("MultiConfigurationManager.checkState()"))
-        {
-            return getDelegates().stream()
-                .map(cm -> {
-                    final NodeGroup.State state = cm.checkStateImpl(nodeGroup);
-                    logger.info("ConfigurationManager {} checkState returned {}", cm.name(), state);
-                    return state;
-                })
-                .filter(NodeGroup.State::isConfigManagementState)
-                .min(Comparator.comparing(NodeGroup.State::ordinal))
-                .orElse(NodeGroup.State.UNKNOWN);
-        }
+        return logger().withScopedInfo("MultiConfigurationManager.checkState()").get(() -> getDelegates().stream()
+            .map(cm -> {
+                final NodeGroup.State state = cm.checkStateImpl(nodeGroup);
+                logger().info("ConfigurationManager {} checkState returned {}", cm.name(), state);
+                return state;
+            })
+            .filter(NodeGroup.State::isConfigManagementState)
+            .min(Comparator.comparing(NodeGroup.State::ordinal))
+            .orElse(NodeGroup.State.UNKNOWN));
     }
 
     @Override
     protected boolean collectArtifactsImpl(Node node)
     {
-        return applyActionToAllDelegates(ConfigurationManager::collectArtifactsImpl, node);
+        return doForTransition(ConfigurationManager::collectArtifactsImpl, node,
+            TransitionDirection.DOWN);
     }
 
     @Override
     protected boolean prepareArtifactsImpl(Node node)
     {
-        return applyActionToAllDelegates(ConfigurationManager::prepareArtifactsImpl, node);
+        return doForTransition(ConfigurationManager::prepareArtifactsImpl, node,
+            TransitionDirection.DOWN);
     }
 
     @Override
@@ -293,7 +277,7 @@ public class MultiConfigurationManager extends ConfigurationManager
     }
 
     @Override
-    public List<PropertySpec> getPropertySpecs()
+    public List<PropertySpec<?>> getPropertySpecs()
     {
         return allSpecs;
     }
@@ -301,12 +285,25 @@ public class MultiConfigurationManager extends ConfigurationManager
     @Override
     public boolean validatePrefixes(Logger logger)
     {
-        return applyActionToAllDelegates(ConfigurationManager::validatePrefixes, logger);
+        return doForTransition(ConfigurationManager::validatePrefixes, logger,
+            TransitionDirection.DOWN);
     }
 
     @Override
     public void validateProperties(PropertyGroup properties) throws PropertySpec.ValidationException
     {
         delegates.stream().forEach(cm -> cm.validateProperties(properties));
+    }
+
+    @Override
+    public void validateEnsemble(EnsembleValidator validator)
+    {
+        delegates.stream().forEach(cm -> cm.validateEnsemble(validator));
+    }
+
+    @Override
+    public void close()
+    {
+        delegates.forEach(ConfigurationManager::close);
     }
 }

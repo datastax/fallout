@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,19 +28,22 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
-import com.google.common.collect.ImmutableMap;
+import org.slf4j.Logger;
 
+import com.datastax.fallout.components.common.spec.GitClone;
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
-import com.datastax.fallout.harness.specs.GitClone;
+import com.datastax.fallout.harness.ActiveTestRunBuilder;
+import com.datastax.fallout.ops.commands.CommandExecutor;
 import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
+import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.JsonUtils;
 import com.datastax.fallout.util.YamlUtils;
 
 public abstract class FileSpec
 {
-    private static final Map<String, Class<? extends FileSpec>> keyToType = ImmutableMap.of(
+    private static final Map<String, Class<? extends FileSpec>> keyToType = Map.of(
         "data", DataFileSpec.class,
         "yaml", YamlFileSpec.class,
         "json", JsonFileSpec.class,
@@ -58,17 +61,43 @@ public abstract class FileSpec
         this.path = path.startsWith("/") ? path.substring(1) : path;
     }
 
-    public abstract boolean createLocalFile(Path fullFilePath, NodeGroup nodeGroup) throws IOException;
+    public boolean createLocalFile(Logger logger, CommandExecutor commandExecutor, Path fullFilePath,
+        ActiveTestRunBuilder.ValidationResult validationResult)
+    {
+        if (Files.exists(fullFilePath))
+        {
+            logger.info("File at {} already exists", fullFilePath);
+            return true;
+        }
 
-    public abstract CompletableFuture<Boolean> createRemoteAndShadowFile(Path fullRemotePath, Path fullLocalPath,
-        NodeGroup nodeGroup);
+        logger.info("Attempting to create file at {} ", fullFilePath);
+        try
+        {
+            return createLocalFileImpl(logger, commandExecutor, fullFilePath);
+        }
+        catch (IOException e)
+        {
+            String errorMessage = String.format("Error while creating local file %s", fullFilePath);
+            validationResult.addError(errorMessage + ": " + e.getMessage());
+            logger.error(errorMessage, e);
+            return false;
+        }
+    }
 
-    public abstract CompletableFuture<Boolean> createShadowFile(Path fullRemotePath, Path fullLocalPath,
-        NodeGroup nodeGroup);
+    public abstract boolean createLocalFileImpl(Logger logger, CommandExecutor commandExecutor, Path fullFilePath)
+        throws IOException;
+
+    public abstract boolean shadeLocalFile(NodeGroup nodeGroup, Path fullLocalPath);
 
     public String getPath()
     {
         return path;
+    }
+
+    /** Whether this filespec would satisfy the <code>ref</code> in <code>&lt;&lt;file:ref&gt;&gt;</code>*/
+    public boolean matchesManagedFileRef(String managedFileRef)
+    {
+        return path.startsWith(managedFileRef);
     }
 
     public Node.ExistsCheckType getExistsCheckType()
@@ -81,9 +110,9 @@ public abstract class FileSpec
         return rootFilePath.resolve(path);
     }
 
-    private static void maybeCreateParentDir(Path file) throws IOException
+    private static void maybeCreateParentDir(Path file)
     {
-        Files.createDirectories(file.getParent());
+        FileUtils.createDirs(file.getParent());
     }
 
     public static FileSpec fromMap(Map<String, Object> map)
@@ -131,7 +160,8 @@ public abstract class FileSpec
         }
 
         @Override
-        public boolean createLocalFile(Path fullFilePath, NodeGroup nodeGroup) throws IOException
+        public boolean createLocalFileImpl(Logger logger, CommandExecutor commandExecutor, Path fullFilePath)
+            throws IOException
         {
             maybeCreateParentDir(fullFilePath);
             Files.writeString(fullFilePath, getFileContent());
@@ -139,36 +169,9 @@ public abstract class FileSpec
         }
 
         @Override
-        public CompletableFuture<Boolean> createRemoteAndShadowFile(Path fullRemotePath, Path fullLocalPath,
-            NodeGroup nodeGroup)
+        public boolean shadeLocalFile(NodeGroup nodeGroup, Path fullLocalPath)
         {
-            String fileContent = getFileContent();
-            return nodeGroup.put(fileContent, fullRemotePath.toString(), 0755)
-                .thenApplyAsync(remoteWritten -> {
-                    if (!remoteWritten)
-                    {
-                        nodeGroup.logger().error(String.format("Failed to create remote file %s", path));
-                        return false;
-                    }
-                    try
-                    {
-                        nodeGroup.logger().info(String.format("Writing shadow file %s to %s", path, fullLocalPath));
-                        maybeCreateParentDir(fullLocalPath);
-                        Files.writeString(fullLocalPath, fileContent);
-                        return true;
-                    }
-                    catch (IOException e)
-                    {
-                        nodeGroup.logger().error(String.format("Error while writing shadow file %s", path), e);
-                        return false;
-                    }
-                });
-        }
-
-        @Override
-        public CompletableFuture<Boolean> createShadowFile(Path fullFilePath, Path fullLocalPath, NodeGroup nodeGroup)
-        {
-            return nodeGroup.get(fullFilePath.toString(), fullLocalPath, false);
+            return true; // no-op so tests have a full copy of the file content as an artifact
         }
 
         protected abstract String getFileContent();
@@ -229,7 +232,7 @@ public abstract class FileSpec
         @Override
         protected String getFileContent()
         {
-            return Utils.json(json);
+            return JsonUtils.toJson(json);
         }
     }
 
@@ -302,65 +305,70 @@ public abstract class FileSpec
             GitClone.parseNameOfRepo(repo);
         }
 
+        public static FileSpec create(String repo, String branch)
+        {
+            return new GitFileSpec("", Map.of(
+                "repo", repo,
+                "branch", branch
+            ));
+        }
+
         public String getRepoName()
         {
             return GitClone.parseNameOfRepo(repo);
         }
 
         @Override
-        public boolean createLocalFile(Path fullFilePath, NodeGroup nodeGroup) throws IOException
+        public boolean createLocalFileImpl(Logger logger, CommandExecutor commandExecutor, Path fullFilePath)
+            throws IOException
         {
-            return nodeGroup.getProvisioner().getCommandExecutor()
-                .executeLocally(nodeGroup.logger(), getCloneStatement(fullFilePath)).waitForSuccess();
+            return commandExecutor
+                .local(logger, getCloneStatement(fullFilePath)).execute().waitForSuccess();
         }
 
         @Override
-        public CompletableFuture<Boolean> createRemoteAndShadowFile(Path fullRemotePath, Path fullLocalPath,
-            NodeGroup nodeGroup)
+        public boolean shadeLocalFile(NodeGroup nodeGroup, Path fullLocalPath)
         {
-            return CompletableFuture.supplyAsync(() -> nodeGroup.waitForSuccess(getCloneStatement(fullRemotePath)))
-                .thenComposeAsync(remoteWritten -> {
-                    if (!remoteWritten)
-                    {
-                        nodeGroup.logger().error(String.format("Failed to clone %s to %s", repo, fullRemotePath));
-                        return CompletableFuture.completedFuture(false);
-                    }
-                    return createShadowFile(fullRemotePath, fullLocalPath, nodeGroup);
-                });
-        }
+            String repoName = getRepoName();
+            FullyBufferedNodeResponse getRevision = nodeGroup.getProvisioner().getCommandExecutor()
+                .local(nodeGroup.logger(), "git rev-parse HEAD")
+                .workingDirectory(fullLocalPath)
+                .execute()
+                .buffered();
 
-        @Override
-        public CompletableFuture<Boolean> createShadowFile(Path fullRemotePath, Path fullLocalPath, NodeGroup nodeGroup)
-        {
-            return CompletableFuture.supplyAsync(() -> {
-                String repoName = getRepoName();
-                String getRevisionCommand = String.format("cd %s && git rev-parse HEAD", fullRemotePath);
-                FullyBufferedNodeResponse getRevision = nodeGroup.getNodes().get(0).executeBuffered(getRevisionCommand);
-                if (!getRevision.waitForSuccess())
-                {
-                    throw new RuntimeException(
-                        String.format("Could not get revision from managed git clone: %s %s", path, repoName));
-                }
+            if (!getRevision.waitForSuccess())
+            {
+                throw new RuntimeException(
+                    String.format("Could not get revision from managed git clone: %s %s", getPath(), repoName));
+            }
 
-                String revision = getRevision.getStdout();
-                String gitInfo = String.format("%s\n%s", repo, revision);
+            String revision = getRevision.getStdout();
+            String gitInfo = String.format("%s\n%s", repo, revision);
 
-                String pathRepoSuffix = path.isEmpty() ?
-                    String.format("_%s", repoName) :
-                    String.format("_%s_%s", path, repoName);
-                Path gitInfoFile = fullLocalPath.resolve(String.format("git_info%s.txt", pathRepoSuffix));
+            String pathRepoSuffix = path.isEmpty() ?
+                String.format("_%s", repoName) :
+                String.format("_%s_%s", getPath(), repoName);
 
-                Exceptions.runUncheckedIO(() -> {
-                    maybeCreateParentDir(gitInfoFile);
-                    Files.writeString(gitInfoFile, gitInfo);
-                });
-                return true;
+            Path gitInfoFile = fullLocalPath.getParent().resolve(String.format("git_info%s.txt", pathRepoSuffix));
+
+            Exceptions.runUncheckedIO(() -> {
+                maybeCreateParentDir(gitInfoFile);
+                Files.writeString(gitInfoFile, gitInfo);
+                FileUtils.deleteDir(fullLocalPath);
             });
+
+            return true;
         }
 
         private String getCloneStatement(Path fullFilePath)
         {
             return GitClone.statement(repo, fullFilePath.toString(), branch, true);
+        }
+
+        @Override
+        public String getPath()
+        {
+            return cloneDir();
         }
 
         private String cloneDir()
@@ -372,6 +380,12 @@ public abstract class FileSpec
         public Path getFullPath(Path rootFilePath)
         {
             return rootFilePath.resolve(cloneDir());
+        }
+
+        @Override
+        public boolean matchesManagedFileRef(String managedFileRef)
+        {
+            return managedFileRef.startsWith(getPath());
         }
 
         @Override

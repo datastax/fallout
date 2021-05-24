@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 package com.datastax.fallout.harness;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,13 +28,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -54,6 +52,7 @@ import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.Provider;
 import com.datastax.fallout.ops.ResourceRequirement;
+import com.datastax.fallout.ops.TestRunScratchSpaceFactory.TestRunScratchSpace;
 import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.runner.CheckResourcesResult;
 import com.datastax.fallout.service.core.TestRun;
@@ -62,30 +61,34 @@ import com.datastax.fallout.service.core.TestRun;
  * A class with all the information necessary to setup an {@link Ensemble} and run a {@link Workload} in the
  * Jepsen test harness.
  */
-public class ActiveTestRun
+public class ActiveTestRun implements AutoCloseable
 {
     private final Ensemble ensemble;
     private final Workload workload;
     private final TestRunAbortedStatusUpdater testRunStatusUpdater;
-    private final boolean ensembleOwner;
     private final Path testRunArtifactPath;
     private final Logger logger;
     private final Function<Ensemble, List<CompletableFuture<Boolean>>> resourceChecker;
+    private final Function<Ensemble, Boolean> postSetupHook;
+    private final TestRunScratchSpace testRunScratchSpace;
 
     private Optional<TestResult> result = Optional.empty();
 
     ActiveTestRun(Ensemble ensemble, Workload workload,
         TestRunAbortedStatusUpdater testRunStatusUpdater,
-        boolean ensembleOwner, Path testRunArtifactPath,
-        Function<Ensemble, List<CompletableFuture<Boolean>>> resourceChecker)
+        Path testRunArtifactPath,
+        Function<Ensemble, List<CompletableFuture<Boolean>>> resourceChecker,
+        Function<Ensemble, Boolean> postSetupHook,
+        TestRunScratchSpace testRunScratchSpace)
     {
         this.ensemble = ensemble;
         this.workload = workload;
         this.testRunStatusUpdater = testRunStatusUpdater;
-        this.ensembleOwner = ensembleOwner;
         this.testRunArtifactPath = testRunArtifactPath;
         this.logger = ensemble.getControllerGroup().logger();
         this.resourceChecker = resourceChecker;
+        this.postSetupHook = postSetupHook;
+        this.testRunScratchSpace = testRunScratchSpace;
 
         try
         {
@@ -109,9 +112,9 @@ public class ActiveTestRun
             allComponentsHaveValidPrefixes = allComponentsHaveValidPrefixes && currComponentHasValidPrefixes;
         }
         // do prefix-checking of Checkers' PropertySpecs
-        for (Map.Entry<String, Checker> entry : workload.getCheckers().entrySet())
+        for (Checker checker : workload.getCheckers())
         {
-            boolean currComponentHasValidPrefixes = entry.getValue().validatePrefixes(logger);
+            boolean currComponentHasValidPrefixes = checker.validatePrefixes(logger);
             allComponentsHaveValidPrefixes = allComponentsHaveValidPrefixes && currComponentHasValidPrefixes;
         }
         // do prefix-checking of Phases' PropertySpecs
@@ -132,7 +135,7 @@ public class ActiveTestRun
         // prefixes all were valid, time to fully validate propertySpecs of our components
         for (NodeGroup ng : ensemble.getUniqueNodeGroupInstances())
         {
-            List<PropertySpec> combinedSpecs = ImmutableList.<PropertySpec>builder()
+            List<PropertySpec<?>> combinedSpecs = ImmutableList.<PropertySpec<?>>builder()
                 .addAll(ng.getProvisioner().getPropertySpecs())
                 .addAll(ng.getConfigurationManager().getPropertySpecs())
                 .build();
@@ -142,11 +145,11 @@ public class ActiveTestRun
         Stream
             .concat(
                 workload.getPhases().stream()
-                    .flatMap(phase -> phase.getAllModulesRecursively().entrySet().stream()),
+                    .flatMap(phase -> phase.getAllModulesRecursively().values().stream()),
                 Stream.concat(
-                    workload.getCheckers().entrySet().stream(),
-                    workload.getArtifactCheckers().entrySet().stream()))
-            .forEach(entry -> entry.getValue().getProperties().validateFull(entry.getValue().getPropertySpecs()));
+                    workload.getCheckers().stream(),
+                    workload.getArtifactCheckers().stream()))
+            .forEach(component -> component.getProperties().validateFull(component.getPropertySpecs()));
 
         // determine if all Configuration Manager dependencies are met
         for (NodeGroup ng : ensemble.getUniqueNodeGroupInstances())
@@ -181,6 +184,12 @@ public class ActiveTestRun
     public Ensemble getEnsemble()
     {
         return ensemble;
+    }
+
+    @VisibleForTesting
+    public Workload getWorkload()
+    {
+        return workload;
     }
 
     @VisibleForTesting
@@ -240,8 +249,10 @@ public class ActiveTestRun
         {
             case UNAVAILABLE:
                 failTestTemporarily("Resources unavailable when " + stage + " ensemble for testrun, check logs");
+                break;
             case FAILED:
                 failTest("Error " + stage + " ensemble for testrun, check logs");
+                break;
         }
     }
 
@@ -272,7 +283,7 @@ public class ActiveTestRun
             .reduce(CheckResourcesResult.AVAILABLE, CheckResourcesResult::worstCase);
     }
 
-    private boolean transitionEnsembleStateUpwards(Optional<NodeGroup.State> maximumState,
+    private CheckResourcesResult transitionEnsembleStateUpwards(Optional<NodeGroup.State> maximumState,
         TestRun.State testRunState, String stage)
     {
         CheckResourcesResult transitionResult = CheckResourcesResult.FAILED;
@@ -289,7 +300,7 @@ public class ActiveTestRun
             failTest("Error " + stage + " ensemble for test run", e);
         }
 
-        return transitionResult.wasSuccessful();
+        return transitionResult;
     }
 
     private void setTestRunState(TestRun.State state)
@@ -297,44 +308,46 @@ public class ActiveTestRun
         testRunStatusUpdater.setCurrentState(state);
     }
 
-    private void failTestTemporarily(String message)
+    @VisibleForTesting
+    void failTestTemporarily(String message)
     {
         logger.info(message);
         testRunStatusUpdater.markFailedWithReason(TestRun.State.WAITING_FOR_RESOURCES);
     }
 
-    @VisibleForTesting
-    void failTest(String message)
+    private void failTest(String message)
     {
-        logger.error(message);
-        testRunStatusUpdater.markFailedWithReason(TestRun.State.FAILED);
+        failTest(message, null);
     }
 
     @VisibleForTesting
     void failTest(String message, Throwable t)
     {
-        logger.error(message, t);
+        if (t != null)
+        {
+            logger.error(message, t);
+        }
+        else
+        {
+            logger.error(message);
+        }
         testRunStatusUpdater.markFailedWithReason(TestRun.State.FAILED);
     }
 
     @VisibleForTesting
-    boolean setup()
+    CheckResourcesResult setup()
     {
         // Check before, but not after, as checking after could cause
         // cleanup required by a successful call of f to be skipped.
-        return !testRunStatusUpdater.hasBeenAborted() && doSetup();
+        return CheckResourcesResult.fromWasSuccessful(!testRunStatusUpdater.hasBeenAborted())
+            .ifSuccessful(this::doSetup);
     }
 
-    private boolean doSetup()
+    private CheckResourcesResult doSetup()
     {
         try
         {
             logger.info("Setting up ensemble before beginning jepsen test");
-
-            if (!ensemble.createAllLocalFiles())
-            {
-                return false;
-            }
 
             // Check states and kick off any post-check-state actions.
             final List<CompletableFuture<Boolean>> postCheckStateActions = ensemble
@@ -346,14 +359,22 @@ public class ActiveTestRun
                 .collect(Collectors.toList());
 
             return transitionEnsembleStateUpwards(Optional.of(NodeGroup.State.RESERVED),
-                TestRun.State.RESERVING_RESOURCES, "reserving") &&
-                transitionEnsembleStateUpwards(Optional.of(NodeGroup.State.CREATED),
-                    TestRun.State.ACQUIRING_RESOURCES, "acquiring") &&
-                transitionEnsembleStateUpwards(Optional.of(NodeGroup.State.STARTED_SERVICES_CONFIGURED),
-                    TestRun.State.SETTING_UP, "setting up") &&
-                Utils.waitForAll(postCheckStateActions, logger, "post check-state actions") &&
-                transitionEnsembleStateUpwards(Optional.empty(),
-                    TestRun.State.SETTING_UP, "setting up");
+                TestRun.State.RESERVING_RESOURCES, "reserving")
+                    .ifSuccessful(
+                        () -> transitionEnsembleStateUpwards(Optional.of(NodeGroup.State.CREATED),
+                            TestRun.State.ACQUIRING_RESOURCES, "acquiring"))
+                    .ifSuccessful(
+                        () -> transitionEnsembleStateUpwards(Optional.of(NodeGroup.State.STARTED_SERVICES_CONFIGURED),
+                            TestRun.State.SETTING_UP, "setting up"))
+                    .ifSuccessful(
+                        () -> CheckResourcesResult.fromWasSuccessful(
+                            postSetupHook.apply(ensemble)))
+                    .ifSuccessful(
+                        () -> CheckResourcesResult.fromWasSuccessful(
+                            Utils.waitForAll(postCheckStateActions, logger, "post check-state actions")))
+                    .ifSuccessful(
+                        () -> transitionEnsembleStateUpwards(Optional.empty(),
+                            TestRun.State.SETTING_UP, "setting up"));
         }
         finally
         {
@@ -378,42 +399,40 @@ public class ActiveTestRun
         }
     }
 
+    /** Run the workload and returns whether it was run; note that a false result does <em>not</em> indicate
+     *  failure, it just means the workload wasn't run (because the testrun was aborted for example) */
     @VisibleForTesting
-    void runWorkload()
+    boolean runWorkload()
     {
         if (!testRunStatusUpdater.hasBeenAborted())
         {
-            try
-            {
-                result = JepsenWorkload.run(logger, ensemble, workload, testRunStatusUpdater);
-            }
-            catch (Exception e)
-            {
-                failTest("Unexpected exception", e);
-            }
+            // result.isPresent() is unfortunately not necessarily the same as the workload being run, because
+            // the jepsen clojure implementation could run the workload but return empty results.
+            result = JepsenWorkload.run(logger, ensemble, workload, testRunStatusUpdater);
+            return true;
         }
+        return false;
     }
 
     private void writeJepsenHistory(Collection<Operation> history, Path jepsenHistoryPath)
     {
-        ObjectWriter writer = new ObjectMapper().writer(new MinimalPrettyPrinter()
-        {
+        ObjectWriter writer = new ObjectMapper().writer(new MinimalPrettyPrinter() {
             @Override
-            public void writeStartArray(JsonGenerator jg) throws IOException, JsonGenerationException
+            public void writeStartArray(JsonGenerator jg) throws IOException
             {
                 super.writeStartArray(jg);
                 jg.writeRaw('\n');
             }
 
             @Override
-            public void writeArrayValueSeparator(JsonGenerator jg) throws IOException, JsonGenerationException
+            public void writeArrayValueSeparator(JsonGenerator jg) throws IOException
             {
                 super.writeArrayValueSeparator(jg);
                 jg.writeRaw('\n');
             }
 
             @Override
-            public void writeEndArray(JsonGenerator jg, int nrOfValues) throws IOException, JsonGenerationException
+            public void writeEndArray(JsonGenerator jg, int nrOfValues) throws IOException
             {
                 jg.writeRaw('\n');
                 super.writeEndArray(jg, nrOfValues);
@@ -423,8 +442,7 @@ public class ActiveTestRun
         try
         {
             Files.createDirectories(jepsenHistoryPath.getParent());
-            Files.write(jepsenHistoryPath,
-                writer.writeValueAsString(history).getBytes(StandardCharsets.UTF_8));
+            Files.writeString(jepsenHistoryPath, writer.writeValueAsString(history));
         }
         catch (IOException e)
         {
@@ -433,138 +451,170 @@ public class ActiveTestRun
     }
 
     @VisibleForTesting
-    void tearDown()
+    public void startTearDown()
     {
+        setTestRunState(TestRun.State.TEARING_DOWN);
+    }
+
+    @VisibleForTesting
+    public void downloadArtifacts()
+    {
+        logger.info("Downloading artifacts");
+
+        Path controllerGroupArtifactPath = ensemble.getControllerGroup().getLocalArtifactPath();
+
+        result.ifPresent(result_ -> writeJepsenHistory(result_.history(),
+            controllerGroupArtifactPath.resolve("jepsen-history.json")));
+
+        // Tearing down the ensemble is unrelated to the final test state.
+        // For example, a module could fail the test but all node groups are STARTED_SERVICES_RUNNING.
+        // Hence, tear down considerations need to be based on the node group states.
+
+        // At this point, the node groups can be in one of 3 situations:
+        // 1) The node groups are all a run level greater than FAILED / DESTROYED.
+        // 2) One or more node groups are FAILED.
+        // 3) One or more node groups are MARKED FOR REUSE.
+        //
+        // Cases (1) and (2) should be handled in the same way: downward transitions only!
+        // Case (3) should just skip all transitions and attempt to prepare & collect artifacts.
+
+        //prepare artifacts. maybe stop services. collect artifacts. download
+        CompletableFuture<Boolean> download = ensemble.prepareArtifacts()
+            .thenComposeAsync(prepared -> {
+                if (!prepared)
+                {
+                    failTest("Problem preparing artifacts - attempting to collect artifacts anyway");
+                }
+                return transitionEnsembleForTearDown(Optional.of(NodeGroup.State.STARTED_SERVICES_CONFIGURED));
+            })
+            .thenComposeAsync(stopped -> {
+                if (!stopped)
+                {
+                    failTest("Problem stopping services - attempting to collect artifacts anyway");
+                }
+                return ensemble.collectArtifacts();
+            })
+            .thenComposeAsync(collected -> {
+                if (!collected)
+                {
+                    failTest("Error collecting artifacts, downloading what we were able to retrieve");
+                }
+                return ensemble.downloadArtifacts();
+            })
+            .exceptionally(t -> {
+                failTest("Error downloading artifacts", t);
+                return false;
+            });
+
+        if (download.join())
+        {
+            logger.info("Downloaded artifacts to {}", testRunArtifactPath);
+        }
+        else
+        {
+            failTest("Artifacts were not downloaded! Artifact checker results may be unreliable.");
+        }
+    }
+
+    @VisibleForTesting
+    public void tearDownEnsemble()
+    {
+        logger.info("Tearing down ensemble");
+
+        boolean tornDown = false;
+        Throwable e = null;
+
         try
         {
-            logger.info("Tearing down after test run");
-
-            setTestRunState(TestRun.State.TEARING_DOWN);
-
-            Path controllerGroupArtifactPath = ensemble.getControllerGroup().getLocalArtifactPath();
-
-            result.ifPresent(result_ -> writeJepsenHistory(result_.history(),
-                controllerGroupArtifactPath.resolve("jepsen-history.json")));
-
-            // Tearing down the ensemble is unrelated to the final test state.
-            // For example, a module could fail the test but all node groups are STARTED_SERVICES_RUNNING.
-            // Hence, tear down considerations need to be based on the node group states.
-
-            // At this point, the node groups can be in one of 3 situations:
-            // 1) The node groups are all a run level greater than FAILED / DESTROYED.
-            // 2) One or more node groups are FAILED.
-            // 3) One or more node groups are MARKED FOR REUSE.
-            //
-            // Cases (1) and (2) should be handled in the same way: downward transitions only!
-            // Case (3) should just skip all transitions and attempt to prepare & collect artifacts.
-
-            //prepare artifacts. maybe stop services. collect artifacts. download
-            CompletableFuture<Boolean> download = ensemble.prepareArtifacts()
-                .thenComposeAsync(prepared -> {
-                    if (!prepared)
-                    {
-                        failTest("Problem preparing artifacts - attempting to collect artifacts anyway");
-                    }
-                    return transitionEnsembleForTearDown(Optional.of(NodeGroup.State.STARTED_SERVICES_CONFIGURED));
-                })
-                .thenComposeAsync(stopped -> {
-                    if (!stopped)
-                    {
-                        failTest("Problem stopping services - attempting to collect artifacts anyway");
-                    }
-                    return ensemble.collectArtifacts();
-                })
-                .thenComposeAsync(collected -> {
-                    if (!collected)
-                    {
-                        failTest("Error collecting artifacts, downloading what we were able to retrieve");
-                    }
-                    return ensemble.downloadArtifacts();
-                })
-                .exceptionally(t -> {
-                    failTest("Error downloading artifacts", t);
-                    return false;
-                });
-
-            if (download.join())
-            {
-                logger.info("Downloaded artifacts to {}", testRunArtifactPath);
-            }
-
-            if (ensembleOwner && !transitionEnsembleForTearDown(Optional.empty()).join())
-            {
-                failTest(String.format("Problem destroying node group in test instance %s, forcing destroy", this));
-                if (!ensemble.forceDestroy().join())
-                {
-                    failTest("Forcing destroy failed, check resources");
-                }
-            }
-
-            if (download.join())
-            {
-                setTestRunState(TestRun.State.CHECKING_ARTIFACTS);
-                logger.info("Running artifact_checkers");
-                boolean validationFailed = runAndCheckIfArtifactCheckerValidationFailed(testRunArtifactPath);
-                if (result.isPresent() && validationFailed)
-                {
-                    failTest("artifact_checkers validation failed. Setting test result to valid=false");
-                    result.get().setArtifactCheckersValid(false);
-                }
-            }
-            else
-            {
-                failTest("Artifacts were not downloaded! Artifact checker results may be unreliable.");
-                runAndCheckIfArtifactCheckerValidationFailed(testRunArtifactPath);
-            }
-
+            tornDown = transitionEnsembleForTearDown(Optional.empty()).join();
         }
-        catch (Throwable e)
+        catch (Throwable e_)
         {
-            failTest("Error in teardown, forcing destroy ", e);
-            try
-            {
-                if (!ensemble.forceDestroy().join())
-                {
-                    failTest("Forcing destroy failed, check resources");
-                }
-            }
-            catch (Throwable e2)
-            {
-                failTest("Forcing destroy failed, check resources ", e2);
-            }
+            e = e_;
+        }
+
+        if (tornDown)
+        {
+            return;
+        }
+
+        failTest("Failed to teardown ensemble: forcing destroy for non-reused node groups", e);
+
+        try
+        {
+            tornDown = ensemble.forceDestroy().join();
+        }
+        catch (Throwable e_)
+        {
+            e = e_;
+        }
+
+        if (tornDown)
+        {
+            return;
+        }
+
+        failTest("Forcing destroy failed: please make sure to clean up allocated resources manually!", e);
+    }
+
+    @VisibleForTesting
+    public void checkArtifacts()
+    {
+        setTestRunState(TestRun.State.CHECKING_ARTIFACTS);
+        logger.info("Running artifact_checkers");
+
+        if (runAndCheckIfArtifactCheckerValidationFailed(testRunArtifactPath))
+        {
+            failTest("artifact_checkers validation failed. Setting test result to valid=false");
+
+            // result may or may not have been returned by jepsen; if it hasn't, then the testrun will already
+            // have been failed by JepsenWorkload.run
+            result.ifPresent(result_ -> result_.setArtifactCheckersValid(false));
         }
     }
 
     private CompletableFuture<Boolean> transitionEnsembleForTearDown(Optional<NodeGroup.State> endState)
     {
         List<CompletableFuture<Boolean>> transitions = ensemble.getUniqueNodeGroupInstances().stream()
-            .map(ng -> ng.transitionStateIfDownwards(getStateForTearDownTransition(ng, endState))
-                .thenApplyAsync(CheckResourcesResult::wasSuccessful))
+            .flatMap(ng -> getStateForTearDownTransition(ng, endState)
+                .map(tearDownState -> ng.transitionStateIfDownwards(tearDownState)
+                    .thenApplyAsync(CheckResourcesResult::wasSuccessful))
+                .stream())
             .collect(Collectors.toList());
 
         return Utils.waitForAllAsync(transitions);
     }
 
-    /**
-     * If finalRunLevel is empty, then no transition needed because the current node group state should be preserved.
-     * If endState is empty, then use finalRunLevel
-     * Otherwise, use the maximum of endState and finalRunLevel
+    /** Calculate the {@link NodeGroup.State} that should be used when the code requires
+     * a transition during teardown to:
+     *
+     * <ul>
+     *     <li>a specific state (<code>endState</code> is not empty)
+     *     <li>or the state specified by {@link NodeGroup#getFinalRunLevel()} (<code>endState is empty</code>)
+     * </ul>
+     *
+     * <p>The intent is to return a state that honours {@link NodeGroup#getFinalRunLevel()}:
+     *
+     * <ul>
+     *     <li>if {@link NodeGroup#getFinalRunLevel()} is empty, then no transition should occur because we need to preserve the current state, and we return empty;
+     *     <li>otherwise, if <code>endState</code> is set, then we should we use the higher state i.e. we should not go below {@link NodeGroup#getFinalRunLevel()};
+     *     <li>otherwise, we should use {@link NodeGroup#getFinalRunLevel()} (which defaults to {@link NodeGroup.State#DESTROYED}).
+     * </ul>
      */
-    private NodeGroup.State getStateForTearDownTransition(NodeGroup nodeGroup, Optional<NodeGroup.State> endState)
+    private Optional<NodeGroup.State> getStateForTearDownTransition(NodeGroup nodeGroup,
+        Optional<NodeGroup.State> endState)
     {
         return nodeGroup.getFinalRunLevel()
             .map(finalRunLevel -> endState.filter(endState_ -> finalRunLevel.ordinal() <= endState_.ordinal())
-                .orElse(finalRunLevel))
-            .orElse(nodeGroup.getState());
+                .orElse(finalRunLevel));
     }
 
     private boolean runAndCheckIfArtifactCheckerValidationFailed(Path rootArtifactLocation)
     {
         List<Boolean> results = new ArrayList<>();
-        for (Map.Entry<String, ArtifactChecker> entry : workload.getArtifactCheckers().entrySet())
+        for (ArtifactChecker checker : workload.getArtifactCheckers())
         {
-            ArtifactChecker checker = entry.getValue();
-            boolean checkResult = checker.validate(ensemble, rootArtifactLocation);
+            boolean checkResult = checker.checkArtifacts(ensemble, rootArtifactLocation);
             if (checkResult)
             {
                 logger.info("ArtifactChecker '{}' has passed the check.", checker.getInstanceName());
@@ -584,45 +634,7 @@ public class ActiveTestRun
     {
         testRunStatusUpdater.markInactive(result);
         ensemble.close();
-    }
-
-    private static void doWithoutThrowing(Runnable operation, String operationName,
-        ExceptionHandler exceptionHandler)
-    {
-        doWithoutThrowing(() -> { operation.run(); return true; }, operationName, exceptionHandler, s -> {});
-    }
-
-    private static boolean doWithoutThrowing(Supplier<Boolean> operation, String operationName,
-        ExceptionHandler exceptionHandler, Consumer<String> failureHandler)
-    {
-        return doWithoutThrowing(() -> CheckResourcesResult.fromWasSuccessful(operation.get()),
-            operationName, exceptionHandler, failureHandler, failureHandler);
-    }
-
-    private static boolean doWithoutThrowing(Supplier<CheckResourcesResult> operation, String operationName,
-        ExceptionHandler exceptionHandler, Consumer<String> failureHandler,
-        Consumer<String> temporaryFailureHandler)
-    {
-        CheckResourcesResult result = CheckResourcesResult.FAILED;
-        try
-        {
-            result = operation.get();
-            switch (result)
-            {
-                case FAILED:
-                    failureHandler.accept(operationName + " failed");
-                    break;
-                case UNAVAILABLE:
-                    temporaryFailureHandler.accept(operationName + " failed temporarily");
-                    break;
-            }
-            return result.wasSuccessful();
-        }
-        catch (Throwable e)
-        {
-            exceptionHandler.accept(operationName + " threw an exception", e);
-            return false;
-        }
+        testRunScratchSpace.close();
     }
 
     public Set<ResourceRequirement> getResourceRequirements()
@@ -637,27 +649,126 @@ public class ActiveTestRun
         run(this, lastResortExceptionHandler);
     }
 
+    /** Encapsulate exception and result handling for each stage of an {@link ActiveTestRun} */
+    private static class WithoutThrowing
+    {
+        private final ActiveTestRun activeTestRun;
+        private final ExceptionHandler lastResortExceptionHandler;
+
+        WithoutThrowing(ActiveTestRun activeTestRun, ExceptionHandler lastResortExceptionHandler)
+        {
+            this.activeTestRun = activeTestRun;
+            this.lastResortExceptionHandler = lastResortExceptionHandler;
+        }
+
+        private void logExceptionAndFailTestRun(String msg, Throwable e)
+        {
+            handle("Fail", () -> activeTestRun.failTest(msg, e), lastResortExceptionHandler);
+        }
+
+        /** Return the result of operation, handling any exceptions using exceptionHandler,
+         * and treating {@link CheckResourcesResult#FAILED} as a test failure, and
+         * {@link CheckResourcesResult#UNAVAILABLE} as a temporary test failure */
+        private CheckResourcesResult handleFailureAndUnavailable(String operationName,
+            Supplier<CheckResourcesResult> operation,
+            ExceptionHandler exceptionHandler)
+        {
+            try
+            {
+                final var result = operation.get();
+                switch (result)
+                {
+                    case FAILED:
+                        activeTestRun.failTest(operationName + " failed");
+                        break;
+                    case UNAVAILABLE:
+                        activeTestRun.failTestTemporarily(operationName + " failed temporarily");
+                        break;
+                    default:
+                        break;
+                }
+                return result;
+            }
+            catch (Throwable e)
+            {
+                exceptionHandler.accept(operationName + " threw an exception", e);
+                return CheckResourcesResult.FAILED;
+            }
+        }
+
+        /** Return the result of operation, handling any exceptions, and treating {@link CheckResourcesResult#FAILED}
+         *  as a test failure, and {@link CheckResourcesResult#UNAVAILABLE} as a temporary test failure */
+        CheckResourcesResult handleFailureAndUnavailable(String operationName, Supplier<CheckResourcesResult> operation)
+        {
+            return handleFailureAndUnavailable(operationName, operation, this::logExceptionAndFailTestRun);
+        }
+
+        /** Return the result of operation, handling any exceptions, but not allowing the result
+         *  to affect test success/failure */
+        boolean handle(String operationName, Supplier<Boolean> operation)
+        {
+            final var result = new AtomicBoolean(false);
+            handleFailureAndUnavailable(operationName, () -> {
+                result.set(operation.get());
+                return CheckResourcesResult.AVAILABLE;
+            }, this::logExceptionAndFailTestRun);
+            return result.get();
+        }
+
+        /** Run operation, handling any exceptions */
+        void handle(String operationName, Runnable operation)
+        {
+            handle(operationName, () -> {
+                operation.run();
+                return true;
+            });
+        }
+
+        /** Run operation, handling any exceptions using exceptionHandler */
+        void handle(String operationName, Runnable operation, ExceptionHandler exceptionHandler)
+        {
+            handleFailureAndUnavailable(operationName, () -> {
+                operation.run();
+                return CheckResourcesResult.AVAILABLE;
+            }, exceptionHandler);
+        }
+
+        void run()
+        {
+            if (handleFailureAndUnavailable("Resource check", activeTestRun::checkResources).wasSuccessful())
+            {
+                final var setupResult = handleFailureAndUnavailable("Setup", activeTestRun::setup);
+
+                final var workloadWasRun =
+                    setupResult.wasSuccessful() &&
+                        handle("Run Workload", activeTestRun::runWorkload);
+
+                handle("Start test run tear down", activeTestRun::startTearDown);
+
+                // Only skip downloading artifacts if some resources weren't available at
+                // setup time; in the case of FAILED setup, we want artifacts for diagnosis.
+                if (setupResult != CheckResourcesResult.UNAVAILABLE)
+                {
+                    handle("Download artifacts", activeTestRun::downloadArtifacts);
+                }
+
+                handle("Tear down ensemble", activeTestRun::tearDownEnsemble);
+
+                if (workloadWasRun)
+                {
+                    handle("Check artifacts", activeTestRun::checkArtifacts);
+                }
+            }
+
+            // We shouldn't use an ExceptionHandler that could use the ActiveTestRun itself, as we're closing and not
+            // all resources may be available.
+            handle("Close", activeTestRun::close, lastResortExceptionHandler);
+        }
+    }
+
     @VisibleForTesting
     static void run(ActiveTestRun activeTestRun, ExceptionHandler lastResortExceptionHandler)
     {
-        ExceptionHandler logExceptionAndFailTestRun = (msg, e) -> {
-            doWithoutThrowing(() -> activeTestRun.failTest(msg, e),
-                "Fail", lastResortExceptionHandler);
-        };
-
-        if (doWithoutThrowing(activeTestRun::checkResources, "Resource check",
-            logExceptionAndFailTestRun, activeTestRun::failTest, activeTestRun::failTestTemporarily))
-        {
-            if (doWithoutThrowing(activeTestRun::setup, "Setup",
-                logExceptionAndFailTestRun, activeTestRun::failTest))
-            {
-                doWithoutThrowing(activeTestRun::runWorkload, "Run Workload", logExceptionAndFailTestRun);
-            }
-            doWithoutThrowing(activeTestRun::tearDown, "Tear down", logExceptionAndFailTestRun);
-        }
-
-        // We shouldn't use an ExceptionHandler that could use the ActiveTestRun itself, as we're closing and not
-        // all resources may be available.
-        doWithoutThrowing(activeTestRun::close, "Close", lastResortExceptionHandler);
+        new WithoutThrowing(activeTestRun, lastResortExceptionHandler).run();
     }
 }

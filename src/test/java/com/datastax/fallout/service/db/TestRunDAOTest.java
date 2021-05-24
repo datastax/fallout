@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,38 +23,35 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.experimental.categories.Category;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import com.fasterxml.jackson.core.type.TypeReference;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.Session;
 import com.datastax.fallout.ops.ResourceRequirement;
-import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.service.core.DeletedTestRun;
 import com.datastax.fallout.service.core.Fakes;
 import com.datastax.fallout.service.core.FinishedTestRun;
 import com.datastax.fallout.service.core.TestRun;
-import com.datastax.fallout.test.utils.categories.RequiresDb;
+import com.datastax.fallout.util.JsonUtils;
 
-import static com.datastax.fallout.service.core.TestRunAssert.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
+import static com.datastax.fallout.ops.ResourceRequirementHelpers.req;
 import static com.datastax.fallout.service.db.CassandraDriverManagerHelpers.createDriverManager;
-import static org.assertj.core.api.Assertions.assertThat;
 
-@Category(RequiresDb.class)
+@Tag("requires-db")
 public class TestRunDAOTest
 {
     private static final String keyspace = "test_run_dao";
@@ -62,7 +59,7 @@ public class TestRunDAOTest
     private static CassandraDriverManager driverManager;
     private static TestRunDAO testRunDAO;
 
-    @BeforeClass
+    @BeforeAll
     public static void startCassandra() throws Exception
     {
         driverManager = createDriverManager(keyspace);
@@ -75,7 +72,7 @@ public class TestRunDAOTest
         session = driverManager.getSession();
     }
 
-    @AfterClass
+    @AfterAll
     public static void stopCassandra() throws Exception
     {
         testRunDAO.stop();
@@ -148,10 +145,10 @@ public class TestRunDAOTest
 
     protected DateFactory dateFactory;
 
-    @Before
+    @BeforeEach
     public void setUp()
     {
-        ImmutableList.of("test_runs", "finished_test_runs", "deleted_test_runs")
+        List.of("test_runs", "finished_test_runs", "deleted_test_runs")
             .forEach(table -> session.execute(String.format("truncate %s.%s;", keyspace, table)));
         dateFactory = new DateFactory(Date.from(Instant.now().minus(20, ChronoUnit.DAYS)));
         testRunDAO.maybeAddFinishedTestRunEndStop(dateFactory.next());
@@ -161,23 +158,23 @@ public class TestRunDAOTest
     {
 
         @Test
-        public void unset_templateParams_are_persisted_as_null() throws Exception
+        public void unset_templateParams_are_persisted_as_null()
         {
             TestRun testRun = fetchSavedTestRun();
             assertThat(testRun).hasTemplateParams(null);
         }
 
         @Test
-        public void null_templateParams_are_read_as_emptyMap() throws Exception
+        public void null_templateParams_are_read_as_emptyMap()
         {
             TestRun testRun = fetchSavedTestRun();
-            assertThat(testRun).hasTemplateParamsMap(Collections.emptyMap());
+            assertThat(testRun).hasTemplateParamsMap(Map.of());
         }
 
         @Test
-        public void empty_templateParams_are_persisted_as_null() throws Exception
+        public void empty_templateParams_are_persisted_as_null()
         {
-            TestRun testRun = fetchSavedTestRun(testRun_ -> testRun_.setTemplateParamsMap(Collections.emptyMap()));
+            TestRun testRun = fetchSavedTestRun(testRun_ -> testRun_.setTemplateParamsMap(Map.of()));
             assertThat(testRun).hasTemplateParams(null);
         }
 
@@ -185,7 +182,7 @@ public class TestRunDAOTest
         public void null_templateParams_are_serialized_to_json_as_empty_yaml()
         {
             TestRun testRun = fetchSavedTestRun();
-            assertThat(Utils.fromJsonMap(Utils.json(testRun)))
+            assertThat(JsonUtils.fromJson(JsonUtils.toJson(testRun), new TypeReference<Map<String, Object>>() {}))
                 .hasEntrySatisfying("templateParams", value -> assertThat(value).isEqualTo("{}"));
         }
 
@@ -229,6 +226,46 @@ public class TestRunDAOTest
                 .isEqualTo(expectedFinishedTestRuns.subList(0, TestRunDAO.FINISHED_TEST_RUN_LIMIT));
         }
 
+        public void assertFinishedTestRunsCorrectlyFilterOnRange(int latestAgeInHours, int earliestAgeInHours)
+        {
+            final var oldestAgeInHours = 72;
+
+            final var startInstant = Instant.now().truncatedTo(ChronoUnit.DAYS)
+                .minus(20, ChronoUnit.DAYS);
+
+            final var expectedFinishedTestRuns = IntStream
+                .range(0, oldestAgeInHours)
+                .mapToObj(hours -> fetchSavedTestRun(testRun_ -> {
+                    testRun_.setState(TestRun.State.PASSED);
+                    testRun_.setFinishedAt(Date.from(startInstant.minus(hours, ChronoUnit.HOURS)));
+                }))
+                .map(FinishedTestRun::fromTestRun)
+                .collect(Collectors.toList());
+
+            final var latestInstant = startInstant.minus(latestAgeInHours, ChronoUnit.HOURS);
+            final var earliestInstant = startInstant.minus(earliestAgeInHours, ChronoUnit.HOURS);
+
+            assertThat(List.of(latestInstant, earliestInstant))
+                .allSatisfy(instant -> assertThat(instant).isNotEqualTo(instant.truncatedTo(ChronoUnit.DAYS)));
+
+            assertThat(
+                testRunDAO.getAllFinishedTestRunsThatFinishedBetweenInclusive(earliestInstant, latestInstant)
+                    .collect(Collectors.toList()))
+                        .isEqualTo(expectedFinishedTestRuns.subList(latestAgeInHours, earliestAgeInHours + 1));
+        }
+
+        @Test
+        public void finished_test_runs_can_be_filtered_on_non_day_ranges_across_days()
+        {
+            assertFinishedTestRunsCorrectlyFilterOnRange(12, 60);
+        }
+
+        @Test
+        public void finished_test_runs_can_be_filtered_on_non_day_rangs_on_a_single_day()
+        {
+            assertFinishedTestRunsCorrectlyFilterOnRange(12, 14);
+        }
+
         @Test
         public void finished_test_runs_are_only_stored_if_they_are_recent()
         {
@@ -247,17 +284,11 @@ public class TestRunDAOTest
         }
 
         @Test
-        public void delete_test_run_that_does_not_exist_does_not_throw()
-        {
-            testRunDAO.drop(owner, testName, testRunId);
-        }
-
-        @Test
         public void test_run_moved_to_deleted_test_runs()
         {
             TestRun testRun = fetchSavedTestRun();
             assertThat(testRunDAO.getAllDeleted(owner, testName)).doesNotContain(DeletedTestRun.fromTestRun(testRun));
-            testRunDAO.drop(testRun.getOwner(), testRun.getTestName(), testRun.getTestRunId());
+            testRunDAO.delete(testRun);
 
             assertThat(testRunDAO.getAllDeleted(owner, testName)).contains(DeletedTestRun.fromTestRun(testRun));
             assertThat(testRunDAO.getAll(owner, testName)).doesNotContain(testRun);
@@ -271,7 +302,7 @@ public class TestRunDAOTest
             assertThat(testRunDAO.getAllDeleted(owner, testName))
                 .doesNotContain(DeletedTestRun.fromTestRun(testRun), DeletedTestRun.fromTestRun(testRun2));
 
-            testRunDAO.dropAll(testRun.getOwner(), testRun.getTestName());
+            testRunDAO.deleteAll(testRun.getOwner(), testRun.getTestName());
 
             assertThat(testRunDAO.getAllDeleted(owner, testName))
                 .containsExactlyInAnyOrder(DeletedTestRun.fromTestRun(testRun), DeletedTestRun.fromTestRun(testRun2));
@@ -296,33 +327,24 @@ public class TestRunDAOTest
         @Test
         public void resource_requirements_are_preserved()
         {
-            final ResourceRequirement resourceRequirement = new ResourceRequirement(
-                new ResourceRequirement.ResourceType("provider", "tenant", "instance"),
-                5);
+            final ResourceRequirement resourceRequirement =
+                req("provider", "tenant", "instance", 5);
 
             assertThat(
-                fetchSavedTestRun(testRun -> testRun.setResourceRequirements(ImmutableSet.of(resourceRequirement))))
+                fetchSavedTestRun(testRun -> testRun.setResourceRequirements(Set.of(resourceRequirement))))
                     .hasResourceRequirements(resourceRequirement);
 
-            assertThat(fetchSavedTestRun(testRun -> testRun.setResourceRequirements(Collections.emptySet())))
+            assertThat(fetchSavedTestRun(testRun -> testRun.setResourceRequirements(Set.of())))
                 .hasNoResourceRequirements();
         }
     }
 
-    @RunWith(Parameterized.class)
     public static class ArtifactUpdate extends TestRunDAOTest
     {
-        @Parameter
-        public TestRun.State state;
 
-        @Parameters(name = "{0}")
-        public static TestRun.State[] states()
-        {
-            return TestRun.State.values();
-        }
-
-        @Test
-        public void artifact_update_does_not_affect_finished_testruns()
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(TestRun.State.class)
+        public void artifact_update_does_not_affect_finished_testruns(TestRun.State state)
         {
             final var originalArtifacts = Map.of("fish", 100L);
             final var updatedArtifacts = Map.of("cheese", 200L);
@@ -343,8 +365,9 @@ public class TestRunDAOTest
                 updatedArtifacts);
         }
 
-        @Test
-        public void artifact_update_always_updates_empty_artifacts()
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(TestRun.State.class)
+        public void artifact_update_always_updates_empty_artifacts(TestRun.State state)
         {
             final var updatedArtifacts = Map.of("cheese", 200L);
 

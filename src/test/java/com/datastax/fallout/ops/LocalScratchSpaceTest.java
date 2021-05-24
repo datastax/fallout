@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,28 +15,33 @@
  */
 package com.datastax.fallout.ops;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
+import com.datastax.fallout.components.fakes.FakeConfigurationManager;
+import com.datastax.fallout.components.fakes.FakeProvisioner;
+import com.datastax.fallout.components.impl.FakeModule;
 import com.datastax.fallout.harness.ActiveTestRun;
 import com.datastax.fallout.harness.EnsembleFalloutTest;
 import com.datastax.fallout.harness.Workload;
-import com.datastax.fallout.ops.configmanagement.FakeConfigurationManager;
-import com.datastax.fallout.ops.provisioner.FakeProvisioner;
+import com.datastax.fallout.ops.TestRunScratchSpaceFactory.LocalScratchSpace;
+import com.datastax.fallout.service.FalloutConfiguration;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
-public abstract class LocalScratchSpaceTest extends EnsembleFalloutTest
+public abstract class LocalScratchSpaceTest extends EnsembleFalloutTest<FalloutConfiguration>
 {
     protected ActiveTestRun activeTestRun;
 
-    @Before
+    @BeforeEach
     public void setup()
     {
         NodeGroupBuilder ngBuilder = NodeGroupBuilder.create()
@@ -45,7 +50,6 @@ public abstract class LocalScratchSpaceTest extends EnsembleFalloutTest
             .withConfigurationManager(new FakeConfigurationManager())
             .withPropertyGroup(new WritablePropertyGroup())
             .withNodeCount(1)
-            .withLoggers(new JobConsoleLoggers())
             .withTestRunArtifactPath(persistentTestOutputDir());
 
         EnsembleBuilder ensembleBuilder = EnsembleBuilder.create()
@@ -55,7 +59,7 @@ public abstract class LocalScratchSpaceTest extends EnsembleFalloutTest
             .withClientGroup(ngBuilder);
 
         activeTestRun = createActiveTestRunBuilder()
-            .withEnsembleBuilder(ensembleBuilder, true)
+            .withEnsembleBuilder(ensembleBuilder)
             .withWorkload(new Workload(new ArrayList<>(), new HashMap<>(), new HashMap<>()))
             .build();
     }
@@ -64,20 +68,18 @@ public abstract class LocalScratchSpaceTest extends EnsembleFalloutTest
 
     abstract LocalScratchSpace getLocalScratchSpace();
 
-    abstract Runnable closeLocalScratchSpaceOwner();
-
     @Test
-    public void all_temp_files_and_directories_are_deleted_on_close()
+    public void all_temp_files_and_directories_are_deleted_on_close() throws IOException
     {
         LocalScratchSpace localScratchSpace = getLocalScratchSpace();
 
-        created.add(localScratchSpace.createFile("file1", ".txt"));
-        created.add(localScratchSpace.createFile("file2", ".log"));
-        created.add(localScratchSpace.createDirectory("dir1"));
-        created.add(localScratchSpace.createDirectory("dir2"));
+        created.add(Files.createFile(localScratchSpace.resolve("file1.txt")));
+        created.add(Files.createFile(localScratchSpace.resolve("file2.log")));
+        created.add(localScratchSpace.makeScratchSpaceFor("dir1").getPath());
+        created.add(localScratchSpace.makeScratchSpaceFor("dir2").getPath());
         created.forEach(path -> assertThat(path).exists());
 
-        closeLocalScratchSpaceOwner().run();
+        activeTestRun.close();
 
         created.forEach(path -> assertThat(path).doesNotExist());
     }
@@ -88,38 +90,13 @@ public abstract class LocalScratchSpaceTest extends EnsembleFalloutTest
         {
             return activeTestRun.getEnsemble().getAllNodeGroups().get(0).getLocalScratchSpace();
         }
-
-        Runnable closeLocalScratchSpaceOwner()
-        {
-            return activeTestRun.getEnsemble().getAllNodeGroups().get(0)::close;
-        }
     }
 
-    public static class EnsembleLocalScratchSpaceTest extends LocalScratchSpaceTest
+    public static class WorkloadLocalScratchSpaceTest extends LocalScratchSpaceTest
     {
         LocalScratchSpace getLocalScratchSpace()
         {
-            return activeTestRun.getEnsemble().getLocalScratchSpace();
-        }
-
-        Runnable closeLocalScratchSpaceOwner()
-        {
-            return activeTestRun.getEnsemble()::close;
-        }
-    }
-
-    public static class ActiveTestRunLocalScratchSpaceTest extends LocalScratchSpaceTest
-    {
-        @Override
-        LocalScratchSpace getLocalScratchSpace()
-        {
-            return activeTestRun.getEnsemble().getLocalScratchSpace();
-        }
-
-        @Override
-        Runnable closeLocalScratchSpaceOwner()
-        {
-            return activeTestRun::close;
+            return activeTestRun.getEnsemble().makeScratchSpaceFor(new FakeModule());
         }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,20 @@ package com.datastax.fallout.service.db;
 
 import java.util.List;
 
-import com.google.common.collect.ImmutableList;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.experimental.categories.Category;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.Session;
 import com.datastax.fallout.service.core.DeletedTest;
 import com.datastax.fallout.service.core.Test;
-import com.datastax.fallout.test.utils.categories.RequiresDb;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.db.CassandraDriverManagerHelpers.createDriverManager;
-import static org.assertj.core.api.Assertions.assertThat;
 
-@Category(RequiresDb.class)
+@Tag("requires-db")
 public class TestDAOTest
 {
     private static final String keyspace = "test_dao";
@@ -43,7 +41,7 @@ public class TestDAOTest
     private static final String OWNER = "owner";
     private static final String NAME = "testName";
 
-    @BeforeClass
+    @BeforeAll
     public static void startCassandra() throws Exception
     {
         driverManager = createDriverManager(keyspace);
@@ -58,7 +56,7 @@ public class TestDAOTest
         session = driverManager.getSession();
     }
 
-    @AfterClass
+    @AfterAll
     public static void stopCassandra() throws Exception
     {
         testDAO.stop();
@@ -75,31 +73,25 @@ public class TestDAOTest
         return test;
     }
 
-    @Before
+    @BeforeEach
     public void setUp()
     {
-        ImmutableList.of("tests", "deleted_tests")
+        List.of("tests", "deleted_tests")
             .forEach(table -> session.execute(String.format("truncate %s.%s;", keyspace, table)));
     }
 
-    @org.junit.Test
-    public void delete_test_that_does_not_exist_does_not_throw()
-    {
-        testDAO.drop(OWNER, NAME);
-    }
-
-    @org.junit.Test
+    @org.junit.jupiter.api.Test
     public void test_moved_to_deleted_tests()
     {
         Test test = createSavedTest();
         assertThat(testDAO.getAllDeleted(OWNER)).doesNotContain(DeletedTest.fromTest(test));
-        testDAO.drop(test.getOwner(), test.getName());
+        testDAO.deleteTestAndTestRuns(test);
 
         assertThat(testDAO.getAllDeleted(OWNER)).contains(DeletedTest.fromTest(test));
         assertThat(testDAO.getAll(OWNER)).doesNotContain(DeletedTest.fromTest(test));
     }
 
-    @org.junit.Test
+    @org.junit.jupiter.api.Test
     public void test_deleted_test_schema_equal()
     {
         List<ColumnMetadata> cm =

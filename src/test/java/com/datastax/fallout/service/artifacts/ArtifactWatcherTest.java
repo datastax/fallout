@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,25 +27,26 @@ import java.util.stream.IntStream;
 
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.netty.util.HashedWheelTimer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import com.datastax.fallout.TestHelpers;
+import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.NamedThreadFactory;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
-public class ArtifactWatcherTest extends TestHelpers.FalloutTest
+@Timeout(value = 90, unit = TimeUnit.SECONDS) // On the high side because MacOS has no native WatchService implementation.
+public class ArtifactWatcherTest extends TestHelpers.FalloutTest<FalloutConfiguration>
 {
     private ArtifactWatcher watcher;
     private BlockingQueue<Path> updates;
     private HashedWheelTimer eventCoalescingTimer;
 
-    @Before
+    @BeforeEach
     public void setup() throws Exception
     {
         eventCoalescingTimer = new HashedWheelTimer(new NamedThreadFactory("EventCoalescingTimer"));
@@ -54,15 +55,12 @@ public class ArtifactWatcherTest extends TestHelpers.FalloutTest
         updates = new LinkedBlockingQueue<>();
     }
 
-    @After
+    @AfterEach
     public void teardown() throws Exception
     {
         watcher.stop();
         eventCoalescingTimer.stop();
     }
-
-    @Rule
-    public Timeout globalTimeout = Timeout.seconds(90); // On the high side because MacOS has no native WatchService implementation.
 
     public Path createArtifact(String relativeArtifactPath)
     {
@@ -114,7 +112,7 @@ public class ArtifactWatcherTest extends TestHelpers.FalloutTest
     }
 
     @Test
-    public void notifies_of_changes_to_multiple_artifacts_in_different_directories() throws InterruptedException
+    public void notifies_of_changes_to_multiple_artifacts_in_different_directories()
     {
         Path a = createArtifact("a");
         Path b = createArtifact("b");

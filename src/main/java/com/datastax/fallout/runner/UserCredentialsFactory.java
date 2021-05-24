@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.datastax.fallout.runner;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
 import java.util.function.Function;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -33,9 +34,13 @@ public interface UserCredentialsFactory extends Function<TestRun, UserCredential
         @NotNull
         public final User owner;
 
-        public UserCredentials(@JsonProperty("owner") User owner)
+        @Valid
+        public final Optional<User> runAs;
+
+        public UserCredentials(@JsonProperty("owner") User owner, @JsonProperty("runAs") Optional<User> runAs)
         {
             this.owner = owner;
+            this.runAs = runAs;
         }
     }
 }

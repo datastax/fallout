@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,34 +15,35 @@
  */
 package com.datastax.fallout.service.artifacts;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.commons.io.FileUtils;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.experimental.categories.Category;
+import io.netty.util.HashedWheelTimer;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.driver.core.Session;
 import com.datastax.fallout.TestHelpers;
+import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.service.auth.SecurityUtil;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.db.CassandraDriverManager;
 import com.datastax.fallout.service.db.TestRunDAO;
 import com.datastax.fallout.service.db.UserDAO;
-import com.datastax.fallout.test.utils.categories.RequiresDb;
+import com.datastax.fallout.service.db.UserGroupMapper;
+import com.datastax.fallout.util.Duration;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.core.Fakes.TEST_NAME;
 import static com.datastax.fallout.service.core.Fakes.TEST_USER_EMAIL;
 import static com.datastax.fallout.service.db.CassandraDriverManagerHelpers.createDriverManager;
 import static com.datastax.fallout.service.resources.server.ArtifactResourceTest.ARTIFACT_CONTENT;
-import static org.assertj.core.api.Assertions.assertThat;
 
-@Category(RequiresDb.class)
+@Tag("requires-db")
 public class ArtifactScrubberTest extends ManagedArtifactServiceTest
 {
     private Path validTestRunArtifactPath;
@@ -55,13 +56,13 @@ public class ArtifactScrubberTest extends ManagedArtifactServiceTest
     private static final String keyspace = "artifact_scrubber_test";
     static final String testRunId = "69A38F36-8A91-4ABB-A2C8-B669189FEFD5";
 
-    @BeforeClass
+    @BeforeAll
     public static void startCassandra() throws Exception
     {
         driverManager = createDriverManager(keyspace);
 
         testRunDAO = new TestRunDAO(driverManager);
-        userDAO = new UserDAO(driverManager, new SecurityUtil(), Optional.empty());
+        userDAO = new UserDAO(driverManager, new SecurityUtil(), Optional.empty(), UserGroupMapper.empty());
 
         driverManager.start();
         testRunDAO.start();
@@ -73,23 +74,23 @@ public class ArtifactScrubberTest extends ManagedArtifactServiceTest
         session.execute("TRUNCATE test_runs");
     }
 
-    @Before
-    public void setup() throws IOException
+    @BeforeEach
+    public void setup()
     {
         validTestRunArtifactPath = artifactPathForTestRun("testName", testRunId);
         noMatchingTestRunArtifactPath = artifactPathForTestRun("testName", "b8ec39dc-74b3-439e-a6a7-c8323fa00e0f");
         noMatchingTestArtifactPath = artifactPathForTestRun("noMatchTestName", "85e25506-0a79-4d8a-ad53-85757653025a");
 
-        FileUtils.deleteDirectory(validTestRunArtifactPath.toFile());
-        FileUtils.deleteDirectory(noMatchingTestRunArtifactPath.toFile());
-        FileUtils.deleteDirectory(noMatchingTestArtifactPath.toFile());
+        FileUtils.deleteDir(validTestRunArtifactPath);
+        FileUtils.deleteDir(noMatchingTestRunArtifactPath);
+        FileUtils.deleteDir(noMatchingTestArtifactPath);
 
-        Files.createDirectories(validTestRunArtifactPath);
-        Files.createDirectories(noMatchingTestRunArtifactPath);
-        Files.createDirectories(noMatchingTestArtifactPath);
+        FileUtils.createDirs(validTestRunArtifactPath);
+        FileUtils.createDirs(noMatchingTestRunArtifactPath);
+        FileUtils.createDirs(noMatchingTestArtifactPath);
     }
 
-    @AfterClass
+    @AfterAll
     public static void stopCassandra() throws Exception
     {
         testRunDAO.stop();
@@ -112,7 +113,7 @@ public class ArtifactScrubberTest extends ManagedArtifactServiceTest
         TestHelpers.createArtifact(noMatchingTestRunArtifactPath, badArtifactName, ARTIFACT_CONTENT);
         TestHelpers.createArtifact(noMatchingTestArtifactPath, badArtifactName, ARTIFACT_CONTENT);
 
-        userDAO.createUserIfNotExists("owner", TEST_USER_EMAIL, "");
+        userDAO.createUserIfNotExists("owner", TEST_USER_EMAIL, "", UserGroupMapper.UserGroup.OTHER);
         testRun = createTestRun(TEST_NAME, testRunId);
         testRunDAO.update(testRun);
 
@@ -120,8 +121,10 @@ public class ArtifactScrubberTest extends ManagedArtifactServiceTest
         assertThat(noMatchingTestRunArtifactPath.resolve(badArtifactName)).exists();
         assertThat(noMatchingTestArtifactPath.resolve(badArtifactName)).exists();
 
-        ArtifactScrubber artifactScrubber = new ArtifactScrubber(true, null, null, null, artifactRootPath(), testRunDAO,
-            userDAO);
+        ArtifactScrubber artifactScrubber =
+            new ArtifactScrubber(false, new HashedWheelTimer(), new ReentrantLock(),
+                Duration.days(99), Duration.days(99), artifactRootPath(), testRunDAO, userDAO);
+        artifactScrubber.start();
         artifactScrubber.checkForOrphanedArtifacts();
 
         assertThat(validTestRunArtifactPath.resolve(artifactName)).exists();

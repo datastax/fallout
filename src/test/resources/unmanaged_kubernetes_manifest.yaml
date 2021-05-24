@@ -9,3 +9,8 @@ ensemble:
                   namespace: "optest"
                   datacenter.manifest: not_a_managed_file
     client: server
+
+workload:
+  phases:
+    - no-op:
+        module: noop

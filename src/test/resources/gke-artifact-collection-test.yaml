@@ -1,0 +1,166 @@
+ensemble:
+  server:
+    node.count: 3
+    provisioner:
+      name: gke
+      properties:
+        project: eng-test-tools
+        zone: us-west2-a
+        machine.type: n1-standard-2
+        collect_logs: true
+        create.extra_args: |
+          --no-enable-basic-auth \
+          --cluster-version "1.18" \
+          --image-type "COS" \
+          --metadata disable-legacy-endpoints=true \
+          --scopes "https://www.googleapis.com/auth/cloud-platform" \
+          --enable-stackdriver-kubernetes \
+          --enable-ip-alias \
+          --default-max-pods-per-node "110" \
+          --addons HorizontalPodAutoscaling,HttpLoadBalancing \
+          --enable-autoupgrade \
+          --enable-autorepair \
+          --network "projects/eng-test-tools/global/networks/default" \
+          --subnetwork "projects/eng-test-tools/regions/us-west2/subnetworks/default"
+
+    configuration_manager:
+      - name: kubernetes_manifest
+        properties:
+          manifest: <<file:nginx-service.yaml>>
+          wait.strategy: WAIT_ON_CONTAINERS
+          wait.container_name: nginx
+          wait.expected_containers: 1
+
+    local_files:
+      - path: nginx-service.yaml
+        data: |
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: nginx-deployment
+          spec:
+            selector:
+              matchLabels:
+                app: nginx
+            replicas: 1
+            template:
+              metadata:
+                labels:
+                  app: nginx
+              spec:
+                containers:
+                - name: nginx
+                  image: nginx:1.14.2
+                  ports:
+                  - containerPort: 80
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: nginx
+          spec:
+            ports:
+            - port: 80
+              protocol: TCP
+            selector:
+              app: nginx
+      - path: artifact-creator-job.yaml
+        data: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: artifact-creator-fallout-artifacts-one
+          spec:
+            storageClassName: fallout-storage
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
+          ---
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: artifact-creator
+          spec:
+            template:
+              spec:
+                volumes:
+                - name: fallout-artifacts
+                  persistentVolumeClaim:
+                    claimName: artifact-creator-fallout-artifacts-one
+                containers:
+                - name: artifact-creator
+                  image: busybox:latest
+                  command: ["wget"]
+                  args: ["nginx", "-O", "/fallout-artifacts/nginx.html"]
+                  volumeMounts:
+                    - mountPath: "/fallout-artifacts"
+                      name: fallout-artifacts
+                restartPolicy: Never
+            backoffLimit: 1
+      - path: artifact-creator-job-other.yaml
+        data: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: artifact-creator-fallout-artifacts-two
+          spec:
+            storageClassName: fallout-storage
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
+          ---
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: artifact-creator
+          spec:
+            template:
+              spec:
+                volumes:
+                - name: fallout-artifacts
+                  persistentVolumeClaim:
+                    claimName: artifact-creator-fallout-artifacts-two
+                containers:
+                - name: artifact-creator
+                  image: busybox:latest
+                  command: ["wget"]
+                  args: ["nginx", "-O", "/fallout-artifacts/nginx-other.html"]
+                  volumeMounts:
+                    - mountPath: "/fallout-artifacts"
+                      name: fallout-artifacts
+                restartPolicy: Never
+            backoffLimit: 1
+
+  client: server
+workload:
+  phases:
+    - create-artifact:
+        module: kubernetes_job
+        properties:
+          manifest: <<file:artifact-creator-job.yaml>>
+    - create-artifact-other:
+        module: kubernetes_job
+        properties:
+          manifest: <<file:artifact-creator-job-other.yaml>>
+  checkers:
+    nofail:
+      checker: nofail
+  artifact_checkers:
+    nginx-out:
+      artifact_checker: regex
+      properties:
+        node_group: server
+        files: .*nginx\.html
+        required:
+          - .*Welcome to nginx.*
+    nginx-other-out:
+      artifact_checker: regex
+      properties:
+        node_group: server
+        files: .*nginx-other\.html
+        required:
+          - .*Welcome to nginx.*

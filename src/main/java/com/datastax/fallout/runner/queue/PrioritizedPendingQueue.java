@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import com.google.common.annotations.VisibleForTesting;
 
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
+import com.datastax.fallout.util.ScopedLogger;
 
 /**
  * Wrapper class for {@link PendingQueue} which prioritizes the queue by highest to lowest priority according to the
@@ -44,6 +45,8 @@ import com.datastax.fallout.service.core.TestRun;
  */
 public class PrioritizedPendingQueue
 {
+    private static final ScopedLogger logger = ScopedLogger.getLogger(PrioritizedPendingQueue.class);
+
     private final PendingQueue pendingQueue;
     private final Supplier<List<ReadOnlyTestRun>> runningTestRunsSupplier;
     private final Predicate<ReadOnlyTestRun> available;
@@ -54,7 +57,8 @@ public class PrioritizedPendingQueue
     {
         this.pendingQueue = pendingQueue;
         this.runningTestRunsSupplier = runningTestRunsSupplier;
-        this.available = available;
+        this.available = testRun -> logger.withScopedDebug("available({})", testRun.getShortName())
+            .get(() -> available.test(testRun));
     }
 
     public void add(TestRun testRun)
@@ -67,21 +71,18 @@ public class PrioritizedPendingQueue
         return pendingQueue.remove(testRun);
     }
 
+    private Optional<TestRun> firstAvailable()
+    {
+        return pending().stream()
+            .filter(available)
+            .findFirst();
+    }
+
     public Optional<TestRun> remove()
     {
-        if (noneAvailable())
-        {
-            return Optional.empty();
-        }
-
-        TestRun testRun = pending().stream()
-            .filter(available)
-            .findFirst()
-            .get();
-
-        pendingQueue.remove(testRun);
-
-        return Optional.of(testRun);
+        Optional<TestRun> testRun = firstAvailable();
+        testRun.ifPresent(pendingQueue::remove);
+        return testRun;
     }
 
     public List<TestRun> pending()
@@ -93,7 +94,7 @@ public class PrioritizedPendingQueue
 
     public boolean noneAvailable()
     {
-        return pendingQueue.pending().stream().noneMatch(available);
+        return firstAvailable().isEmpty();
     }
 
     /**
@@ -101,14 +102,51 @@ public class PrioritizedPendingQueue
      * rules:
      *
      * <ol>
-     * <li> Testruns with an owner that already has tests in runningTestRuns will be given a lower priority
-     * than testruns with an owner that has no tests in runningTestRuns.  The more tests owned in runningTestRuns, the
-     * lower the priority.
-     * <li> Then by finished time; if no finished time, the created time: the older, the higher.
+     *
+     *     <li> Testruns with an owner that already has tests in runningTestRuns will
+     *     be given a lower priority than testruns with an owner that has no tests in
+     *     runningTestRuns.  The more tests owned in runningTestRuns, the lower the priority;
+     *
+     *     <li> Time-since-last-check: the finished time; if null, the created time.  The older, the higher.
+     *
      * </ol>
-     * @param runningTestRuns
+     *
+     * Why time-since-last-check instead of time-on-queue?  If we use time-on-queue, and given:
+     *
+     * <ul>
+     *     <li>we have a long queue of testruns all waiting for the same resource (A), and:
+     *     <li>the <code>available</code> predicate uses {@link com.datastax.fallout.runner.ResourceReservationLocks} to prevent two testruns from trying to reserve the same resource simultaneously;
+     * </ul>
+     *
+     * then:
+     *
+     * <ul>
+     *
+     *     <li> the oldest testrun will try and reserve resources, locking them
+     *     using {@link com.datastax.fallout.runner.ResourceReservationLocks};
+     *
+     *     <li> all other testruns using the same resources will be considered
+     *     unavailable because the resources (A) they need are locked for reservation;
+     *
+     *     <li> when the oldest testrun fails to get resources (not necessarily the same resources as
+     *     the other waiting testruns: it could be waiting on both A and some other scarcer resource
+     *     B), it will set its finished time, and the resource reservation lock will be released;
+     *
+     *     <li> because we prioritise the <em>oldest</em> testrun, the same testrun will be
+     *     selected again, and none of the other testruns requiring A will get a chance to run
+     *     until the oldest testrun acquires resources i.e. the other testruns will be starved.
+     *
+     * </ul>
+     *
+     * Using time-since-last-check means that we will work our way through _all_ the waiting testruns in rotation.
+     * <p>
+     * <b>NB:</b> this strategy only prevents starvation via {@link
+     * com.datastax.fallout.runner.ResourceReservationLocks}; it won't stop other forms.  In particular, a large queue
+     * of testruns that need a small number of resource A can starve a testrun that needs a large number of resource
+     * A: if only enough resources for a small testrun become available at any one time, the small testruns will always
+     * get those resources, and they won't become freed up in sufficient quantity for the large testrun to start.
      */
-    public static Comparator<TestRun> comparator(List<ReadOnlyTestRun> runningTestRuns)
+    private static Comparator<TestRun> comparator(List<ReadOnlyTestRun> runningTestRuns)
     {
         final Map<String, Long> reverseOwnerPriority = runningTestRuns.stream()
             .map(ReadOnlyTestRun::getOwner)

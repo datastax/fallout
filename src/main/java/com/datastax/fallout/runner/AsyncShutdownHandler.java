@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ public class AsyncShutdownHandler
         {
             shuttingDown = true;
             logger.info("Shutting down in {}...", SHUTDOWN_GRACE_DELAY);
-            CompletableFuture.runAsync(() -> logger.doWithScopedInfo(shutdownHandler, "Shutting down"),
+            CompletableFuture.runAsync(() -> logger.withScopedInfo("Shutting down").run(shutdownHandler::run),
                 CompletableFutures.delayedExecutor(SHUTDOWN_GRACE_DELAY));
         }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,70 +15,96 @@
  */
 package com.datastax.fallout.ops;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.datastax.fallout.ops.providers.FileProvider;
+import com.datastax.fallout.components.common.provider.FileProvider;
+import com.datastax.fallout.components.common.provider.FileProvider.LocalFileProvider;
+import com.datastax.fallout.exceptions.InvalidConfigurationException;
+import com.datastax.fallout.harness.ActiveTestRunBuilder;
+import com.datastax.fallout.ops.commands.CommandExecutor;
 
-public class LocalFilesHandler
+public class LocalFilesHandler implements HasAvailableProviders, PropertyRefExpander
 {
-    public static final String MANAGED_FILES_DIRECTORY = "managed_files";
+    private static final String MANAGED_FILES_DIRECTORY = "managed_files";
 
-    private final Set<FileSpec> localFileSpecs;
+    private final List<FileSpec> localFileSpecs;
+    private final Path managedFilesPath;
+    private final CommandExecutor commandExecutor;
 
-    public LocalFilesHandler(List<Map<String, Object>> localFileSpecMaps)
+    private LocalFilesHandler(List<FileSpec> localFileSpecs, Path managedFilesPath,
+        CommandExecutor commandExecutor)
     {
-        this.localFileSpecs = localFileSpecMaps.stream()
-            .map(FileSpec::fromMap)
-            .collect(Collectors.toSet());
+        this.localFileSpecs = localFileSpecs;
+        this.managedFilesPath = managedFilesPath;
+        this.commandExecutor = commandExecutor;
     }
 
-    public boolean createAllLocalFiles(NodeGroup nodeGroup)
+    public static LocalFilesHandler fromMaps(List<Map<String, Object>> fileSpecMaps,
+        Path testRunArtifactPath, CommandExecutor commandExecutor)
     {
-        return localFileSpecs.stream()
-            .allMatch(fileSpec -> fileExists(nodeGroup, fileSpec) || createFile(nodeGroup, fileSpec)) &&
-            nodeGroup.getNodes().stream()
-                .map(n -> {
-                    new FileProvider.LocalFileProvider(n);
-                    return true;
-                })
-                .reduce(true, Boolean::logicalAnd);
+        return new LocalFilesHandler(
+            fileSpecMaps.stream().map(FileSpec::fromMap).collect(Collectors.toList()),
+            testRunArtifactPath.resolve(MANAGED_FILES_DIRECTORY),
+            commandExecutor);
     }
 
-    private boolean createFile(NodeGroup nodeGroup, FileSpec fileSpec)
+    public static LocalFilesHandler empty()
     {
-        Path fullFilePath = fileSpec.getFullPath(getRootFileLocation(nodeGroup));
-        nodeGroup.logger().info("Attempting to create file at {} ", fullFilePath);
-        try
+        return new LocalFilesHandler(List.of(), null, null);
+    }
+
+    public boolean createAllLocalFiles(Ensemble ensemble, ActiveTestRunBuilder.ValidationResult validationResult)
+    {
+        if (localFileSpecs.isEmpty())
         {
-            return fileSpec.createLocalFile(fullFilePath, nodeGroup);
+            return true;
         }
-        catch (IOException e)
+
+        if (!localFileSpecs.stream().allMatch(fileSpec -> fileSpec.createLocalFile(
+            ensemble.logger(),
+            commandExecutor,
+            fileSpec.getFullPath(managedFilesPath),
+            validationResult)))
         {
-            nodeGroup.logger().error(String.format("Error while creating local file %s", fullFilePath), e);
             return false;
         }
+
+        ensemble.getUniqueNodeGroupInstances().stream().map(NodeGroup::getNodes).flatMap(List::stream)
+            .forEach(node -> new LocalFileProvider(node, managedFilesPath));
+
+        return true;
     }
 
-    private boolean fileExists(NodeGroup nodeGroup, FileSpec fileSpec)
-    {
-        return Files.exists(fileSpec.getFullPath(getRootFileLocation(nodeGroup)));
-    }
-
+    /** This is the path to which local copies of files uploaded to remote NodeGroups by {@link
+     *  com.datastax.fallout.components.common.configuration_manager.RemoteFilesConfigurationManager} are saved */
     public static Path getRootFileLocation(NodeGroup nodeGroup)
     {
         return nodeGroup.getLocalArtifactPath().resolve(MANAGED_FILES_DIRECTORY);
     }
 
+    @Override
     public Set<Class<? extends Provider>> getAvailableProviders()
     {
         return localFileSpecs.isEmpty() ?
             Set.of() :
             Set.of(FileProvider.LocalFileProvider.class);
+    }
+
+    @Override
+    public String expandRefs(String propertyValue)
+    {
+        return FileProvider.expandManagedFileRefs(
+            propertyValue, relativePath -> {
+                if (localFileSpecs.stream().noneMatch(fileSpec -> fileSpec.matchesManagedFileRef(relativePath)))
+                {
+                    throw new InvalidConfigurationException(String.format(
+                        "<<file:%s>> is not defined in a local_files section", relativePath));
+                }
+                return managedFilesPath.resolve(relativePath).toString();
+            });
     }
 }

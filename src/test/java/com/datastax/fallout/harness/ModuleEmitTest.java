@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,27 +18,26 @@ package com.datastax.fallout.harness;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
-import com.datastax.fallout.harness.impl.FakeModule;
+import com.datastax.fallout.components.impl.FakeModule;
 import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.PropertyGroup;
+import com.datastax.fallout.service.FalloutConfiguration;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.harness.Module.RunToEndOfPhaseMethod.AUTOMATIC;
-import static org.assertj.core.api.Java6Assertions.assertThat;
 
-public class ModuleEmitTest extends EnsembleFalloutTest
+@Timeout(value = 120, unit = TimeUnit.SECONDS)
+class ModuleEmitTest extends EnsembleFalloutTest<FalloutConfiguration>
 {
-    @Rule
-    public Timeout timeout = Timeout.seconds(120);
-
     private final int EMITTERS = 3;
     private final int EMISSIONS = 200000;
 
@@ -53,8 +52,7 @@ public class ModuleEmitTest extends EnsembleFalloutTest
 
         final ActiveTestRunBuilder activeTestRunBuilder = createActiveTestRunBuilder()
             .withComponentFactory(new TestRunnerTestHelpers.MockingComponentFactory()
-                .mockNamed(Module.class, "emitter-fake", () -> new FakeModule()
-                {
+                .mockNamed(Module.class, "emitter-fake", () -> new FakeModule() {
                     @Override
                     public void run(Ensemble ensemble, PropertyGroup properties)
                     {
@@ -69,8 +67,7 @@ public class ModuleEmitTest extends EnsembleFalloutTest
                 .mockNamed(Module.class, "concurrent-fake", moduleSupplier));
 
         final ActiveTestRun activeTestRun = activeTestRunBuilder
-            .withEnsembleFromYaml(yaml)
-            .withWorkloadFromYaml(yaml)
+            .withTestDefinitionFromYaml(yaml)
             .build();
 
         final Set<String> expectedEmissions = IntStream.range(0, EMITTERS)
@@ -88,6 +85,7 @@ public class ModuleEmitTest extends EnsembleFalloutTest
                     .isEqualTo(expectedEmissions);
     }
 
+    /** This test validates the solution to FAL-1092 */
     @Test
     public void multiple_threads_can_emit_simultaneously_with_run_to_end_of_phase_module()
     {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.datastax.driver.mapping.annotations.Field;
 import com.datastax.driver.mapping.annotations.UDT;
 
+/** Also used as part of {@link com.datastax.fallout.runner.TestRunStatusUpdate} to communicate between
+ *  processes; check the documentation for that class for what to bear in mind when making changes */
 @UDT(name = "testRunIdentifier")
 public class TestRunIdentifier
 {

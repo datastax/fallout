@@ -5,24 +5,30 @@
 *.ipr
 out/
 
+# Eclipse
+.classpath
+.project
+.settings
+
+# MacOS
+.DS_Store
+
 # Bootstrapped Cassandra
-/cassandra/
+/cassandra
 /cassandra.logdir_IS_UNDEFINED/
 
-# Running fallout artifacts
+# Ignore files created by running fallout in the current directory
 /logs/
 /run/
+/tests
 
 # Build artifacts
 .gradle/
 build/
 
-# Test artifacts
-/tests/
-/fallout-cli/pytest_results.xml
-/fallout-cli/graphite-data
-/fallout-cli/insights-data
-/fallout-cli/prometheus-data
+# Nothing creates tmp, but it's a convenient place to keep
+# temporary things
+/tmp/
 
 # Local configuration files
 /fallout.yaml
@@ -32,8 +38,19 @@ build/
 # other things), and should _never_ be checked in
 /gradle.properties
 
-# Eclipse
-.classpath
-.project
-.settings
-.DS_Store
+# Python test artifacts
+## tox
+.tox/
+## pytest
+.pytest_cache/
+
+# Python build artifacts
+*.egg-info/
+.eggs/
+dist/
+
+# Python compiled files
+## Python2
+*.pyc
+## Python3
+__pycache__/

@@ -1,0 +1,32 @@
+mustelids: [weasel, stoat, badger]
+---
+ensemble:
+  local_files:
+  {{#mustelids}}
+    - path: {{.}}.txt
+      data: {{.}}
+  {{/mustelids}}
+
+  server:
+    node.count: 1
+    provisioner:
+      name: local
+
+  client: server
+
+workload:
+  phases:
+    - ref-in-lists-and-maps:
+        module: fake
+        properties:
+          list:
+            - <<file:weasel.txt>>
+            - <<file:stoat.txt>>
+            - <<file:badger.txt>>
+          map:
+            <<file:weasel.txt>>: <<file:stoat.txt>>
+            <<file:stoat.txt>>: <<file:badger.txt>>
+
+  checkers:
+    nofail:
+      checker: nofail

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,16 +28,16 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import com.google.common.util.concurrent.Uninterruptibles;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.service.core.Fakes;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.util.ScopedLogger;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.core.Fakes.TEST_USER_EMAIL;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 public class TestRunQueueTest
@@ -48,8 +48,7 @@ public class TestRunQueueTest
 
     private TestRun createTestRun()
     {
-        TestRun testRun = new TestRun()
-        {
+        TestRun testRun = new TestRun() {
             @Override
             public String toString()
             {
@@ -107,10 +106,11 @@ public class TestRunQueueTest
         }
     }
 
-    @Before
+    @BeforeEach
     public void setup()
     {
-        queue = new TestRunQueue(new InMemoryPendingQueue(), List::of, Duration.ofMillis(1), testRun -> true);
+        queue = new TestRunQueue(new InMemoryPendingQueue(), (testRun, ex) -> {}, List::of,
+            Duration.ofMillis(1), testRun -> true);
         takerRelease = new ArrayBlockingQueue<>(1);
         taken = new ArrayBlockingQueue<>(1);
         taking = new AtomicBoolean(true);
@@ -118,18 +118,12 @@ public class TestRunQueueTest
 
     private void releaseTaker()
     {
-        try (ScopedLogger.Scoped ignored = logger.scopedInfo("releaseTaker"))
-        {
-            offerUninterruptibly(takerRelease, true);
-        }
+        logger.withScopedInfo("releaseTaker").run(() -> offerUninterruptibly(takerRelease, true));
     }
 
     private void waitForRelease()
     {
-        try (ScopedLogger.Scoped ignored = logger.scopedInfo("waitForRelease"))
-        {
-            assertThat(pollUninterruptibly(takerRelease)).isTrue();
-        }
+        logger.withScopedInfo("waitForRelease").run(() -> assertThat(pollUninterruptibly(takerRelease)).isTrue());
     }
 
     private void startTaker()
@@ -141,11 +135,8 @@ public class TestRunQueueTest
             {
                 waitForRelease();
                 queue.take((testRun, requeueTestRun) -> {
-                    try (ScopedLogger.Scoped ignored =
-                        logger.scopedInfo("take offering (" + testRun.getShortName() + ")"))
-                    {
-                        offerUninterruptibly(taken, testRun);
-                    }
+                    logger.withScopedInfo("take offering ({})", testRun.getShortName()).run(
+                        () -> offerUninterruptibly(taken, testRun));
                 });
             }
         });
@@ -154,34 +145,31 @@ public class TestRunQueueTest
 
     private TestRun getProcessedTestRun()
     {
-        try (ScopedLogger.Scoped ignored = logger.scopedInfo("getProcessedTestRun"))
-        {
+        return logger.withScopedInfo("getProcessedTestRun").get(() -> {
             releaseTaker();
             return pollUninterruptibly(taken);
-        }
+        });
     }
 
     private void assertNoProcessedAvailable()
     {
-        try (ScopedLogger.Scoped ignored = logger.scopedInfo("assertNoProcessAvailable"))
-        {
+        logger.withScopedInfo("assertNoProcessedAvailable").run(() -> {
             releaseTaker();
             assertThat(pollUninterruptibly(taken, EXPECTED_FAILED_OPERATION_TIMEOUT_SECONDS)).isNull();
-        }
+        });
     }
 
-    @After
+    @AfterEach
     public void teardown()
     {
-        try (ScopedLogger.Scoped ignored = logger.scopedInfo("teardown"))
-        {
+        logger.withScopedInfo("teardown").run(() -> {
             taking.set(false);
             releaseTaker();
             await().until(() -> {
                 queue.unblock();
                 return taker.isDone();
             });
-        }
+        });
     }
 
     @Test

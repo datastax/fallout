@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,20 +27,20 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datastax.fallout.service.FalloutConfiguration;
-
 public class SlackUserMessenger implements UserMessenger
 {
-    private Map<String, String> slackUserIDs = new HashMap<>();
-    private final FalloutConfiguration conf;
-    private final Client httpClient;
+    private static final ScopedLogger logger = ScopedLogger.getLogger(SlackUserMessenger.class);
 
-    public static UserMessenger create(FalloutConfiguration conf, Client httpClient)
+    private Map<String, String> slackUserIDs = new HashMap<>();
+    private final Client httpClient;
+    private final String slackToken;
+
+    public static UserMessenger create(String slackToken, Client httpClient)
     {
         final Logger log = LoggerFactory.getLogger(SlackUserMessenger.class);
-        if (conf.getSlackToken() != null)
+        if (slackToken != null)
         {
-            return new SlackUserMessenger(conf, httpClient);
+            return new SlackUserMessenger(httpClient, slackToken);
         }
         else
         {
@@ -49,22 +49,22 @@ public class SlackUserMessenger implements UserMessenger
         }
     }
 
-    private SlackUserMessenger(FalloutConfiguration configuration, Client httpClient)
+    private SlackUserMessenger(Client httpClient, String slackToken)
     {
-        this.conf = configuration;
         this.httpClient = httpClient;
+        this.slackToken = slackToken;
     }
 
     private String sanitizedSlackUri(URI slackUri)
     {
-        return slackUri.toString().replace(conf.getSlackToken(), "<secret>");
+        return slackUri.toString().replace(slackToken, "<secret>");
     }
 
     private UriBuilder slackUriBuilder(String method)
     {
         return UriBuilder.fromPath("https://slack.com")
             .path("/api/" + method)
-            .queryParam("token", conf.getSlackToken());
+            .queryParam("token", slackToken);
     }
 
     /**
@@ -114,30 +114,33 @@ public class SlackUserMessenger implements UserMessenger
     @Override
     public void sendMessage(String email, String subject, String body) throws MessengerException
     {
-        String channel = getSlackChannel(email);
+        logger.withScopedDebug("sendMessage({}, {}, {})", email, subject, body).run(() -> {
+            String channel =
+                logger.withScopedDebug("getSlackChannel({})", email).get(() -> getSlackChannel(email));
 
-        final URI slackUri = slackUriBuilder("chat.postMessage")
-            .queryParam("channel", channel)
-            .queryParam("text", body)
-            .build();
+            final URI slackUri = slackUriBuilder("chat.postMessage")
+                .queryParam("channel", channel)
+                .queryParam("text", body)
+                .build();
 
-        JsonNode json;
+            JsonNode json;
 
-        try
-        {
-            json = httpClient.target(slackUri).request()
-                .post(null, JsonNode.class);
-        }
-        catch (Exception e)
-        {
-            throw new MessengerException(String.format("POST %s failed", sanitizedSlackUri(slackUri)), e);
-        }
+            try
+            {
+                json = httpClient.target(slackUri).request()
+                    .post(null, JsonNode.class);
+            }
+            catch (Exception e)
+            {
+                throw new MessengerException(String.format("POST %s failed", sanitizedSlackUri(slackUri)), e);
+            }
 
-        if (!json.path("ok").asText().equals("true"))
-        {
-            throw new MessengerException(String.format("POST %s returned unexpected JSON: %s",
-                sanitizedSlackUri(slackUri),
-                json));
-        }
+            if (!json.path("ok").asText().equals("true"))
+            {
+                throw new MessengerException(String.format("POST %s returned unexpected JSON: %s",
+                    sanitizedSlackUri(slackUri),
+                    json));
+            }
+        });
     }
 }

@@ -6,7 +6,13 @@ ensemble:
         configuration_manager:
             - name: reused
 
-    client: server
+    client:
+        node.count: 1
+        provisioner:
+            name: reused
+        configuration_manager:
+            - name: reused
+
 
 workload:
     phases:

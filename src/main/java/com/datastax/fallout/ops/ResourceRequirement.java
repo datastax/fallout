@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,12 @@
  */
 package com.datastax.fallout.ops;
 
+import javax.annotation.Nullable;
+
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 
 import com.datastax.driver.mapping.annotations.Field;
 import com.datastax.driver.mapping.annotations.UDT;
@@ -34,6 +32,7 @@ public class ResourceRequirement
     private ResourceType resourceType;
 
     @Field
+    @Nullable
     private ResourceType reservationLockResourceType;
 
     @Field
@@ -123,7 +122,9 @@ public class ResourceRequirement
 
     public static Set<ResourceType> reservationLockResourceTypes(Stream<ResourceRequirement> resourceRequirements)
     {
-        return resourceRequirements.map(ResourceRequirement::getReservationLockResourceType)
+        return resourceRequirements
+            .map(ResourceRequirement::getReservationLockResourceType)
+            .filter(Objects::nonNull)
             .collect(Collectors.toSet());
     }
 
@@ -136,119 +137,4 @@ public class ResourceRequirement
             '}';
     }
 
-    @UDT(name = "resourceType")
-    public static class ResourceType
-    {
-        @Field
-        private String provider;
-
-        @Field
-        private String tenant;
-
-        @Field
-        private String instanceType;
-
-        @Field
-        private Optional<String> uniqueName = Optional.empty();
-
-        public ResourceType()
-        {
-
-        }
-
-        public ResourceType(String provider, String tenant)
-        {
-            Preconditions.checkArgument(provider != null, "provider must not be null");
-            Preconditions.checkArgument(tenant != null, "tenant must not be null");
-            this.provider = provider;
-            this.tenant = tenant;
-            this.uniqueName = Optional.empty();
-        }
-
-        @VisibleForTesting
-        public ResourceType(String provider, String tenant, String instanceType)
-        {
-            this(provider, tenant, instanceType, Optional.empty());
-        }
-
-        public ResourceType(String provider, String tenant, String instanceType, Optional<String> uniqueName)
-        {
-            Preconditions.checkArgument(provider != null, "provider must not be null");
-            Preconditions.checkArgument(tenant != null, "tenant must not be null");
-            Preconditions.checkArgument(instanceType != null, "instanceType must not be null");
-            this.provider = provider;
-            this.tenant = tenant;
-            this.instanceType = instanceType;
-            this.uniqueName = uniqueName;
-        }
-
-        public String getProvider()
-        {
-            return provider;
-        }
-
-        public String getTenant()
-        {
-            return tenant;
-        }
-
-        public String getInstanceType()
-        {
-            return instanceType;
-        }
-
-        public Optional<String> getUniqueName()
-        {
-            return uniqueName;
-        }
-
-        public ResourceType copyOnlyProviderAndTenant()
-        {
-            return new ResourceType(provider, tenant);
-        }
-
-        public ResourceType copyWithoutUniqueName()
-        {
-            return new ResourceType(provider, tenant, instanceType);
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o)
-            {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass())
-            {
-                return false;
-            }
-            ResourceType that = (ResourceType) o;
-            return Objects.equals(provider, that.provider) &&
-                Objects.equals(tenant, that.tenant) &&
-                Objects.equals(instanceType, that.instanceType) &&
-                Objects.equals(uniqueName, that.uniqueName);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(provider, tenant, instanceType, uniqueName);
-        }
-
-        @Override
-        public String toString()
-        {
-            String res = "ResourceType(" + provider + " " + tenant;
-            if (instanceType != null)
-            {
-                res += ", instanceType=" + instanceType;
-            }
-            if (uniqueName.isPresent())
-            {
-                res += ", uniqueName=" + uniqueName.get();
-            }
-            return res + ")";
-        }
-    }
 }

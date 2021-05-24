@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,9 +31,9 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
 
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -45,19 +45,22 @@ import java.util.stream.Collectors;
 
 import io.dropwizard.auth.Auth;
 
-import com.datastax.fallout.harness.artifact_checkers.HdrHistogramChecker;
+import com.datastax.fallout.components.file_artifact_checkers.HdrHistogramChecker;
+import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.service.core.PerformanceReport;
+import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.TestRunIdentifier;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.service.db.PerformanceReportDAO;
 import com.datastax.fallout.service.db.TestDAO;
 import com.datastax.fallout.service.db.TestRunDAO;
+import com.datastax.fallout.service.db.UserGroupMapper;
 import com.datastax.fallout.service.views.FalloutView;
 import com.datastax.fallout.service.views.LinkedTestRuns;
 import com.datastax.fallout.service.views.MainView;
 
-import static com.datastax.fallout.service.resources.server.TestResource.EMAIL_PATTERN;
+import static com.datastax.fallout.service.resources.server.AccountResource.EMAIL_PATTERN;
 import static com.datastax.fallout.service.views.LinkedTestRuns.TableDisplayOption;
 
 @Path("/performance")
@@ -68,16 +71,18 @@ public class PerformanceToolResource
     final PerformanceReportDAO reportDAO;
     final String rootArtifactPath;
     private final MainView mainView;
+    private final UserGroupMapper userGroupMapper;
 
     public PerformanceToolResource(TestDAO testDAO, TestRunDAO testRunDAO, PerformanceReportDAO reportDAO,
         String rootArtifactPath,
-        MainView mainView)
+        MainView mainView, UserGroupMapper userGroupMapper)
     {
         this.testDAO = testDAO;
         this.testRunDAO = testRunDAO;
         this.reportDAO = reportDAO;
         this.rootArtifactPath = rootArtifactPath;
         this.mainView = mainView;
+        this.userGroupMapper = userGroupMapper;
     }
 
     @GET
@@ -122,8 +127,9 @@ public class PerformanceToolResource
             })
             .collect(Collectors.toList());
 
-        LinkedTestRuns linkedTestRuns = new LinkedTestRuns(user, testRuns).hide(TableDisplayOption.MUTATION_ACTIONS,
-            TableDisplayOption.RESTORE_ACTIONS);
+        LinkedTestRuns linkedTestRuns =
+            new LinkedTestRuns(userGroupMapper, user, testRuns).hide(TableDisplayOption.MUTATION_ACTIONS,
+                TableDisplayOption.RESTORE_ACTIONS);
 
         return new ReportView(user, report, linkedTestRuns);
     }
@@ -186,21 +192,12 @@ public class PerformanceToolResource
             return FalloutView.error("No tests supplied");
 
         List<TestRun> testRuns = new ArrayList<>();
-        Set<TestRunIdentifier> reportTestRunIdentifiers = new HashSet<>();
 
         for (Map.Entry<String, List<String>> entry : args.reportTests.entrySet())
         {
             for (String run : entry.getValue())
             {
                 UUID runUid = UUID.fromString(run);
-
-                TestRunIdentifier testRunIdentifier = new TestRunIdentifier(user.getEmail(), entry.getKey(), runUid);
-
-                if (!reportTestRunIdentifiers.add(testRunIdentifier))
-                {
-                    return FalloutView
-                        .error(String.format("Duplicate test run detected for %s : %s", entry.getKey(), run));
-                }
 
                 TestRun testRun = testRunDAO.get(user.getEmail(), entry.getKey(), runUid);
 
@@ -211,35 +208,62 @@ public class PerformanceToolResource
             }
         }
 
-        HdrHistogramChecker checker = new HdrHistogramChecker();
-        UUID reportGuid = UUID.randomUUID();
-
-        String fullReportName =
-            Paths.get("performance_reports", user.getEmail(), reportGuid.toString(), "report").toString();
         try
         {
-            checker.compareTests(testRuns, rootArtifactPath, fullReportName, args.reportName);
+            PerformanceReport report = createPerformanceReport(testRuns, user.getEmail(), args.reportName);
+
+            URI redirectURI = UriBuilder.fromResource(TestResource.class)
+                .path("{email}/report/{report}")
+                .build(user.getEmail(), report.getReportGuid());
+
+            return Response.created(redirectURI).entity(report).build();
         }
         catch (Exception e)
         {
-            return FalloutView.error(e.getMessage());
+            return FalloutView.error(e);
+        }
+    }
+
+    private PerformanceReport createPerformanceReport(List<TestRun> testRuns, String userEmail, String reportName)
+        throws Exception
+    {
+        HdrHistogramChecker checker = new HdrHistogramChecker();
+        UUID reportGuid = UUID.randomUUID();
+
+        Set<TestRunIdentifier> testRunIdentifiers = testRuns.stream()
+            .map(ReadOnlyTestRun::getTestRunIdentifier)
+            .collect(Collectors.toSet());
+
+        if (testRuns.size() != testRunIdentifiers.size())
+        {
+            throw new RuntimeException("Test Runs submitted for report contains duplicates");
+        }
+
+        String fullReportName =
+            Paths.get("performance_reports", userEmail, reportGuid.toString(), "report").toString();
+
+        java.nio.file.Path scratchDir =
+            Files.createTempDirectory(String.format("performance-tool-report-%s", reportName));
+        try
+        {
+            checker.compareTests(testRuns, rootArtifactPath, fullReportName, reportName, scratchDir);
+        }
+        finally
+        {
+            FileUtils.deleteDir(scratchDir);
         }
 
         PerformanceReport report = new PerformanceReport();
-        report.setEmail(user.getEmail());
-        report.setReportName(args.reportName);
+        report.setEmail(userEmail);
+        report.setReportName(reportName);
         report.setReportArtifact(fullReportName + ".html");
-        report.setReportTestRuns(reportTestRunIdentifiers);
+        report.setReportTestRuns(testRunIdentifiers);
         report.setReportDate(new Date());
         report.setReportGuid(reportGuid);
 
         reportDAO.add(report);
 
-        URI redirectURI = UriBuilder.fromResource(TestResource.class)
-            .path("{email}/report/{report}")
-            .build(user.getEmail(), reportGuid);
-
-        return Response.created(redirectURI).entity(report).build();
+        return report;
     }
 
     @POST
@@ -255,12 +279,11 @@ public class PerformanceToolResource
         MultivaluedMap<String, String> formMap = formData.asMap();
         List<TestRun> args = new ArrayList<>();
         Set<UUID> uniqueIds = new HashSet<>();
-        Set<TestRunIdentifier> reportTestRunIdentifiers = new HashSet<>();
 
         for (int i = 1; i < 1000; i++)
         {
             String userFormId = String.format("user-%d", i);
-            List<String> userEmailList = formMap.getOrDefault(userFormId, Collections.emptyList());
+            List<String> userEmailList = formMap.getOrDefault(userFormId, List.of());
             if (userEmailList.size() > 1)
             {
                 return FalloutView.error(">1 user was found under: " + userFormId);
@@ -273,7 +296,7 @@ public class PerformanceToolResource
             String userEmail = userEmailList.get(0).trim();
 
             String testFormId = String.format("test-name-%d", i);
-            List<String> testNameList = formMap.getOrDefault(testFormId, Collections.emptyList());
+            List<String> testNameList = formMap.getOrDefault(testFormId, List.of());
             if (testNameList.size() > 1)
             {
                 return FalloutView.error(">1 name was found under: " + testFormId);
@@ -282,7 +305,7 @@ public class PerformanceToolResource
             String testName = testNameList.get(0).trim();
 
             String testRunFormId = String.format("test-run-%d", i);
-            List<String> testRunIdList = formMap.getOrDefault(testRunFormId, Collections.emptyList());
+            List<String> testRunIdList = formMap.getOrDefault(testRunFormId, List.of());
 
             if (testRunIdList.isEmpty())
             {
@@ -308,9 +331,6 @@ public class PerformanceToolResource
             }
 
             args.add(arg);
-
-            TestRunIdentifier testRunIdentifier = new TestRunIdentifier(userEmail, testName, runUid);
-            reportTestRunIdentifiers.add(testRunIdentifier);
         }
 
         if (args.isEmpty())
@@ -318,29 +338,14 @@ public class PerformanceToolResource
             return FalloutView.error("At least 1 test run required");
         }
 
-        HdrHistogramChecker checker = new HdrHistogramChecker();
-        UUID reportGuid = UUID.randomUUID();
-
-        String fullReportName =
-            Paths.get("performance_reports", user.getEmail(), reportGuid.toString(), "report").toString();
         try
         {
-            checker.compareTests(args, rootArtifactPath, fullReportName, reportName);
+            createPerformanceReport(args, user.getEmail(), reportName);
         }
         catch (Exception e)
         {
             return FalloutView.error(e);
         }
-
-        PerformanceReport report = new PerformanceReport();
-        report.setEmail(user.getEmail());
-        report.setReportName(reportName);
-        report.setReportArtifact(fullReportName + ".html");
-        report.setReportTestRuns(reportTestRunIdentifiers);
-        report.setReportDate(new Date());
-        report.setReportGuid(reportGuid);
-
-        reportDAO.add(report);
 
         return Response.ok().build();
     }

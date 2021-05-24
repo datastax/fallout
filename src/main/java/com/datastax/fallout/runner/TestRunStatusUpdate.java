@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,10 @@ import com.google.auto.value.AutoValue;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.TestRunIdentifier;
 
+/** Used to communicate the current state of a {@link TestRun} via {@link
+ * com.datastax.fallout.service.resources.runner.RunnerResource#statusFeed}.  When making
+ * changes to this class be aware that the QUEUE process must be able to handle older versions
+ * of this class being sent by RUNNER processes running an earlier version of fallout */
 @AutoValue
 @AutoValue.CopyAnnotations
 @JsonSerialize(as = TestRunStatusUpdate.class)

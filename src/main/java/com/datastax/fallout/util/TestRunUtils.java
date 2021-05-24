@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,28 +33,38 @@ public class TestRunUtils
         // utility class
     }
 
-    private static final Set<String> PARAMS_TO_ALWAYS_DISPLAY = Set.of("dse_version", "product_version");
+    private static final Set<String> PARAMS_TO_ALWAYS_DISPLAY = Set.of("dse_version", "product_version",
+        "note", "notes", "comment");
+
+    private static String paramValueString(Object paramValue)
+    {
+        // FAL-1497: get rid of newlines that might accidentally be in the param value.
+        // the test runs most likely behaved in the same way since when we turn some values
+        // into shell cmds the extra spaces dont matter
+        return String.valueOf(paramValue).trim();
+    }
 
     private static Map<TestRun, String> buildUniqueParamInfo(List<TestRun> testRuns)
     {
-        Map<String, List<Object>> allParams = new HashMap<>();
+        Map<String, List<String>> allParams = new HashMap<>();
         for (TestRun run : testRuns)
         {
             for (Map.Entry<String, Object> e : run.getTemplateParamsMap().entrySet())
             {
                 String param = e.getKey();
-                Object paramValue = e.getValue();
-                List<Object> seenParamValues = allParams.computeIfAbsent(param, s -> new ArrayList<>());
+                // since in the end we output as string, we compare values by their string representation
+                String paramValue = paramValueString(e.getValue());
+                List<String> seenParamValues = allParams.computeIfAbsent(param, s -> new ArrayList<>());
                 seenParamValues.add(paramValue);
             }
         }
         Set<String> differingParams = new HashSet<>();
-        for (Map.Entry<String, List<Object>> e : allParams.entrySet())
+        for (Map.Entry<String, List<String>> e : allParams.entrySet())
         {
             String param = e.getKey();
-            List<Object> seenParamValues = e.getValue();
-            Set<Object> uniqueParamValues = new HashSet<>();
-            for (Object seenParamValue : seenParamValues)
+            List<String> seenParamValues = e.getValue();
+            Set<String> uniqueParamValues = new HashSet<>();
+            for (String seenParamValue : seenParamValues)
             {
                 uniqueParamValues.add(seenParamValue);
             }
@@ -79,7 +89,8 @@ public class TestRunUtils
                     .contains(param);
                 if (shouldDisplayParam)
                 {
-                    paramsToDisplay.add(param + ": " + run.getTemplateParamsMap().get(param));
+                    String paramValue = paramValueString(run.getTemplateParamsMap().get(param));
+                    paramsToDisplay.add(param + ": " + paramValue);
                 }
             }
             String fullParamString = String.join(", ", paramsToDisplay);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,29 +15,29 @@
  */
 package com.datastax.fallout.runner;
 
-import java.io.IOException;
 import java.util.Date;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 
 import com.datastax.fallout.harness.TestResult;
 import com.datastax.fallout.harness.TestRunAbortedStatusUpdater;
-import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.TestRun;
 
 public class TestRunStateStorage implements TestRunAbortedStatusUpdater.StateStorage
 {
     private final AtomicallyPersistedTestRun testRun;
     private final Logger logger;
-    private final FalloutConfiguration configuration;
+    private final Supplier<Map<String, Long>> findTestRunArtifacts;
 
     public TestRunStateStorage(AtomicallyPersistedTestRun testRun, Logger logger,
-        FalloutConfiguration configuration)
+        Supplier<Map<String, Long>> findTestRunArtifacts)
     {
         this.logger = logger;
-        this.configuration = configuration;
         this.testRun = testRun;
+        this.findTestRunArtifacts = findTestRunArtifacts;
     }
 
     @Override
@@ -87,17 +87,17 @@ public class TestRunStateStorage implements TestRunAbortedStatusUpdater.StateSto
             testRun.setFinishedAt(new Date());
             testRun.setState(finalState);
 
+            logger.info("Test run completed for {}", testRun.getTestRunId().toString());
+
             try
             {
-                testRun.updateArtifacts(Artifacts.findTestRunArtifacts(configuration, testRun));
+                testRun.updateArtifacts(findTestRunArtifacts.get());
             }
-            catch (IOException e)
+            catch (Throwable e)
             {
                 logger.error("Failed to set artifacts", e);
                 testRun.setState(TestRun.State.FAILED);
             }
-
-            logger.info("Test run completed for {}", testRun.getTestRunId().toString());
         });
     }
 }

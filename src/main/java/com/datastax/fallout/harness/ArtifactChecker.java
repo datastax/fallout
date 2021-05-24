@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ public abstract class ArtifactChecker implements WorkloadComponent
 
     private String instanceName;
     private PropertyGroup checkerInstanceProperties;
-    protected Logger logger = classLogger;
+    private Logger logger = classLogger;
 
     @Override
     public void setProperties(PropertyGroup properties)
@@ -80,5 +80,5 @@ public abstract class ArtifactChecker implements WorkloadComponent
      * @param rootArtifactLocation A {@link Path} describing the root location of all artifacts
      * @return <code>true</code> if validation was successful, <code>false</code> otherwise.
      */
-    public abstract boolean validate(Ensemble ensemble, Path rootArtifactLocation);
+    public abstract boolean checkArtifacts(Ensemble ensemble, Path rootArtifactLocation);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,10 +79,9 @@ public class JepsenWorkload
             baseTest,
             ENSEMBLE, ensemble);
 
-        Map<String, Checker> checkers = workload.getCheckers();
+        Map<String, Checker> checkers = workload.getCheckersJepsenMap();
 
-        Map<Object, Object> jepsenWorkload = new HashMap<Object, Object>()
-        {
+        Map<Object, Object> jepsenWorkload = new HashMap<Object, Object>() {
             {
                 put(CONDUCTORS, conductors(workload.getPhases()));
                 put(CHECKER, checkerCompose.invoke(checkers));
@@ -95,8 +94,7 @@ public class JepsenWorkload
         testRunStatusUpdater.setCurrentState(TestRun.State.RUNNING);
         logger.info("Starting Jepsen test");
 
-        final LoggerFactory jepsenLoggerFactory = new LoggerFactory()
-        {
+        final LoggerFactory jepsenLoggerFactory = new LoggerFactory() {
             @Override
             public Object name()
             {

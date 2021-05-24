@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import com.datastax.fallout.ops.JobFileLoggers;
 import com.datastax.fallout.ops.JobLoggers;
 import com.datastax.fallout.service.core.TestRun;
 
+import static com.datastax.fallout.runner.UserCredentialsFactory.UserCredentials;
+
 public class JobLoggersFactory
 {
     private final Path artifactPathRoot;
@@ -32,10 +34,9 @@ public class JobLoggersFactory
         this.logTestRunsToConsole = logTestRunsToConsole;
     }
 
-    @SuppressWarnings("unchecked")
-    JobLoggers create(TestRun testRun)
+    JobLoggers create(TestRun testRun, UserCredentials userCredentials)
     {
         return new JobFileLoggers(
-            Artifacts.buildTestRunArtifactPath(artifactPathRoot, testRun), logTestRunsToConsole);
+            Artifacts.buildTestRunArtifactPath(artifactPathRoot, testRun), logTestRunsToConsole, userCredentials);
     }
 }

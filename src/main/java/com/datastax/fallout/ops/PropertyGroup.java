@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,23 +20,38 @@ import java.util.Map;
 
 public interface PropertyGroup
 {
-    void validateFull(List<PropertySpec> propertySpecs) throws PropertySpec.ValidationException;
+    default void validateFull(List<PropertySpec<?>> propertySpecs) throws PropertySpec.ValidationException
+    {
+        validate(propertySpecs, false, true);
+    }
 
-    void validate(List<PropertySpec> propertySpecs) throws PropertySpec.ValidationException;
+    default void validate(List<PropertySpec<?>> propertySpecs) throws PropertySpec.ValidationException
+    {
+        validate(propertySpecs, false, false);
+    }
 
-    void validate(List<PropertySpec> propertySpecs, boolean ignoreFalloutProperties)
+    default void validate(List<PropertySpec<?>> propertySpecs, boolean ignoreFalloutProperties)
+        throws PropertySpec.ValidationException
+    {
+        validate(propertySpecs, ignoreFalloutProperties, false);
+    }
+
+    void validate(List<PropertySpec<?>> propertySpecs, boolean ignoreFalloutProperties, boolean failForUnknownProps)
         throws PropertySpec.ValidationException;
 
-    void validate(List<PropertySpec> propertySpecs, boolean ignoreFalloutProperties, boolean failForUnknownProps)
-        throws PropertySpec.ValidationException;
+    enum ExpandRefsMode
+    {
+        EXPAND_REFS,
+        IGNORE_REFS
+    }
 
-    Map<String, String> asMap();
+    Object get(String name, ExpandRefsMode expandRefsMode);
 
-    Object get(String name);
+    default boolean hasProperty(String name)
+    {
+        return get(name, ExpandRefsMode.IGNORE_REFS) != null;
+    }
 
-    boolean hasProperty(String name);
-
-    boolean isEmpty();
-
-    Map<String, Object> getProperties();
+    /** Return an immutable view of the underlying properties */
+    Map<String, Object> asMap();
 }

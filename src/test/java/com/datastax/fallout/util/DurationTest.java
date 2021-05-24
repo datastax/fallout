@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,25 +15,14 @@
  */
 package com.datastax.fallout.util;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 
-@RunWith(Parameterized.class)
 public class DurationTest
 {
-    @Parameter
-    public String input;
-
-    @Parameter(1)
-    public Duration expected;
-
-    @Parameters(name = "fromString(\"{0}\") == {1}")
-    public static Object[] params()
+    public static Object[][] params()
     {
         return new Object[][] {
             {"3061ns", Duration.nanoseconds(3061)},
@@ -52,14 +41,16 @@ public class DurationTest
         };
     }
 
-    @Test
-    public void fromString_returns_expected_result()
+    @ParameterizedTest(name = "fromString(\"{0}\") == {1}")
+    @MethodSource("params")
+    public void fromString_returns_expected_result(String input, Duration expected)
     {
         assertThat(Duration.fromString(input)).isEqualTo(expected);
     }
 
-    @Test
-    public void fromString_ignores_case()
+    @ParameterizedTest(name = "fromString(\"{0}\") == {1}")
+    @MethodSource("params")
+    public void fromString_ignores_case(String input, Duration expected)
     {
         assertThat(Duration.fromString(input.toUpperCase())).isEqualTo(expected);
     }

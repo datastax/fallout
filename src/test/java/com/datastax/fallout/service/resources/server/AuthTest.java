@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,62 +24,59 @@ import javax.ws.rs.core.Response;
 import java.util.UUID;
 
 import io.dropwizard.setup.Environment;
-import io.dropwizard.testing.junit.DropwizardAppRule;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.experimental.categories.Category;
+import io.dropwizard.testing.junit5.DropwizardAppExtension;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.FalloutService;
 import com.datastax.fallout.service.resources.AccountClient;
-import com.datastax.fallout.service.resources.FalloutServiceRule;
-import com.datastax.fallout.test.utils.categories.RequiresDb;
+import com.datastax.fallout.service.resources.FalloutAppExtension;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.FalloutConfiguration.AuthenticationMode.SINGLE_USER;
-import static javax.ws.rs.core.ResponseAssert.assertThat;
 
-@Category(RequiresDb.class)
+@Tag("requires-db")
 public abstract class AuthTest
 {
     static final String userCredsString = "user:email@email.com:password";
     static final FalloutConfiguration.UserCreds userCreds = FalloutConfiguration.UserCreds.from(userCredsString);
 
-    abstract FalloutServiceRule getServiceRule();
+    abstract FalloutAppExtension getServiceExtension();
 
-    abstract FalloutServiceRule.FalloutServiceResetRule getResetRule();
+    abstract FalloutAppExtension.FalloutServiceResetExtension getResetExtension();
 
     Invocation.Builder accountTarget()
     {
-        return getResetRule().anonApi().target("/account").request();
+        return getResetExtension().anonApi().target("/account").request();
     }
 
     @Test
     public void test_auth_using_oauth_token()
     {
-        UUID oauthToken = AccountClient.getOAuthId(getServiceRule().getSession(), userCreds.getEmail());
+        UUID oauthToken = AccountClient.getOAuthId(getServiceExtension().getSession(), userCreds.getEmail());
         String header = String.format("%s %s", FalloutService.OAUTH_BEARER_TOKEN_TYPE, oauthToken);
         assertThat(accountTarget().header("Authorization", header).get()).hasStatusInfo(Response.Status.OK);
     }
 
     public static class SingleUser extends AuthTest
     {
-        @ClassRule
-        public static final FalloutServiceRule falloutServiceRule;
+        @RegisterExtension
+        public static final FalloutAppExtension FALLOUT_APP_EXTENSION;
 
-        @Rule
-        public final FalloutServiceRule.FalloutServiceResetRule resetRule =
-            falloutServiceRule.resetRule(FalloutServiceRule.ResetBehavior.DO_NOT_CLEAN_DATABASE);
+        @RegisterExtension
+        public final FalloutAppExtension.FalloutServiceResetExtension resetExtension =
+            FALLOUT_APP_EXTENSION.resetExtension(FalloutAppExtension.ResetBehavior.DO_NOT_CLEAN_DATABASE);
 
         static
         {
-            falloutServiceRule = new FalloutServiceRule();
-            falloutServiceRule.addListener(new DropwizardAppRule.ServiceListener<>()
-            {
+            FALLOUT_APP_EXTENSION = new FalloutAppExtension();
+            FALLOUT_APP_EXTENSION.addListener(new DropwizardAppExtension.ServiceListener<FalloutConfiguration>() {
                 @Override
                 public void onRun(FalloutConfiguration configuration, Environment environment,
-                    DropwizardAppRule<FalloutConfiguration> rule)
+                    DropwizardAppExtension<FalloutConfiguration> rule)
                 {
                     configuration.setAdminUserCreds(userCredsString);
                     configuration.setAuthenticationMode(SINGLE_USER);
@@ -88,15 +85,15 @@ public abstract class AuthTest
         }
 
         @Override
-        protected FalloutServiceRule getServiceRule()
+        protected FalloutAppExtension getServiceExtension()
         {
-            return falloutServiceRule;
+            return FALLOUT_APP_EXTENSION;
         }
 
         @Override
-        FalloutServiceRule.FalloutServiceResetRule getResetRule()
+        FalloutAppExtension.FalloutServiceResetExtension getResetExtension()
         {
-            return resetRule;
+            return resetExtension;
         }
 
         @Test
@@ -108,27 +105,28 @@ public abstract class AuthTest
 
     public static class MultiUser extends AuthTest
     {
-        @ClassRule
-        public static final FalloutServiceRule falloutServiceRule = new FalloutServiceRule();
+        @RegisterExtension
+        public static final FalloutAppExtension FALLOUT_APP_EXTENSION = new FalloutAppExtension();
 
-        @Rule
-        public final FalloutServiceRule.FalloutServiceResetRule resetRule = falloutServiceRule.resetRule();
+        @RegisterExtension
+        public final FalloutAppExtension.FalloutServiceResetExtension resetExtension =
+            FALLOUT_APP_EXTENSION.resetExtension();
 
         private static Cookie userCookie;
 
         @Override
-        protected FalloutServiceRule getServiceRule()
+        protected FalloutAppExtension getServiceExtension()
         {
-            return falloutServiceRule;
+            return FALLOUT_APP_EXTENSION;
         }
 
         @Override
-        FalloutServiceRule.FalloutServiceResetRule getResetRule()
+        FalloutAppExtension.FalloutServiceResetExtension getResetExtension()
         {
-            return resetRule;
+            return resetExtension;
         }
 
-        @Before
+        @BeforeEach
         public void registerAccount()
         {
             MultivaluedMap<String, String> registerForm = new MultivaluedHashMap<>();
@@ -136,7 +134,7 @@ public abstract class AuthTest
             registerForm.add("email", userCreds.getEmail());
             registerForm.add("password", userCreds.getPassword());
 
-            Response register = AccountClient.register(resetRule.anonApi(), registerForm);
+            Response register = AccountClient.register(resetExtension.anonApi(), registerForm);
             assertThat(register).hasStatusInfo(Response.Status.OK);
             userCookie = register.getCookies().get(FalloutService.COOKIE_NAME);
         }

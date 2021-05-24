@@ -1,0 +1,118 @@
+config:
+  inputs: |
+    [INPUT]
+        Name cpu
+        Tag  cpu_usage
+
+    [INPUT]
+        Name disk
+        Tag  disk_io
+
+    [INPUT]
+        Name   mem
+        Tag    memory
+
+    [INPUT]
+        Name tail
+        Path /var/log/containers/*.log
+        Parser docker
+        Tag kube.*
+        Mem_Buf_Limit 10MB
+        Skip_Long_Lines Off
+
+  ## https://docs.fluentbit.io/manual/pipeline/filters
+  filters: |
+    [FILTER]
+        Name kubernetes
+        Match kube.*
+        Merge_Log On
+        Keep_Log Off
+        K8S-Logging.Parser On
+        K8S-Logging.Exclude On
+
+  ## https://docs.fluentbit.io/manual/pipeline/outputs
+  outputs: |
+    [OUTPUT]
+        Name  File
+        Format out_file
+        Path /mnt/storage/fluent-bit
+        File cpu_usage.txt
+        Match cpu_usage
+
+    [OUTPUT]
+        Name  File
+        Format out_file
+        Path /mnt/storage/fluent-bit
+        File disk_io.txt
+        Match disk_io
+
+    [OUTPUT]
+        Name  File
+        Format out_file
+        Path /mnt/storage/fluent-bit
+        File memory_usage.txt
+        Match memory
+
+    [OUTPUT]
+        Name  File
+        Format template
+        Path /mnt/storage/fluent-bit
+        Template {time} -- msg={msg}, log={log}
+        File kubernetes-shared.log
+        Match kube.*
+
+
+  ## https://docs.fluentbit.io/manual/pipeline/parsers
+  customParsers: |
+    [PARSER]
+        Name docker_no_time
+        Format json
+        Time_Keep Off
+        Time_Key time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+
+# The config volume is mounted by default, either to the existingConfigMap value, or the default of "fluent-bit.fullname"
+volumeMounts:
+  - name: config
+    mountPath: /fluent-bit/etc/fluent-bit.conf
+    subPath: fluent-bit.conf
+  - name: config
+    mountPath: /fluent-bit/etc/custom_parsers.conf
+    subPath: custom_parsers.conf
+
+daemonSetVolumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+  - name: varlibdockercontainers
+    hostPath:
+      path: /var/lib/docker/containers
+  - name: etcmachineid
+    hostPath:
+      path: /etc/machine-id
+      type: File
+
+daemonSetVolumeMounts:
+  - name: varlog
+    mountPath: /var/log
+  - name: varlibdockercontainers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+  - name: etcmachineid
+    mountPath: /etc/machine-id
+    readOnly: true
+
+args: [ ]
+
+command: [ ]
+
+extraContainers: [ ]
+
+extraVolumes:
+  - name: persistent-volume-output
+    persistentVolumeClaim:
+      claimName: {{claim}}
+
+extraVolumeMounts:
+  - name: persistent-volume-output
+    mountPath: /mnt/storage/fluent-bit

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 package com.datastax.fallout.service.core;
 
-import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 import java.util.Set;
@@ -32,7 +31,7 @@ import com.datastax.driver.mapping.annotations.Table;
 import static com.datastax.fallout.harness.TestDefinition.getDereferencedYaml;
 
 @Table(name = "tests")
-public class Test
+public class Test implements HasPermissions
 {
     @PartitionKey()
     private String owner;
@@ -89,6 +88,7 @@ public class Test
         this.testId = testId;
     }
 
+    @Override
     public String getOwner()
     {
         return owner;
@@ -141,7 +141,7 @@ public class Test
 
     public Set<String> getTags()
     {
-        return tags != null ? tags : Collections.EMPTY_SET;
+        return tags != null ? tags : Set.of();
     }
 
     public void setTags(Set<String> tags)
@@ -163,11 +163,6 @@ public class Test
     public String getSizeOnDisk()
     {
         return sizeOnDiskBytes != null ? FileUtils.byteCountToDisplaySize(sizeOnDiskBytes) : "Unknown";
-    }
-
-    public boolean isOwnedBy(User u)
-    {
-        return u != null && getOwner().equalsIgnoreCase(u.getEmail());
     }
 
     public TestRun createTestRun(Map<String, Object> templateParams)

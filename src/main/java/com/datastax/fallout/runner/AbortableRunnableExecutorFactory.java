@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ public class AbortableRunnableExecutorFactory implements RunnableExecutorFactory
         this.executorFactory = executorFactory;
     }
 
-    private <E extends Executor> E registerRemoveOnInactiveCallback(UUID testrunId, E executor)
+    private Executor registerRemoveOnInactiveCallback(UUID testrunId, Executor executor)
     {
         executor.getTestRunStatus().addInactiveCallback(() -> activeTestRuns.remove(testrunId));
         return executor;
@@ -53,8 +53,8 @@ public class AbortableRunnableExecutorFactory implements RunnableExecutorFactory
     public RunnableExecutor create(TestRun testRun, UserCredentialsFactory.UserCredentials userCredentials)
     {
         final var executor = executorFactory.create(testRun, userCredentials);
-        activeTestRuns.put(testRun.getTestRunId(),
-            registerRemoveOnInactiveCallback(testRun.getTestRunId(), executor));
+        executor.getTestRunStatus().addActiveCallback(() -> activeTestRuns.put(testRun.getTestRunId(),
+            registerRemoveOnInactiveCallback(testRun.getTestRunId(), executor)));
         return executor;
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,9 @@ package com.datastax.fallout.runner;
 import java.time.Duration;
 import java.util.Optional;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datastax.fallout.harness.ExceptionHandler;
 import com.datastax.fallout.harness.TestRunStatus;
 import com.datastax.fallout.runner.queue.ReadOnlyTestRunQueue;
 import com.datastax.fallout.service.core.TestRun;
@@ -39,7 +37,6 @@ import com.datastax.fallout.service.core.TestRun;
 public class TestRunQueueProcessor implements Runnable
 {
     private static final Duration MAX_LOCK_DURATION = Duration.ofMinutes(5);
-    private final ExceptionHandler exceptionHandler;
     private final ReadOnlyTestRunQueue testRunQueue;
     private final RunnableExecutorFactory executorFactory;
     private final ResourceReservationLocks resourceReservationLocks;
@@ -52,20 +49,11 @@ public class TestRunQueueProcessor implements Runnable
     private static final Logger lockDurationLogger = LoggerFactory.getLogger(logger.getName() + ".LockDuration");
 
     TestRunQueueProcessor(ReadOnlyTestRunQueue testRunQueue,
-        UserCredentialsFactory userCredentialsFactory, RunnableExecutorFactory executorFactory,
-        ResourceReservationLocks resourceReservationLocks)
-    {
-        this(testRunQueue, userCredentialsFactory, logger::error, executorFactory, resourceReservationLocks);
-    }
-
-    @VisibleForTesting
-    TestRunQueueProcessor(ReadOnlyTestRunQueue testRunQueue,
-        UserCredentialsFactory userCredentialsFactory, ExceptionHandler exceptionHandler,
+        UserCredentialsFactory userCredentialsFactory,
         RunnableExecutorFactory executorFactory, ResourceReservationLocks resourceReservationLocks)
     {
         this.testRunQueue = testRunQueue;
         this.userCredentialsFactory = userCredentialsFactory;
-        this.exceptionHandler = exceptionHandler;
         this.executorFactory = executorFactory;
         this.resourceReservationLocks = resourceReservationLocks;
     }
@@ -74,6 +62,25 @@ public class TestRunQueueProcessor implements Runnable
     {
         shutdownRequested = true;
         testRunQueue.unblock();
+    }
+
+    private void releaseResourceReservationLock(TestRun testRun, ResourceReservationLocks.Lock lockedRequiredResources_)
+    {
+        var lockDuration = lockedRequiredResources_.release();
+        if (lockDuration.compareTo(MAX_LOCK_DURATION) > 0)
+        {
+            lockDurationLogger.error("TestRun {} {} {} held {} for {}s, which is greater than {}s",
+                testRun.getOwner(), testRun.getTestName(), testRun.getTestRunId(),
+                lockedRequiredResources_.getLockedResources(),
+                lockDuration.getSeconds(), MAX_LOCK_DURATION.getSeconds());
+        }
+        else
+        {
+            lockDurationLogger.info("TestRun {} {} {} held {} for {}s",
+                testRun.getOwner(), testRun.getTestName(), testRun.getTestRunId(),
+                lockedRequiredResources_.getLockedResources(),
+                lockDuration.getSeconds());
+        }
     }
 
     private void process(TestRun testRun, Runnable requeueJob)
@@ -88,25 +95,19 @@ public class TestRunQueueProcessor implements Runnable
             TestRunStatus testRunStatus = executor.getTestRunStatus();
 
             testRunStatus.addResourcesUnavailableCallback(requeueJob);
-            testRunStatus.addInactiveOrResourcesReservedCallback(() -> {
-                var lockDuration = lockedRequiredResources_.release();
-                if (lockDuration.compareTo(MAX_LOCK_DURATION) > 0)
-                {
-                    lockDurationLogger.error("TestRun {} {} {} held {} for {}s, which is greater than {}s",
-                        testRun.getOwner(), testRun.getTestName(), testRun.getTestRunId(),
-                        lockedRequiredResources_.getLockedResources(),
-                        lockDuration.getSeconds(), MAX_LOCK_DURATION.getSeconds());
-                }
-                else
-                {
-                    lockDurationLogger.info("TestRun {} {} {} held {} for {}s",
-                        testRun.getOwner(), testRun.getTestName(), testRun.getTestRunId(),
-                        lockedRequiredResources_.getLockedResources(),
-                        lockDuration.getSeconds());
-                }
-            });
+            testRunStatus.addInactiveOrResourcesReservedCallback(
+                () -> releaseResourceReservationLock(testRun, lockedRequiredResources_));
 
-            executor.run();
+            try
+            {
+                executor.run();
+            }
+            catch (Throwable ex)
+            {
+                // Release the lock, and let callers handle the exception.
+                releaseResourceReservationLock(testRun, lockedRequiredResources_);
+                throw ex;
+            }
 
             testRunStatus.waitUntilInactiveOrResourcesChecked();
         });
@@ -126,14 +127,25 @@ public class TestRunQueueProcessor implements Runnable
     {
         while (!shutdownRequested)
         {
-            testRunQueue.take((job, requeueJob) -> {
+            testRunQueue.take((testRun, unprocessedHandler) -> {
                 try
                 {
-                    process(job, () -> requeueJob.accept(job));
+                    process(testRun, unprocessedHandler::requeue);
                 }
-                catch (Exception e)
+                catch (Throwable e)
                 {
-                    exceptionHandler.accept("Unexpected exception in TestRunQueueProcessor", e);
+                    try
+                    {
+                        unprocessedHandler.handleException(e);
+                    }
+                    catch (Throwable e1)
+                    {
+                        logger.error(
+                            "While handling exception thrown during TestRun {} processing, another exception was thrown:",
+                            testRun.getShortName());
+                        logger.error("  original exception", e);
+                        logger.error("  secondary exception", e1);
+                    }
                 }
             });
         }

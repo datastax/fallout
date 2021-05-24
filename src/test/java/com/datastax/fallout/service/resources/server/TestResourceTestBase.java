@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -27,45 +26,57 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import com.google.common.util.concurrent.Uninterruptibles;
-import org.assertj.core.api.Assertions;
-import org.junit.experimental.categories.Category;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 
 import com.datastax.fallout.harness.EnsembleFalloutTest;
+import com.datastax.fallout.harness.JepsenApi;
 import com.datastax.fallout.service.core.TestRun;
+import com.datastax.fallout.service.resources.FalloutAppExtensionBase;
 import com.datastax.fallout.service.resources.RestApiBuilder;
-import com.datastax.fallout.test.utils.categories.RequiresDb;
 import com.datastax.fallout.util.Duration;
 
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static javax.ws.rs.core.Response.Status.CREATED;
-import static javax.ws.rs.core.ResponseAssert.assertThat;
 
-@Category(RequiresDb.class)
-public abstract class TestResourceTestBase
+@Tag("requires-db")
+public abstract class TestResourceTestBase<FA extends FalloutAppExtensionBase<?, ?>> extends WithFalloutAppExtension<FA>
 {
     protected RestApiBuilder api;
+
+    protected TestResourceTestBase(FA falloutAppExtension)
+    {
+        super(falloutAppExtension);
+    }
+
+    @BeforeAll
+    public static void initClojure()
+    {
+        JepsenApi.preload();
+    }
 
     protected static Response createTest(RestApiBuilder api, String dir, String testName)
     {
         return api.build(TestResource.class, "createTestApi", testName)
             .post(Entity.entity(
-                EnsembleFalloutTest.readYamlFile(dir + testName + ".yaml"), "application/yaml"));
+                EnsembleFalloutTest.readSharedYamlFile(dir + testName + ".yaml"), "application/yaml"));
     }
 
     protected Response createTest(String dir, String testName)
     {
         return api.build(TestResource.class, "createTestApi", testName)
             .post(Entity.entity(
-                EnsembleFalloutTest.readYamlFile(dir + testName + ".yaml"), "application/yaml"));
+                EnsembleFalloutTest.readSharedYamlFile(dir + testName + ".yaml"), "application/yaml"));
     }
 
     protected Response editTest(String dir, String baseFileName, String testName)
     {
         return api.build(TestResource.class, "createOrUpdateTestApi", testName)
             .put(Entity.entity(
-                EnsembleFalloutTest.readYamlFile(dir + baseFileName + ".yaml"), "application/yaml"));
+                EnsembleFalloutTest.readSharedYamlFile(dir + baseFileName + ".yaml"), "application/yaml"));
     }
 
-    protected TestRun startTest(String testName, TestResource.CreateTestRun createTestRun)
+    protected TestRun startTest(RestApiBuilder api, String testName, TestResource.CreateTestRun createTestRun)
     {
         final Response response = api
             .build(TestResource.class, "createTestRunApi", testName)
@@ -73,49 +84,83 @@ public abstract class TestResourceTestBase
 
         assertThat(response).hasStatusInfo(CREATED);
         final TestRun testRun = response.readEntity(TestRun.class);
-        Assertions.assertThat(response.getLocation()).hasPath(TestResource.uriForGetTestRunApi(testRun).getPath());
+        assertThat(response.getLocation()).hasPath(TestResource.uriForGetTestRunApi(testRun).getPath());
         return testRun;
     }
 
-    protected TestRun startTest(String testName, String yamlTemplateParams_)
+    private static TestResource.CreateTestRun withYamlTemplateParams(String yamlTemplateParams_)
     {
-        return startTest(testName, yamlTemplateParams_ == null ? null :
-            new TestResource.CreateTestRun()
+        return new TestResource.CreateTestRun() {
             {
-                {
-                    this.yamlTemplateParams = yamlTemplateParams_;
-                }
-            });
+                this.yamlTemplateParams = yamlTemplateParams_;
+            }
+        };
+    }
+
+    private static TestResource.CreateTestRun withJsonTemplateParams(Map<String, Object> jsonTemplateParams_)
+    {
+        return new TestResource.CreateTestRun() {
+            {
+                this.jsonTemplateParams = jsonTemplateParams_;
+            }
+        };
+    }
+
+    private static TestResource.CreateTestRun withNoTemplateParams()
+    {
+        return null;
+    }
+
+    protected TestRun startTest(RestApiBuilder api, String testName, String yamlTemplateParams)
+    {
+        return startTest(api, testName, withYamlTemplateParams(yamlTemplateParams));
+    }
+
+    protected TestRun startTest(String testName, String yamlTemplateParams)
+    {
+        return startTest(api, testName, withYamlTemplateParams(yamlTemplateParams));
+    }
+
+    protected TestRun startTest(RestApiBuilder api, String testName)
+    {
+        return startTest(api, testName, withNoTemplateParams());
     }
 
     protected TestRun startTest(String testName)
     {
-        return startTest(testName, (TestResource.CreateTestRun) null);
+        return startTest(api, testName, withNoTemplateParams());
+    }
+
+    protected TestRun runTest(RestApiBuilder api, String testName, TestResource.CreateTestRun createTestRun)
+    {
+        final TestRun testRun = startTest(api, testName, createTestRun);
+
+        return waitForCompletedTestRun(testRun);
+    }
+
+    protected TestRun runTest(RestApiBuilder api, String testName, String yamlTemplateParams)
+    {
+        return runTest(api, testName, withYamlTemplateParams(yamlTemplateParams));
     }
 
     protected TestRun runTest(String testName)
     {
-        return runTest(testName, (String) null);
+        return runTest(api, testName, withNoTemplateParams());
+    }
+
+    protected TestRun runTest(RestApiBuilder api, String testName)
+    {
+        return runTest(api, testName, withNoTemplateParams());
     }
 
     protected TestRun runTest(String testName, String yamlTemplateParams)
     {
-        final TestRun testRun = startTest(testName, yamlTemplateParams);
-
-        return waitForCompletedTestRun(testRun);
+        return runTest(api, testName, withYamlTemplateParams(yamlTemplateParams));
     }
 
-    protected TestRun runTest(String testName, Map<String, Object> jsonTemplateParams_)
+    protected TestRun runTest(String testName, Map<String, Object> jsonTemplateParams)
     {
-        final TestRun testRun = startTest(testName,
-            new TestResource.CreateTestRun()
-            {
-                {
-                    this.jsonTemplateParams = jsonTemplateParams_;
-                }
-            });
-
-        return waitForCompletedTestRun(testRun);
+        return runTest(api, testName, withJsonTemplateParams(jsonTemplateParams));
     }
 
     protected TestRun reRunTestWithClone(TestRun testRun, boolean clone)
@@ -146,7 +191,7 @@ public abstract class TestResourceTestBase
             Uninterruptibles.sleepUninterruptibly(sleepDurationMillis, TimeUnit.MILLISECONDS);
             waitMillis += sleepDurationMillis;
 
-            Assertions.assertThat(waitMillis)
+            assertThat(waitMillis)
                 .withFailMessage("Timeout waiting for test runs")
                 .isLessThanOrEqualTo(timeout.toMillis());
 
@@ -158,12 +203,12 @@ public abstract class TestResourceTestBase
 
     protected List<TestRun> waitForTestRunsToSatisfy(List<TestRun> testRuns_, Predicate<TestRun> predicate)
     {
-        return waitForTestRunsToSatisfy(testRuns_, predicate, Duration.minutes(6));
+        return waitForTestRunsToSatisfy(testRuns_, predicate, Duration.minutes(2));
     }
 
     protected TestRun waitForCompletedTestRun(TestRun testRun)
     {
-        return waitForTestRunsToSatisfy(Collections.singletonList(testRun),
+        return waitForTestRunsToSatisfy(List.of(testRun),
             testRun_ -> testRun_.getState().finished()).get(0);
     }
 

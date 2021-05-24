@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,122 +21,120 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.Lists;
+import com.google.common.base.Functions;
 import io.dropwizard.auth.Auth;
 
 import com.datastax.fallout.harness.ArtifactChecker;
 import com.datastax.fallout.harness.Checker;
 import com.datastax.fallout.harness.Module;
 import com.datastax.fallout.ops.ConfigurationManager;
+import com.datastax.fallout.ops.FalloutPropertySpecs;
 import com.datastax.fallout.ops.PropertyBasedComponent;
+import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.Provisioner;
 import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.User;
-import com.datastax.fallout.service.resources.server.TestResource.ComponentView.ComponentCategories;
 import com.datastax.fallout.service.views.FalloutView;
 import com.datastax.fallout.service.views.MainView;
 
-@Path("/components/{type: (provisioners|configurationmanagers|modules|checkers|artifact_checkers)}")
+@Path("/components/{type: (provisioners|configurationmanagers|modules|checkers|artifact_checkers)}/{name}")
 @Produces(MediaType.TEXT_HTML)
 public class ComponentResource
 {
-    private final FalloutConfiguration configuration;
+    public static class PropertyCategory
+    {
+        final String category;
+        final List<PropertySpec<?>> properties;
 
-    private final LoadingCache<String, ComponentType> componentTypeInfoCache =
-        CacheBuilder.newBuilder().build(new CacheLoader<String, ComponentType>()
+        PropertyCategory(String category, List<PropertySpec<?>> properties)
         {
-            public ComponentType load(String key) throws Exception
-            {
-                ComponentType componentType = null;
+            this.category = category;
+            this.properties = properties;
+        }
 
-                switch (key)
-                {
-                    case "provisioners":
-                        componentType = new ComponentType(key, "Provisioners",
-                            "Supplies compute / disk / network resources for a test.",
-                            getCategoryInfo(Provisioner.class));
-                        break;
-                    case "configurationmanagers":
-                        componentType = new ComponentType(key, "Configuration Managers",
-                            "Installs and configures software and services.",
-                            getCategoryInfo(ConfigurationManager.class));
-                        break;
-                    case "modules":
-                        componentType = new ComponentType(key, "Modules", "Executes actions during a test.",
-                            getCategoryInfo(Module.class));
-                        break;
-                    case "checkers":
-                        componentType = new ComponentType(key, "Checkers",
-                            "Verifies information contained in the jepsen log once a test completes.",
-                            getCategoryInfo(Checker.class));
-                        break;
-                    case "artifact_checkers":
-                        componentType = new ComponentType(key, "Artifact Checkers",
-                            "Checks / Extracts information from one or more downloaded artifacts once a test completes.",
-                            getCategoryInfo(ArtifactChecker.class));
-                        break;
-                }
-
-                return componentType;
-            }
-        });
-
-    private final List<ComponentType> componentMenu;
-    private MainView mainView;
-
-    public ComponentResource(FalloutConfiguration configuration)
-    {
-        this.configuration = configuration;
-        List<String> componentTypes = Lists
-            .newArrayList("provisioners", "configurationmanagers", "modules", "checkers", "artifact_checkers");
-        componentMenu = componentTypes.stream()
-            .map(componentTypeInfoCache::getUnchecked)
-            .collect(Collectors.toList());
+        boolean isDependencyCategory()
+        {
+            return category.contains("=");
+        }
     }
 
-    public List<ComponentType> getComponentMenu()
+    public static class ComponentProperties
     {
-        return componentMenu;
-    }
+        final PropertyBasedComponent component;
+        final Collection<PropertyCategory> propertyCategories;
 
-    @GET
-    public FalloutView getDocumentation(@Auth Optional<User> user, @PathParam("type") String type)
-    {
-        return new ComponentDocsView(user, componentTypeInfoCache.getUnchecked(type));
-    }
-
-    public void setMainView(MainView mainView)
-    {
-        this.mainView = mainView;
+        ComponentProperties(PropertyBasedComponent component)
+        {
+            this.component = component;
+            this.propertyCategories = propertyCategories(component.getPropertySpecs());
+        }
     }
 
     public static class ComponentType
     {
-        final String key;
+        final String type;
         final String name;
-        final String blurb;
-        final List<ComponentCategories> categories;
+        final String description;
+        final List<ComponentProperties> components;
+        private final Map<String, ComponentProperties> componentLookup;
 
-        ComponentType(String key, String name, String blurb, List<ComponentCategories> categories)
+        ComponentType(String type, String name, String description, List<ComponentProperties> components)
         {
-            this.key = key;
+            this.type = type;
             this.name = name;
-            this.blurb = blurb;
-            categories.sort(Comparator.comparing(ComponentCategories::getName));
-            this.categories = categories;
+            this.description = description;
+            this.components = components;
+            componentLookup = components.stream()
+                .collect(Collectors.toMap(
+                    componentProperties -> componentProperties.component.name(), Functions.identity()));
         }
     }
 
-    List<ComponentCategories> getCategoryInfo(Class<? extends PropertyBasedComponent> clazz)
+    private final List<ComponentType> componentTypes;
+    private final Map<String, ComponentType> componentTypeLookup;
+    private MainView mainView;
+
+    public static Collection<PropertyCategory> propertyCategories(List<PropertySpec<?>> specs)
+    {
+        final var categorySpecsMap = new HashMap<String, List<PropertySpec<?>>>();
+
+        specs.stream()
+
+            //Filter out any properties with system aliases we use on this page
+            .filter(spec -> spec.alias()
+                .map(alias -> !alias.startsWith(FalloutPropertySpecs.prefix))
+                .orElse(true))
+
+            //Filter out any properties with the internal category
+            .filter(spec -> !spec.isInternal())
+
+            .forEach(spec -> categorySpecsMap.computeIfAbsent(spec.category().orElse(""),
+                ignored -> new ArrayList<>()).add(spec));
+
+        return categorySpecsMap
+            .entrySet()
+            .stream()
+            .map(categorySpecs -> new PropertyCategory(categorySpecs.getKey(),
+                categorySpecs.getValue()))
+            .sorted(Comparator
+                .<PropertyCategory>comparingInt(propertyCategory -> propertyCategory.isDependencyCategory() ? 1 : 0)
+                .thenComparing(propertyCategory -> propertyCategory.category))
+            .collect(Collectors.toList());
+    }
+
+    private static List<ComponentProperties> loadComponents(FalloutConfiguration configuration,
+        Class<? extends PropertyBasedComponent> clazz)
     {
         return Utils.loadComponents(clazz)
             .stream()
@@ -145,19 +143,78 @@ public class ComponentResource
                 {
                     ((ConfigurationManager) c).setFalloutConfiguration(configuration);
                 }
-                return new ComponentCategories(c);
+                return new ComponentProperties(c);
             })
+            .sorted(Comparator.comparing(
+                componentProperties -> componentProperties.component.name().toLowerCase()))
             .collect(Collectors.toList());
+    }
+
+    private static ComponentType loadComponentType(FalloutConfiguration configuration, String type)
+    {
+        switch (type)
+        {
+            case "provisioners":
+                return new ComponentType(type, "Provisioners",
+                    "Supplies compute / disk / network resources for a test.",
+                    loadComponents(configuration, Provisioner.class));
+            case "configurationmanagers":
+                return new ComponentType(type, "Configuration Managers",
+                    "Installs and configures software and services.",
+                    loadComponents(configuration, ConfigurationManager.class));
+            case "modules":
+                return new ComponentType(type, "Modules", "Executes actions during a test.",
+                    loadComponents(configuration, Module.class));
+            case "checkers":
+                return new ComponentType(type, "Checkers",
+                    "Verifies information contained in the jepsen log once a test completes.",
+                    loadComponents(configuration, Checker.class));
+            case "artifact_checkers":
+                return new ComponentType(type, "Artifact Checkers",
+                    "Checks / Extracts information from one or more downloaded artifacts once a test completes.",
+                    loadComponents(configuration, ArtifactChecker.class));
+        }
+
+        return null;
+    }
+
+    public ComponentResource(FalloutConfiguration configuration)
+    {
+        this.componentTypes = Stream
+            .of("provisioners", "configurationmanagers", "modules", "checkers", "artifact_checkers")
+            .map(type -> loadComponentType(configuration, type))
+            .collect(Collectors.toList());
+        this.componentTypeLookup = componentTypes.stream()
+            .collect(Collectors.toMap(componentType -> componentType.type, Functions.identity()));
+    }
+
+    public void setMainView(MainView mainView)
+    {
+        this.mainView = mainView;
+    }
+
+    public List<ComponentType> getComponentTypes()
+    {
+        return componentTypes;
     }
 
     class ComponentDocsView extends FalloutView
     {
         final ComponentType componentType;
+        final ComponentProperties componentProperties;
 
-        public ComponentDocsView(Optional<User> user, ComponentType componentType)
+        public ComponentDocsView(Optional<User> user, ComponentType componentType, String name)
         {
             super("component-docs.mustache", user, mainView);
             this.componentType = componentType;
+            this.componentProperties = componentType != null ? componentType.componentLookup.get(name) : null;
         }
+    }
+
+    @GET
+    public FalloutView getDocumentation(@Auth Optional<User> user, @PathParam("type") String type,
+        @PathParam("name") String name)
+    {
+        return new ComponentDocsView(user, componentTypeLookup.get(type), name);
     }
 }

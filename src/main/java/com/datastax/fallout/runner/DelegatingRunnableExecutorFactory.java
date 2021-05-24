@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 package com.datastax.fallout.runner;
 
-import javax.ws.rs.ProcessingException;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 
@@ -88,11 +88,18 @@ public class DelegatingRunnableExecutorFactory extends AbstractDelegatingExecuto
                     runParams.testRun.getTestRunIdentifier(), run.getUri());
                 run.request().post(Entity.json(runParams), Void.class);
             }
-            catch (ProcessingException ex)
+            catch (Throwable ex)
             {
-                // Throwing will cause the testrun to be requeued
-                throw new RuntimeException(String.format("Could not run testrun %s via %s",
-                    runParams.testRun.getTestRunIdentifier(), run.getUri()));
+                String errorMessage = "";
+
+                // Jersey re-throws any WebApplicationException wrapped by ProcessingException
+                if (ex instanceof WebApplicationException)
+                {
+                    errorMessage = ": " + ((WebApplicationException) ex).getResponse().readEntity(String.class);
+                }
+
+                throw new RuntimeException(String.format("Could not run testrun %s via %s%s",
+                    runParams.testRun.getTestRunIdentifier(), run.getUri(), errorMessage), ex);
             }
         }
     }

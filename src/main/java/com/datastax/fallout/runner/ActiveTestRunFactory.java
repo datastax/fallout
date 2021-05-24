@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 package com.datastax.fallout.runner;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,10 +30,12 @@ import com.datastax.fallout.harness.ActiveTestRun;
 import com.datastax.fallout.harness.ActiveTestRunBuilder;
 import com.datastax.fallout.harness.InMemoryTestRunStateStorage;
 import com.datastax.fallout.harness.TestRunAbortedStatusUpdater;
+import com.datastax.fallout.harness.TestRunLinkUpdater;
 import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.JobLoggers;
 import com.datastax.fallout.ops.NullJobLoggers;
 import com.datastax.fallout.ops.ResourceRequirement;
+import com.datastax.fallout.ops.TestRunScratchSpaceFactory;
 import com.datastax.fallout.ops.commands.CommandExecutor;
 import com.datastax.fallout.ops.commands.Java8LocalCommandExecutor;
 import com.datastax.fallout.ops.commands.LocalCommandExecutor;
@@ -51,9 +52,10 @@ public class ActiveTestRunFactory
     private ComponentFactory componentFactory = null;
     private Supplier<CommandExecutor> commandExecutorFactory = LocalCommandExecutor::new;
     private final FalloutConfiguration configuration;
+    private final TestRunScratchSpaceFactory testRunScratchSpaceFactory;
 
-    private Function<Ensemble, List<CompletableFuture<Boolean>>> resourceChecker =
-        (e) -> List.of(CompletableFuture.completedFuture(true));
+    private Function<Ensemble, List<CompletableFuture<Boolean>>> resourceChecker = ensemble -> List.of();
+    private Function<Ensemble, Boolean> postSetupHook = ensemble -> true;
 
     public ActiveTestRunFactory(FalloutConfiguration configuration)
     {
@@ -62,6 +64,8 @@ public class ActiveTestRunFactory
         {
             commandExecutorFactory = Java8LocalCommandExecutor::new;
         }
+        testRunScratchSpaceFactory = new TestRunScratchSpaceFactory(
+            configuration.getRunDir().resolve("tmp"));
     }
 
     @VisibleForTesting
@@ -86,23 +90,29 @@ public class ActiveTestRunFactory
         return this;
     }
 
+    public ActiveTestRunFactory withPostSetupHook(Function<Ensemble, Boolean> postSetupHook)
+    {
+        this.postSetupHook = postSetupHook;
+        return this;
+    }
+
     private ActiveTestRunBuilder createBuilder(TestRun testRun, UserCredentials userCredentials)
     {
         String expandedDefinition = testRun.getExpandedDefinition();
 
         return ActiveTestRunBuilder.create()
             .withFalloutConfiguration(configuration)
-            .withEnsembleFromYaml(expandedDefinition)
-            .withWorkloadFromYaml(expandedDefinition)
+            .withTestRunIdentifier(testRun.getTestRunIdentifier())
+            .withTestDefinitionFromYaml(expandedDefinition)
             .withUserCredentials(userCredentials)
             .withTestRunArtifactPath(Artifacts.buildTestRunArtifactPath(configuration, testRun))
             .withResourceChecker(resourceChecker);
     }
 
     public Optional<ActiveTestRun> create(TestRun testRun, UserCredentials userCredentials,
-        JobLoggers loggers, TestRunAbortedStatusUpdater testRunStatus)
+        JobLoggers loggers, TestRunAbortedStatusUpdater testRunStatus, TestRunLinkUpdater testRunLinkUpdater)
     {
-        String testRunId = testRun.getTestRunId().toString();
+        final var testRunId = testRun.getTestRunId();
 
         testRunStatus.setCurrentState(TestRun.State.PREPARING_RUN);
 
@@ -118,9 +128,11 @@ public class ActiveTestRunFactory
                     .withCommandExecutor(new RejectableCommandExecutor(testRunStatus, commandExecutorFactory.get()))
                     .withTestRunStatusUpdater(testRunStatus)
                     .withLoggers(loggers)
-                    .withTestRunName(testRunId)
+                    .withTestRunScratchSpace(testRunScratchSpaceFactory.create(testRun.getTestRunIdentifier()))
                     .withTestRun(testRun)
                     .withResourceChecker(resourceChecker)
+                    .withPostSetupHook(postSetupHook)
+                    .withTestRunLinkUpdater(testRunLinkUpdater)
                     .build());
         }
         catch (Exception e)
@@ -136,7 +148,7 @@ public class ActiveTestRunFactory
     /** Returns the expanded test definition if the test is valid, or throws an Exception */
     public void validateTestDefinition(Test test, UserCredentialsFactory userCredentialsFactory)
     {
-        validateTestDefinition(test, userCredentialsFactory, Collections.emptyMap());
+        validateTestDefinition(test, userCredentialsFactory, Map.of());
     }
 
     /** Returns the expanded test definition if the test is valid, or throws an Exception */
@@ -145,26 +157,32 @@ public class ActiveTestRunFactory
     {
         TestRun testRun = test.createTestRun(templateParams);
 
-        createActiveTestRunWithName(userCredentialsFactory, testRun, test.getName());
-
-        return testRun.getExpandedDefinition();
+        // Creating the ActiveTestRun will also validate it
+        try (var ignored = createTemporaryActiveTestRun(userCredentialsFactory, testRun))
+        {
+            return testRun.getExpandedDefinition();
+        }
     }
 
     public Set<ResourceRequirement> getResourceRequirements(TestRun testRun,
         UserCredentialsFactory userCredentialsFactory)
     {
-        return createActiveTestRunWithName(userCredentialsFactory, testRun, testRun.getTestName())
-            .getResourceRequirements();
+        try (var activeTestRun = createTemporaryActiveTestRun(userCredentialsFactory, testRun))
+        {
+            return activeTestRun.getResourceRequirements();
+        }
     }
 
-    private ActiveTestRun createActiveTestRunWithName(UserCredentialsFactory userCredentialsFactory, TestRun testRun,
-        String name)
+    /** Create the bare minimum of an {@link ActiveTestRun} required for {@link
+     *  #validateTestDefinition} and {@link #getResourceRequirements} */
+    private ActiveTestRun createTemporaryActiveTestRun(UserCredentialsFactory userCredentialsFactory, TestRun testRun)
     {
         return createBuilder(testRun, userCredentialsFactory.apply(testRun))
-            .withTestRunName(name)
             .withTestRunStatusUpdater(
                 new TestRunAbortedStatusUpdater(new InMemoryTestRunStateStorage(testRun.getState())))
             .withLoggers(new NullJobLoggers())
+            // TODO: It's possible that the use-cases for the created ActiveTestRun do not require a scratch space
+            .withTestRunScratchSpace(testRunScratchSpaceFactory.create(testRun.getTestRunIdentifier()))
             .build();
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,17 +24,16 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
-import com.datastax.fallout.harness.Module;
+import com.datastax.fallout.components.common.provider.NodeInfoProvider;
+import com.datastax.fallout.components.common.provisioner.SshOnlyProvisioner;
 import com.datastax.fallout.ops.commands.CommandExecutor;
 import com.datastax.fallout.ops.commands.LocalCommandExecutor;
 import com.datastax.fallout.ops.commands.NodeCommandExecutor;
 import com.datastax.fallout.ops.commands.NodeResponse;
-import com.datastax.fallout.ops.providers.NodeInfoProvider;
 import com.datastax.fallout.runner.CheckResourcesResult;
-import com.datastax.fallout.service.core.TestRun;
+import com.datastax.fallout.service.FalloutConfiguration;
+import com.datastax.fallout.service.core.TestRunIdentifier;
 import com.datastax.fallout.service.core.User;
 
 /**
@@ -47,7 +46,6 @@ import com.datastax.fallout.service.core.User;
  * All operations are async
  * Operations are synchronized at the nodeGroup/Node level
  */
-
 public abstract class Provisioner extends EnsembleComponent implements NodeCommandExecutor, DebugInfoProvidingComponent
 {
     public final static String FORCE_ARTIFACTS_DIR = "fallout.force.artifacts.dir";
@@ -68,9 +66,9 @@ public abstract class Provisioner extends EnsembleComponent implements NodeComma
     }
 
     @Override
-    public List<PropertySpec> getPropertySpecs()
+    public List<PropertySpec<?>> getPropertySpecs()
     {
-        return ImmutableList.of(nameSpec);
+        return List.of(nameSpec);
     }
 
     protected Optional<String> explicitClusterName(NodeGroup nodeGroup)
@@ -78,10 +76,10 @@ public abstract class Provisioner extends EnsembleComponent implements NodeComma
         return nameSpec.optionalValue(nodeGroup);
     }
 
-    public String generateClusterName(NodeGroup nodeGroup, String testRunName, TestRun testRun,
-        User user)
+    public String generateClusterName(NodeGroup nodeGroup, Optional<User> user,
+        TestRunIdentifier testRunIdentifier)
     {
-        return ClusterNames.generateClusterName(nodeGroup, testRunName, testRun, user);
+        return ClusterNames.generateClusterName(nodeGroup, user, testRunIdentifier);
     }
 
     public String clusterName(NodeGroup nodeGroup)
@@ -101,10 +99,10 @@ public abstract class Provisioner extends EnsembleComponent implements NodeComma
     }
 
     @Override
-    public void setInstanceName(String modulePhaseName)
+    public void setInstanceName(String instanceName)
     {
         Preconditions.checkArgument(this.instanceName == null, "Provisioner instance name already set");
-        this.instanceName = modulePhaseName;
+        this.instanceName = instanceName;
     }
 
     @Override
@@ -147,6 +145,17 @@ public abstract class Provisioner extends EnsembleComponent implements NodeComma
 
     }
 
+    /**
+     * Method to perform complex validation of a nodegroup.
+     * Very similar to PropertyBasedComponent#validateProperties (which gets called the properties of the nodegroup)
+     *
+     * Should throw PropertySpec.ValidationException if an invalid property
+     * combination is found.
+     */
+    public void validateNodeGroup(NodeGroup nodeGroup) throws PropertySpec.ValidationException
+    {
+    }
+
     protected abstract boolean startImpl(NodeGroup nodeGroup);
 
     protected abstract boolean stopImpl(NodeGroup nodeGroup);
@@ -174,10 +183,6 @@ public abstract class Provisioner extends EnsembleComponent implements NodeComma
 
     /**
      * Download the provisioner specific artifacts, if any
-     *
-     * @param nodeGroup
-     * @param localPath
-     * @return
      */
     final public CompletableFuture<Boolean> downloadProvisionerArtifacts(NodeGroup nodeGroup, Path localPath)
     {
@@ -185,7 +190,7 @@ public abstract class Provisioner extends EnsembleComponent implements NodeComma
     }
 
     /**
-     * Copy all provisioner-specific artifacts in {@code localPath}, if there is any
+     * Copy all provisioner-specific artifacts in {@code localPath}, if there are any
      */
     protected boolean downloadProvisionerArtifactsImpl(NodeGroup nodeGroup, Path localPath)
     {
@@ -200,14 +205,13 @@ public abstract class Provisioner extends EnsembleComponent implements NodeComma
     /**
      * Returns the providers added to each Node by this Provisioner for the given NodeGroup properties
      *
-     * @see Module#getRequiredProviders()
-     *
      * @param nodeGroupProperties
      * @return the set of Providers to be installed on each Node
      */
+    @Override
     public Set<Class<? extends Provider>> getAvailableProviders(PropertyGroup nodeGroupProperties)
     {
-        return ImmutableSet.of(NodeInfoProvider.class);
+        return Set.of(NodeInfoProvider.class);
     }
 
     /**
@@ -237,11 +241,16 @@ public abstract class Provisioner extends EnsembleComponent implements NodeComma
         return true;
     }
 
+    public PropertySpec<String> getNameSpec()
+    {
+        return nameSpec;
+    }
+
     /**
      * Marker interface for provisioners that only reserve
      * or use a single machine/container.
      *
-     * @see com.datastax.fallout.ops.provisioner.LocalProvisioner
+     * @see SshOnlyProvisioner
      */
     public interface SingleNodeProvisioner
     {
@@ -297,13 +306,30 @@ public abstract class Provisioner extends EnsembleComponent implements NodeComma
     public abstract CompletableFuture<Boolean> put(Node node, InputStream inputStream, String remotePath,
         int permissions);
 
-    /**
-     * Gets the contents of a java package specific resource
-     * @param resourceName
-     * @return
-     */
-    protected Optional<byte[]> getResource(String resourceName)
+    public boolean useGroupCredentials(FalloutConfiguration configuration)
     {
-        return Utils.getResource(this, resourceName);
+        return false;
+    }
+
+    public enum CloudVisibility
+    {
+        PUBLIC, PRIVATE, UNKNOWN
+    }
+
+    public CloudVisibility cloudVisibility()
+    {
+        return CloudVisibility.UNKNOWN;
+    }
+
+    public boolean markedForReuse(PropertyGroup properties)
+    {
+        return false;
+    }
+
+    /** Returns whether this provisioner's nodegroup and the other Provisioner's nodegroup can use private
+     *  IP addresses to communicate; this is usually only the case if they're on the same cloud. */
+    public boolean usePrivateIps(Provisioner other)
+    {
+        return false;
     }
 }

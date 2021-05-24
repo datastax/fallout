@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,9 @@ public class FalloutClient
 {
     private Supplier<RestApiBuilder> anonApiCreator;
     private Supplier<RestApiBuilder> userApiCreator;
+    private Supplier<RestApiBuilder> corruptUserApiCreator;
     private Supplier<RestApiBuilder> adminApiCreator;
+
     private final Supplier<AccountClient> accountClientCreator;
 
     public FalloutClient(URI falloutServiceUri, Supplier<Session> sessionProvider)
@@ -47,6 +49,11 @@ public class FalloutClient
 
         userApiCreator = Suppliers.memoize(() -> new RestApiBuilder(
             () -> createClient("user", this.accountClientCreator.get().register(TEST_USER_EMAIL)),
+            falloutServiceUri));
+
+        corruptUserApiCreator = Suppliers.memoize(() -> new RestApiBuilder(
+            () -> createClient(
+                "corrupt", this.accountClientCreator.get().registerCorruptUser("corrupt@example.com")),
             falloutServiceUri));
 
         final var adminUser = "fallout-admin@example.com";
@@ -74,6 +81,11 @@ public class FalloutClient
     public RestApiBuilder userApi()
     {
         return userApiCreator.get();
+    }
+
+    public RestApiBuilder corruptUserApi()
+    {
+        return corruptUserApiCreator.get();
     }
 
     public RestApiBuilder adminApi()

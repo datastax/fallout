@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,10 @@
  */
 package com.datastax.fallout.ops.commands;
 
-import java.util.Collections;
+import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 
@@ -26,17 +28,62 @@ import com.datastax.fallout.ops.Node;
  *  either affects a particular Node, or logs to a specified logger. */
 public interface CommandExecutor
 {
-    default NodeResponse executeLocally(Node owner, String command)
+    class Builder
     {
-        return executeLocally(owner, command, Collections.emptyMap());
+        private final CommandExecutor commandExecutor;
+        private Logger logger;
+        private Node owner;
+        private String command;
+        private Map<String, String> environment = new HashMap<>();
+        private Optional<Path> workingDirectory = Optional.empty();
+
+        private Builder(CommandExecutor commandExecutor, Node owner, Logger logger, String command)
+        {
+            this.owner = owner;
+            this.logger = logger;
+            this.command = command;
+            this.commandExecutor = commandExecutor;
+        }
+
+        public Builder environment(String envVar, String value)
+        {
+            environment.put(envVar, value);
+            return this;
+        }
+
+        public Builder environment(Map<String, String> environment)
+        {
+            this.environment.putAll(environment);
+            return this;
+        }
+
+        public Builder workingDirectory(Path workingDirectory)
+        {
+            this.workingDirectory = Optional.of(workingDirectory);
+            return this;
+        }
+
+        public NodeResponse execute()
+        {
+            return owner != null ?
+                commandExecutor.executeLocally(owner, command, environment, workingDirectory) :
+                commandExecutor.executeLocally(logger, command, environment, workingDirectory);
+        }
     }
 
-    default NodeResponse executeLocally(Logger logger, String command)
+    default Builder local(Node owner, String command)
     {
-        return executeLocally(logger, command, Collections.emptyMap());
+        return new Builder(this, owner, null, command);
     }
 
-    NodeResponse executeLocally(Node owner, String command, Map<String, String> environment);
+    default Builder local(Logger logger, String command)
+    {
+        return new Builder(this, null, logger, command);
+    }
 
-    NodeResponse executeLocally(Logger logger, String command, Map<String, String> environment);
+    NodeResponse executeLocally(Node owner, String command, Map<String, String> environment,
+        Optional<Path> workingDirectory);
+
+    NodeResponse executeLocally(Logger logger, String command, Map<String, String> environment,
+        Optional<Path> workingDirectory);
 }

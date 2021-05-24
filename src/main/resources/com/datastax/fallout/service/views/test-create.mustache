@@ -23,49 +23,37 @@
 
             {{^edit}}
             <div class="alert alert-info">
-                <p>Write your new test below.  You can
-                    <a href="/components/provisioners" target="_blank"><u>open the
-                        component documentation in a new window</u></a> if you need
-                    a reference.</p>
+                <p>Write your new test below. You can open a new window containing documentation for the component's properties in the side nav bar under "Component Docs".</p>
             </div>
             {{/edit}}
 
-            <div id="create-error" class="alert alert-dang\er" style="display: none">
-            </div>
+            {{> partials/message-area}}
 
-            <div id="create-pressed" class="col-lg-12">
+            <form onsubmit="return false">
 
-                <br/>
-
-                <div id="submit-error" class="alert alert-danger" style="display: none">
-                </div>
-
-                <form onsubmit="return false">
-
-                    <div class="panel panel-primary">
-                        <div class="panel-heading">
-                            Edit or Save YAML:
+                <div class="panel panel-primary">
+                    <div class="panel-heading">
+                        Edit or Save YAML:
+                    </div>
+                    <!-- .panel-heading -->
+                    <div class="panel-body">
+                        <div class="col-lg-12">
+                            <textarea class="form-control col-lg-12" id="resultyaml">{{#test}}{{test.definition}}{{/test}}{{^test}}{{defaultTestDefinition}}{{/test}}</textarea>
                         </div>
-                        <!-- .panel-heading -->
-                        <div class="panel-body">
-                            <div class="col-lg-12">
-                                <textarea class="form-control col-lg-12" id="resultyaml">{{#test}}{{test.definition}}{{/test}}{{^test}}{{defaultTestDefinition}}{{/test}}</textarea>
-                            </div>
-                            <br/><br/>
+                        <br/><br/>
 
-                            <div class="form-group col-lg-6" {{#edit}}style="display:none"{{/edit}}>
-                                <label>Name test</label>
-                                <input class="form-control" name="name" id="test-name" {{#edit}}type="hidden" value="{{test.name}}"{{/edit}} {{^edit}}type="text"{{/edit}}/>
-                            </div>
+                        <div class="form-group col-lg-6" {{#edit}}style="display:none"{{/edit}}>
+                            <label>Name test</label>
+                            <input class="form-control" name="name" id="test-name" {{#edit}}type="hidden" value="{{test.name}}"{{/edit}} {{^edit}}type="text"{{/edit}}/>
+                        </div>
 
-                            <div class="col-lg-12">
-                                <button class="btn btn-primary" id="test-submit">Save Test Definition</button>
-                            </div>
+                        <div class="col-lg-12">
+                            <button class="btn btn-primary" id="test-submit">Save Test Definition</button>
                         </div>
                     </div>
-                </form>
+                </div>
+            </form>
 
-            </div>
         </div>
     </div>
     <!-- /.container-fluid -->
@@ -76,42 +64,16 @@
 
 <script>
 
-    var editor = createFalloutTestDefinitionEditor(document.getElementById("resultyaml"), 600);
+    var editor = createFalloutTestDefinitionEditor(document.getElementById("resultyaml"), "auto");
 
     $(function () {
-
-        $("#test-create").click(function () {
-            $.ajax({
-                url: "/tests/tools/create",
-                type: "POST",
-                data: $('#create-test-form').serialize(),
-                success: function (data) {
-
-                    editor.getDoc().setValue(data["yaml"]);
-                    editor.refresh();
-                    editor.focus();
-
-                    $("html, body").animate({scrollTop: $(document).height()}, "fast");
-                },
-                error: function (data) {
-                    if (data.responseJSON != null && data.responseJSON["error"] != null) {
-                        $("#create-error").html("<html>" + data.responseJSON["error"] + "</html>").show();
-                    } else {
-                        $("#create-error").html("<pre>" + JSON.stringify(data) + "</pre>").show();
-                    }
-
-                    $("html, body").animate({scrollTop: 0}, "fast");
-                }
-            })
-        });
-
 
         $("#test-submit").click(function () {
 
             var name = $("#test-name").val();
             var pattern = /^[0-9a-zA-Z\.\-_]+$/;
             if (!pattern.test(name)) {
-                $("#submit-error").html("<html>Test name must be alphanumeric with no spaces (.-_ allowed)</html>").show();
+                showErrorMessage("Test name must be alphanumeric with no spaces (.-_ allowed)");
                 return;
             }
 
@@ -126,15 +88,7 @@
                     //redirect
                     window.location = "/tests/ui/" + data.owner + "/" + data.name;
                 },
-                error: function (data) {
-                    if (data.responseJSON != null && data.responseJSON["error"] != null) {
-                        $("#submit-error").html("<html>" + data.responseJSON["error"] + "</html>").show();
-                    } else if (data.responseText != null) {
-                        $("#submit-error").html("<pre>" + data.responseText + "</pre>").show();
-                    } else {
-                        $("#submit-error").html("<pre>" + JSON.stringify(data, undefined, 2) + "</pre>").show();
-                    }
-                }
+                error: showAjaxErrorMessage
             })
         });
     });

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ public class ExecutorServices
     public static void shutdownNowAndAwaitTermination(ScopedLogger logger, ExecutorService executorService,
         String serviceName)
     {
-        logger.doWithScopedInfo(() -> {
+        logger.withScopedInfo("Shutting down executor service {}", serviceName).run(() -> {
             executorService.shutdownNow();
             try
             {
@@ -48,6 +48,6 @@ public class ExecutorServices
             {
                 logger.error("Interrupted while waiting for " + serviceName + " executor service to terminate", e);
             }
-        }, "Shutting down executor service {}", serviceName);
+        });
     }
 }

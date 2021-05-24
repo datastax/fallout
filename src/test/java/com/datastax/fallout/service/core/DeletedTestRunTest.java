@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,14 @@ package com.datastax.fallout.service.core;
 
 import java.time.Instant;
 import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import com.datastax.fallout.ops.ResourceRequirement;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
+import static com.datastax.fallout.ops.ResourceRequirementHelpers.req;
 
 public class DeletedTestRunTest
 {
@@ -42,11 +41,11 @@ public class DeletedTestRunTest
         testRun.setState(TestRun.State.PASSED);
         testRun.setDefinition("nope");
         testRun.setResults("maybe");
-        testRun.updateArtifacts(ImmutableMap.of("monolith", 1L, "ark-of-the-covenant", 2L, "mcguffin", 3L));
+        testRun.updateArtifacts(Map.of("monolith", 1L, "ark-of-the-covenant", 2L, "mcguffin", 3L));
         testRun.setParsedLogInfo("parsed log info");
         testRun.setResourceRequirements(
             ImmutableSet
-                .of(new ResourceRequirement(new ResourceRequirement.ResourceType("foo", "bar", "instance"), 1)));
+                .of(req("foo", "bar", "instance", 1)));
 
         DeletedTestRun deletedTestRun = DeletedTestRun.fromTestRun(testRun);
         assertThat(deletedTestRun.getOwner()).isEqualTo(testRun.getOwner());

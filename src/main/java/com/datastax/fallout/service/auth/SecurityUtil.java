@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,55 +63,51 @@ public class SecurityUtil
 
     public ByteBuffer getEncryptedPassword(String password, ByteBuffer salt)
     {
-        try (ScopedLogger.Scoped ignored = logger.scopedDebug("getEncryptedPassword"))
-        {
-            // PBKDF2 with SHA-1 as the hashing algorithm. Note that the NIST
-            // specifically names SHA-1 as an acceptable hashing algorithm for PBKDF2
-            String algorithm = "PBKDF2WithHmacSHA1";
-            // SHA-1 generates 160 bit hashes, so that's what makes sense here
-            int derivedKeyLength = 160;
-            // Pick an iteration count that works for you. The NIST recommends at
-            // least 1,000 iterations:
-            // http://csrc.nist.gov/publications/nistpubs/800-132/nist-sp800-132.pdf
-            // iOS 4.x reportedly uses 10,000:
-            // http://blog.crackpassword.com/2010/09/smartphone-forensics-cracking-blackberry-backup-passwords/
-            int iterations = 20000;
-
-            KeySpec spec;
-            try (ScopedLogger.Scoped ignored1 = logger.scopedDebug("PBEKeySpec()"))
+        // We have to explicitly specify the get() generic parameters because the Java 11 compiler doesn't
+        // correctly analyse what can be thrown, and gives the error:
+        //
+        //   unreported exception InvalidKeySpecException; must be caught or declared to be thrown
+        //
+        return logger.withScopedDebug("getEncryptedPassword").<ByteBuffer, RuntimeException>get(() -> {
+            try
             {
-                spec = new PBEKeySpec(password.toCharArray(), Bytes.getArray(salt), iterations,
-                    derivedKeyLength);
+                // PBKDF2 with SHA-1 as the hashing algorithm. Note that the NIST
+                // specifically names SHA-1 as an acceptable hashing algorithm for PBKDF2
+                String algorithm = "PBKDF2WithHmacSHA1";
+                // SHA-1 generates 160 bit hashes, so that's what makes sense here
+                int derivedKeyLength = 160;
+                // Pick an iteration count that works for you. The NIST recommends at
+                // least 1,000 iterations:
+                // http://csrc.nist.gov/publications/nistpubs/800-132/nist-sp800-132.pdf
+                // iOS 4.x reportedly uses 10,000:
+                // http://blog.crackpassword.com/2010/09/smartphone-forensics-cracking-blackberry-backup-passwords/
+                int iterations = 20000;
+
+                KeySpec spec = logger.withScopedDebug("PBEKeySpec").get(() -> new PBEKeySpec(
+                    password.toCharArray(), Bytes.getArray(salt), iterations, derivedKeyLength));
+
+                SecretKeyFactory f = logger.withScopedDebug("SecretKeyFactory.getInstance()")
+                    .get(() -> SecretKeyFactory.getInstance(algorithm));
+
+                return logger.withScopedDebug("generateSecret(spec).getEncoded()").get(
+                    () -> ByteBuffer.wrap(f.generateSecret(spec).getEncoded()));
             }
-
-            SecretKeyFactory f;
-
-            try (ScopedLogger.Scoped ignored1 = logger.scopedDebug("SecretKeyFactory.getInstance()"))
+            catch (NoSuchAlgorithmException | InvalidKeySpecException e)
             {
-                f = SecretKeyFactory.getInstance(algorithm);
+                throw new RuntimeException("Unexpected password encryption error", e);
             }
-
-            try (ScopedLogger.Scoped ignored1 = logger.scopedDebug("generateSecret(spec).getEncoded()"))
-            {
-                return ByteBuffer.wrap(f.generateSecret(spec).getEncoded());
-            }
-        }
-        catch (NoSuchAlgorithmException | InvalidKeySpecException e)
-        {
-            throw new RuntimeException("Unexpected password encryption error", e);
-        }
+        });
     }
 
     public ByteBuffer generateSalt()
     {
-        try (ScopedLogger.Scoped ignored = logger.scopedDebug("generateSalt"))
-        {
+        return logger.withScopedDebug("generateSalt").get(() -> {
             // Generate a 8 byte (64 bit) salt as recommended by RSA PKCS5
             byte[] salt = new byte[8];
 
-            logger.doWithScopedDebug(() -> random.nextBytes(salt), "nextBytes");
+            logger.withScopedDebug("nextBytes").run(() -> random.nextBytes(salt));
 
             return ByteBuffer.wrap(salt);
-        }
+        });
     }
 }

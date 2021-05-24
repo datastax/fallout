@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,14 @@
  */
 package com.datastax.fallout.service.core;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import com.datastax.driver.mapping.annotations.Table;
-import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.JsonUtils;
 
 @Table(name = "deleted_tests")
 public class DeletedTest extends Test
 {
     public static DeletedTest fromTest(Test test)
     {
-        return Exceptions.getUnchecked(() -> {
-            ObjectMapper mapper = new ObjectMapper();
-            byte[] json = mapper.writeValueAsBytes(test);
-            return mapper.readValue(json, DeletedTest.class);
-        });
+        return JsonUtils.copyUsingSerialization(test, DeletedTest.class);
     }
-
 }

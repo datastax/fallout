@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import org.quicktheories.core.Gen;
 
 import com.datastax.fallout.service.core.TestRun;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static org.quicktheories.generators.SourceDSL.booleans;
 import static org.quicktheories.generators.SourceDSL.integers;
 import static org.quicktheories.generators.SourceDSL.lists;

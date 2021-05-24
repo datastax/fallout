@@ -51,7 +51,7 @@ function init_logtail(url, serverSentEventsUrl, maxShownKB, dataelem) {
         /* The "log_file_size - 1" deliberately reloads the last byte, which we already
          * have. This is to prevent a 416 "Range unsatisfiable" error: a response
          * of length 1 tells us that the file hasn't changed yet. A 416 shows that
-         * the file has been trucnated */
+         * the file has been truncated */
 
         $.ajax(url, {
             dataType: "text",
@@ -61,22 +61,32 @@ function init_logtail(url, serverSentEventsUrl, maxShownKB, dataelem) {
                 loading = false;
 
                 var content_size;
+                var new_log_file_size;
 
-                if (xhr.status === 206) {
-                    var c_r = getRequiredResponseHeader(xhr, "Content-Range");
-                    log_file_size = parseInt2(assertNotNull(c_r.split("/")[1], "Content-Range size"));
-                    content_size = getRequiredResponseHeader(xhr, "Content-Length");
-                } else if (xhr.status === 200) {
-                    if (must_get_206)
-                        throw "Expected 206 Partial Content";
+                try {
+                    if (xhr.status === 206) {
+                        var c_r = getRequiredResponseHeader(xhr, "Content-Range");
+                        new_log_file_size = parseInt2(assertNotNull(c_r.split("/")[1], "Content-Range size"));
+                        content_size = getRequiredResponseHeader(xhr, "Content-Length");
+                    } else if (xhr.status === 200) {
+                        if (must_get_206)
+                            throw "Expected 206 Partial Content";
 
-                    content_size = log_file_size = getRequiredResponseHeader(xhr, "Content-Length");
-                } else {
-                    throw "Unexpected status " + xhr.status;
+                        content_size = new_log_file_size = getRequiredResponseHeader(xhr, "Content-Length");
+                    } else {
+                        throw "Unexpected status " + xhr.status;
+                    }
+                }
+                catch (error) {
+                    showErrorMessage(error);
+                    show_log();
+                    return;
                 }
 
                 if (first_load && data.length > load)
                     throw "Server's response was too long";
+
+                log_file_size = new_log_file_size
 
                 var added = false;
 
@@ -104,7 +114,7 @@ function init_logtail(url, serverSentEventsUrl, maxShownKB, dataelem) {
                 }
 
                 if (added)
-                    show_log(added);
+                    show_log();
             },
             error: function (xhr, s, t) {
                 loading = false;
@@ -138,7 +148,7 @@ function init_logtail(url, serverSentEventsUrl, maxShownKB, dataelem) {
     function show_log() {
         // Scroll-to-bottom only if we're already looking at the bottom of
         // the page
-        let nearlyAtBottomFudgeDistance = 20;
+        let nearlyAtBottomFudgeDistance = 100;
         let atBottom = window.innerHeight + window.pageYOffset + nearlyAtBottomFudgeDistance >=
             document.body.offsetHeight;
 
@@ -166,11 +176,13 @@ function init_logtail(url, serverSentEventsUrl, maxShownKB, dataelem) {
         let eventSource = new EventSource(serverSentEventsUrl);
 
         eventSource.addEventListener("state", e => {
+            clearMessages();
             switch (e.data) {
                 case "updated":
                     get_log();
                     break;
                 case "finished":
+                    showInfoMessage("Test run completed; livelog stopped")
                     eventSource.close();
                     break;
             }

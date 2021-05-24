@@ -1,0 +1,7 @@
+[{*.kt,*.kts}]
+# Disable ktlint indent rule until
+# https://github.com/pinterest/ktlint/issues/764 is fixed
+# Disable no-wildcard-imports because the gradle DSL is hard to use without them
+disabled_rules = indent, no-wildcard-imports
+
+ij_kotlin_packages_to_use_import_on_demand = org.gradle.kotlin.dsl.**

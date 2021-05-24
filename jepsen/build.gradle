@@ -1,0 +1,69 @@
+plugins {
+    id "dev.clojurephant.clojure" version "0.6.0-alpha.4"
+    id "org.jetbrains.gradle.plugin.idea-ext"
+}
+
+apply plugin: 'com.github.johnrengelman.shadow'
+
+version = '0.8.0-SNAPSHOT'
+
+description = """Jepsen for use inside Fallout"""
+
+dependencies {
+    implementation "org.clojure:clojure:1.10.1"
+    implementation "org.clojure:data.fressian:0.2.0"
+    implementation "clj-time:clj-time:0.6.0"
+    implementation ("knossos:knossos:0.3.1") {
+        exclude(group: 'org.slf4j')
+    }
+    implementation "clj-ssh:clj-ssh:0.5.14"
+    implementation "gnuplot:gnuplot:0.1.0"
+    implementation "hiccup:hiccup:1.0.5"
+
+    // Versions of fipp that depend on a Java 11-compatible
+    // version of core.rrb-vector (>= 0.0.13) aren't any use,
+    // since those versions of core.rrb-vector trigger a class
+    // cast exception that is simply not worth debugging (or
+    // reporting, given that we do not wish to keep on using clojure in
+    // fallout))
+    implementation("fipp:fipp:0.6.2") {
+        // We've included the sources for rrb-vector 0.0.11 directly
+        exclude(group: "org.clojure", module: "core.rrb-vector")
+    }
+    implementation "byte-streams:byte-streams:0.1.4"
+
+    // For multiset
+    implementation "org.clojure:algo.generic:0.1.2"
+
+    // Override the version of jsch used by clj-ssh (we can neither exclude
+    // the dependency nor rename it, since clojure will attempt to compile
+    // it at runtime)
+    constraints {
+        implementation "com.jcraft:jsch:${jschVersion}"
+    }
+}
+
+clojure {
+    builds {
+        main {
+            aotAll()
+
+            reflection = 'warn'
+            compiler {
+                disableLocalsClearing = true
+                elideMeta = ['doc', 'file', 'line', 'added']
+                directLinking = true
+            }
+        }
+    }
+}
+
+shadowJar {
+    dependencies {
+        exclude(dependency('org.slf4j:slf4j-log4j12'))
+    }
+
+    mergeServiceFiles()
+
+    outputs.cacheIf { true }
+}

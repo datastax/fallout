@@ -1,5 +1,0 @@
-# This file should list all the requirements needed to develop and test the
-# package
-
--e .
--r requirements_test.txt

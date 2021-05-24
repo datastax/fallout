@@ -10,6 +10,7 @@
 
         <div class="row">
             <h2>Trash Bin</h2>
+            <p>Items will be permanently deleted after {{deletedTtlDays}} days</p>
         </div>
         <!-- /.row -->
         {{> partials/message-area}}
@@ -43,11 +44,6 @@
 
 
 <script>
-function toggleInfo(testName) {
-var escapedName = "#" + escapeTestName(testName) + "-toggle";
-$(escapedName).toggleClass('hidden');
-}
-
 function restoreTest(userEmail, testName){
     $.ajax({
         url: "/tests/deleted/" + userEmail + "/" + testName + "/restore/api",

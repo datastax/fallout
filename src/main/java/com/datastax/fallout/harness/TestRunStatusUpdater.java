@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,6 +87,12 @@ public abstract class TestRunStatusUpdater implements TestRunStatus
     public synchronized void addInactiveCallback(Runnable onInactive)
     {
         addStateCallback(state -> !state.active(), onInactive);
+    }
+
+    @Override
+    public void addActiveCallback(Runnable onActive)
+    {
+        addStateCallback(TestRun.State::active, onActive);
     }
 
     @Override

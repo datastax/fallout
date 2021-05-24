@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 DataStax, Inc.
+ * Copyright 2021 DataStax, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import net.sourceforge.argparse4j.inf.Namespace;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.db.CassandraDriverManager;
 
-public class Cassandra extends ConfiguredCommand<FalloutConfiguration>
+public class Cassandra<FC extends FalloutConfiguration> extends ConfiguredCommand<FC>
 {
     public Cassandra()
     {
@@ -30,8 +30,8 @@ public class Cassandra extends ConfiguredCommand<FalloutConfiguration>
     }
 
     @Override
-    protected void run(Bootstrap<FalloutConfiguration> bootstrap, Namespace namespace,
-        FalloutConfiguration configuration) throws Exception
+    protected void run(Bootstrap<FC> bootstrap, Namespace namespace,
+        FC configuration) throws Exception
     {
         CassandraDriverManager driverManager = new CassandraDriverManager(configuration.getCassandraHost(),
             configuration.getCassandraPort(), configuration.getKeyspace(),
