@@ -40,7 +40,7 @@ jobs:
       run: chmod +x gradlew
 
     - name: lint
-      run: JAVA11_HOME=$JAVA_HOME ./gradlew
+      run: ./gradlew
         --no-daemon
         --build-cache
         -PgithubRepo=$GITHUB_REPOSITORY
