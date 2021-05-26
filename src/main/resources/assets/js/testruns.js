@@ -49,3 +49,18 @@ function deleteTestRun(userEmail, testName, testRunId, shortTestRunId) {
         }
     });
 }
+
+function toggleKeepTestRunForever(userEmail, testName, testRunId, shortTestRunId) {
+    $.ajax({
+            url: "/tests/" + userEmail + "/" + testName +
+                "/runs/" + testRunId + "/toggleKeepForever/api",
+            type: "POST",
+            success: function(data) {
+                location.reload();
+            },
+            error: function(data) {
+                showErrorMessage("There was an error toggling keep forever Test Run:<br>" +
+                    data.responseText);
+            }
+        });
+}

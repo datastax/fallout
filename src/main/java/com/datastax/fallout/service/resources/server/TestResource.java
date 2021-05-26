@@ -330,6 +330,16 @@ public class TestResource
                 "Cannot delete test while being used by any Performance report(s): " + reportNameEmailPairs,
                 Response.Status.FORBIDDEN);
         }
+        List<UUID> testRunsSafeFromDeletion = testRunDAO.getAll(test.getOwner(), test.getName()).stream().filter(
+            TestRun::keepForever)
+            .map(TestRun::getTestRunId)
+            .collect(Collectors.toList());
+        if (!testRunsSafeFromDeletion.isEmpty())
+        {
+            throw new WebApplicationException(
+                "Cannot delete test while test run(s) are marked safe from deletion: " + testRunsSafeFromDeletion,
+                Response.Status.FORBIDDEN);
+        }
         try
         {
             if (!deleteForever)
@@ -818,6 +828,11 @@ public class TestResource
             return Response.status(Response.Status.CONFLICT)
                 .entity("Cannot delete an unfinished test run").build();
         }
+        else if (testRun.keepForever())
+        {
+            return Response.status(Response.Status.CONFLICT)
+                .entity("Cannot delete a test run marked as \"keep forever\"").build();
+        }
 
         List<PerformanceReport> perfReports = reportDAO.getAll().stream()
             .filter(perfReport -> perfReport.getReportTestRuns() != null &&
@@ -889,6 +904,28 @@ public class TestResource
         @PathParam("testRunId") String testRunId)
     {
         return assertExists(testRunDAO.getDeleted(userEmail, testName, UUID.fromString(testRunId)));
+    }
+
+    @POST
+    @Path("{userEmail: " + EMAIL_PATTERN + "}/{name: " + NAME_PATTERN + "}/runs/{testRunId: " + ID_PATTERN +
+        "}/toggleKeepForever/api")
+    @Timed
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response toggleTestRunKeepForever(@Auth User user, @PathParam("userEmail") String userEmail,
+        @PathParam("name") String testName, @PathParam("testRunId") String testRunId)
+    {
+        TestRun testRun = assertExistsAndCanBeModifiedBy(userGroupMapper,
+            user, testRunDAO.get(userEmail, testName, UUID.fromString(testRunId)));
+        try
+        {
+            testRun.toggleKeepForever();
+            testRunDAO.update(testRun);
+        }
+        catch (Exception e)
+        {
+            logger.error("Error while toggling keep forever: " + testRunId, e);
+        }
+        return Response.ok().build();
     }
 
     @PUT

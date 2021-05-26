@@ -191,6 +191,9 @@ public class TestRun implements ReadOnlyTestRun
     @Column
     private Map<String, String> links = new HashMap<>();
 
+    @Column
+    private Boolean keepForever;
+
     public TestRun()
     {
     }
@@ -208,6 +211,7 @@ public class TestRun implements ReadOnlyTestRun
         this.testRunId = UUID.randomUUID();
         this.definition = definition;
         this.artifacts = new HashMap<>();
+        this.keepForever = false;
     }
 
     /** Make a minimal copy suitable with none of the in-progress state: equivalent to calling
@@ -579,6 +583,16 @@ public class TestRun implements ReadOnlyTestRun
             defaults +
             "---\n" +
             definition;
+    }
+
+    public Boolean keepForever()
+    {
+        return keepForever != null && keepForever;
+    }
+
+    public void toggleKeepForever()
+    {
+        this.keepForever = this.keepForever == null || !this.keepForever;
     }
 
     @Override

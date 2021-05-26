@@ -258,6 +258,13 @@ public class TestRunDAO implements Managed
 
     void delete(TestRun testRun)
     {
+        if (testRun.keepForever())
+        {
+            var msg = String
+                .format("Attempted to delete test run %s but it is marked as keep forever", testRun.getShortName());
+            logger.error(msg);
+            throw new IllegalArgumentException(msg);
+        }
         DeletedTestRun deletedtestrun = DeletedTestRun.fromTestRun(testRun);
 
         BatchStatement batchStatement = new BatchStatement();
