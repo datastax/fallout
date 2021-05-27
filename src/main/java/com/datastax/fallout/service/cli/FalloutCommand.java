@@ -15,19 +15,19 @@
  */
 package com.datastax.fallout.service.cli;
 
-import io.dropwizard.cli.ConfiguredCommand;
 import io.dropwizard.setup.Bootstrap;
 import net.sourceforge.argparse4j.inf.Namespace;
 
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.FalloutConfigurationFactoryFactory;
+import com.datastax.fallout.service.FalloutServiceBase;
 
 /** A command that does not need a {@link com.datastax.fallout.service.FalloutService} instance */
-public abstract class FalloutCommand<FC extends FalloutConfiguration> extends ConfiguredCommand<FC>
+public abstract class FalloutCommand<FC extends FalloutConfiguration> extends FalloutConfiguredCommand<FC>
 {
-    protected FalloutCommand(String name, String description)
+    protected FalloutCommand(FalloutServiceBase<FC> application, String name, String description)
     {
-        super(name, description);
+        super(application, name, description);
     }
 
     private void forceConsoleLoggingOnly(Bootstrap<FC> bootstrap)

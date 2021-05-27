@@ -223,13 +223,13 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
 
         bootstrap.addBundle(new AssetsBundle("/assets", ASSETS_ROOT_PATH));
 
-        bootstrap.addCommand(new FalloutExecCommand<>());
+        bootstrap.addCommand(new FalloutExecCommand<>(this));
         bootstrap.addCommand(new FalloutStandaloneCommand<>(this));
         bootstrap.addCommand(new FalloutRunnerCommand<>(this));
         bootstrap.addCommand(new FalloutQueueCommand<>(this));
         bootstrap.addCommand(new CheckCommand<>(this));
-        bootstrap.addCommand(new GenerateNginxConf<>());
-        bootstrap.addCommand(new Cassandra<>());
+        bootstrap.addCommand(new GenerateNginxConf<>(this));
+        bootstrap.addCommand(new Cassandra<>(this));
 
         bootstrap.addBundle(new SwaggerBundle<>() {
             @Override

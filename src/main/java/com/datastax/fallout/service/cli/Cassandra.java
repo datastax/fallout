@@ -15,18 +15,18 @@
  */
 package com.datastax.fallout.service.cli;
 
-import io.dropwizard.cli.ConfiguredCommand;
 import io.dropwizard.setup.Bootstrap;
 import net.sourceforge.argparse4j.inf.Namespace;
 
 import com.datastax.fallout.service.FalloutConfiguration;
+import com.datastax.fallout.service.FalloutServiceBase;
 import com.datastax.fallout.service.db.CassandraDriverManager;
 
-public class Cassandra<FC extends FalloutConfiguration> extends ConfiguredCommand<FC>
+public class Cassandra<FC extends FalloutConfiguration> extends FalloutConfiguredCommand<FC>
 {
-    public Cassandra()
+    public Cassandra(FalloutServiceBase<FC> application)
     {
-        super("cassandra", "Start Cassandra only.");
+        super(application, "cassandra", "Start Cassandra only.");
     }
 
     @Override

@@ -35,6 +35,7 @@ import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
 import com.datastax.fallout.service.FalloutConfiguration;
+import com.datastax.fallout.service.FalloutServiceBase;
 import com.datastax.fallout.util.Exceptions;
 
 public class GenerateNginxConf<FC extends FalloutConfiguration> extends FalloutCommand<FC>
@@ -64,9 +65,9 @@ public class GenerateNginxConf<FC extends FalloutConfiguration> extends FalloutC
         }
     }
 
-    public GenerateNginxConf()
+    public GenerateNginxConf(FalloutServiceBase<FC> application)
     {
-        super("generate-nginx-conf", "Generate fallout.nginx.conf");
+        super(application, "generate-nginx-conf", "Generate fallout.nginx.conf");
     }
 
     @Override

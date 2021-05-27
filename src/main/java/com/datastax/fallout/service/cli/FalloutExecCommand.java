@@ -51,6 +51,7 @@ import com.datastax.fallout.runner.AtomicallyPersistedTestRun;
 import com.datastax.fallout.runner.TestRunStateStorage;
 import com.datastax.fallout.runner.UserCredentialsFactory.UserCredentials;
 import com.datastax.fallout.service.FalloutConfiguration;
+import com.datastax.fallout.service.FalloutServiceBase;
 import com.datastax.fallout.service.core.Test;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.User;
@@ -84,9 +85,9 @@ public class FalloutExecCommand<FC extends FalloutConfiguration> extends Fallout
     {
     }
 
-    public FalloutExecCommand()
+    public FalloutExecCommand(FalloutServiceBase<FC> application)
     {
-        super("exec",
+        super(application, "exec",
             "Run a single testrun in a standalone fallout process and exit");
     }
 
