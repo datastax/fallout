@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.0.0-experimental
-
 # To build a docker image for fallout, use './gradlew dockerBuild` in the
 # project root directory.  This Dockerfile won't do anything useful with a
 # direct `docker build` invocation.
