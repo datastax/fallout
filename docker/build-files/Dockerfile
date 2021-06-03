@@ -58,7 +58,7 @@ ENV PATH="/home/fallout/.local/bin:${PATH}"
 RUN --mount=type=bind,source=build-files,target=build-files \
     build-files/bootstrap-user-python-support
 
-COPY image-files .
+COPY --chown=fallout:fallout image-files .
 
 RUN mkdir -p tests run
 
