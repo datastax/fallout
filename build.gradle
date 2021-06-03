@@ -865,16 +865,12 @@ task dockerBuild(type: Exec) {
     dependsOn dockerPrepare
     workingDir dockerContextDir
 
-    // Use the latest docker buildkit to support ssh-agent proxying
-    // during build
-    environment "DOCKER_BUILDKIT", 1
-
     def name = "datastax/fallout"
     def tag = gitDescribe.replace("fallout-", "")
     ext.latestTag = "${name}:latest"
     ext.versionTag = "${name}:${tag}"
 
-    commandLine "docker", "builder", "build",
+    commandLine "docker", "buildx", "build",
         "--file", "build-files/Dockerfile",
         "--tag", latestTag,
         "--tag", versionTag,
