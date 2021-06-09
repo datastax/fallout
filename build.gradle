@@ -69,7 +69,7 @@ applicationDefaultJvmArgs = [
 // we must set something larger than the default 512m
 // (https://docs.gradle.org/current/userguide/build_environment.html#sec:configuring_jvm_memory)
 // for the test and server processes:
-ext.applicationGradleJvmArgs = applicationDefaultJvmArgs + ["-Xmx10G"]
+ext.applicationGradleJvmArgs = applicationDefaultJvmArgs + ["-Xmx2G"]
 
 description = """DataStax Fallout"""
 
