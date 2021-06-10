@@ -1,0 +1,69 @@
+#!/bin/bash -e
+
+. git-hooks/hook-lib.sh
+
+stage Checking
+
+if git rev-parse --verify HEAD >/dev/null 2>&1
+then
+    against=HEAD
+else
+    # Initial commit: diff against an empty tree object
+    against=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+fi
+
+function commit_contains()
+{
+    if [[ -n "$(git diff-index --name-only --cached $against -- "$@")" ]]; then
+        echo 1
+    else
+        echo 0
+    fi
+}
+
+function list_changed_files()
+{
+    git diff-index -z --name-only --cached --diff-filter=d $against --
+}
+
+# If there are whitespace errors, print the offending file names and fail.
+checking whitespace
+list_changed_files | \
+    _xargs -0 awk -v ORS='' '
+        FILENAME !~ /\.(bat|kt|java)$/ {
+            # The only portable way to use NUL as a record separator; see
+            # https://stackoverflow.com/a/32302711/322152
+            printf("%s%c", FILENAME, 0)
+        }
+        {
+            nextfile
+        }' | \
+    _xargs -0 git diff-index --check --cached $against --
+ok
+
+if check_if_installed shellcheck; then
+    list_changed_files | \
+        _xargs -0 awk -v ORS='' '
+        # Ignore generated gradle wrappers
+        FILENAME ~ /\/gradlew$/ {
+            nextfile
+        }
+        # Shell files either end in .sh or start with a shbang
+        FILENAME ~ /\.sh$/ || (FNR == 1 && /^#!.*\/(env )?(ba|z|k)?sh/) {
+            printf("%s%c", FILENAME, 0)
+        }
+        # Ignore everything else
+        {
+            nextfile
+        }' | \
+        _xargs -0 shellcheck -x --format=gcc
+    ok
+fi
+
+# shellcheck disable=SC2086
+if check_or_skip "$(commit_contains $LINT_TRIGGERS)" gradle lint; then
+    ./gradlew -q lint
+    ok
+fi
+
+all_checks_passed

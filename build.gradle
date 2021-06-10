@@ -257,6 +257,23 @@ dependencies {
 }
 
 // ----------------------------------------------------------------------------
+// Git support
+
+task setupGit {
+    def config = [
+        "core.hooksPath": "git-hooks" ,
+        "core.whitespace": "blank-at-eol,space-before-tab,tab-in-indent,trailing-space"
+    ]
+    doLast {
+        config.each { key, value ->
+            exec {
+                commandLine("git", "config", key, value)
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
 // Compilation
 
 // Supporting @JsonCreator with implicit named parameters requires

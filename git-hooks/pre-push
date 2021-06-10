@@ -1,0 +1,78 @@
+#!/bin/bash -e
+
+. git-hooks/hook-lib.sh
+
+remote_name="$1"
+remote_url="$2"
+ds_initial_commit="6b48761c"
+
+check_jenkins=0
+check_src=0
+
+stage Checking push to "$remote_name" "$remote_url"
+
+checking push permissions
+nothing_to_push=1
+
+# shellcheck disable=SC2034
+while read -r local_ref local_sha remote_ref remote_sha; do
+    nothing_to_push=0
+    if [[ $remote_ref == refs/heads/master ]]; then
+        fail "No pushing to master"
+    fi
+
+    # Prevent pushing to remote if it's OSS and we can reach the root DS
+    # reference
+    if [[ $remote_url == *datastax/fallout* || $remote_name == *oss* ]]; then
+        if git merge-base --is-ancestor "$ds_initial_commit" "$local_ref"; then
+            fail "Cannot push $local_ref ($local_sha) to OSS repo $remote_url: it can reach private DS commits"
+        fi
+    fi
+
+    # Ignore changes when pushing tags
+    if [[ $remote_ref == refs/tags/* ]]; then
+        continue
+    fi
+
+    # list all commits that are reachable from the commit-to-be-pushed but not
+    # reachable in origin i.e. all the commits we are about to push and turn
+    # that into a range
+    commits="$(git rev-list --reverse "$local_sha" \
+        --not --remotes="$remote_name" | \
+        # Get the first and last commit
+        awk 'NR==1 { first=$0 } { last=$0 } END { print first "^ " last }')"
+
+    function changed()
+    {
+        file=("$@")
+
+        # $commits is deliberately unquoted to get the first and last commit
+        # as separate arguments
+        # shellcheck disable=SC2086
+        if [[ -n "$(git diff-tree \
+            --no-commit-id --name-only -r $commits -- \
+            "${file[@]}")" ]]; then
+            echo 1
+        else
+            echo 0
+        fi
+    }
+
+    check_jenkins=$((check_jenkins || $(changed Jenkinsfile)))
+    # shellcheck disable=SC2086
+    check_src=$((check_src || $(changed $LINT_TRIGGERS)))
+done
+ok
+
+if ((nothing_to_push)); then
+    info Nothing to push
+    all_checks_passed
+    exit 0
+fi
+
+if check_or_skip "$check_src" gradle lint; then
+    ./gradlew -q lint
+    ok
+fi
+
+all_checks_passed

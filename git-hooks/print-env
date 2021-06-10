@@ -1,0 +1,17 @@
+#!/bin/bash
+
+direnv_exec=""
+
+if type direnv >/dev/null 2>&1; then
+    # shellcheck disable=SC2164
+    thisdir="$(cd "$(dirname "$0")"; pwd)"
+    direnv_exec="direnv exec $thisdir"
+fi
+
+# shellcheck disable=SC2016
+$direnv_exec bash -c 'cat <<EOF
+export PATH="$PATH"
+export JAVA11_HOME="$JAVA11_HOME"
+export JAVA8_HOME="$JAVA8_HOME"
+export JAVA_HOME="$JAVA_HOME"
+EOF'
