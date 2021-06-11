@@ -73,11 +73,15 @@ ext.applicationGradleJvmArgs = applicationDefaultJvmArgs + ["-Xmx10G"]
 
 description = """DataStax Fallout"""
 
-def defaultPropertyValue(name, value) {
-    if (!ext.has(name)) {
-        ext.set(name, value)
+def defaultPropertyValue(String name, Closure valueProvider) {
+    if (!project.hasProperty(name)) {
+        ext.set(name, valueProvider.call())
     }
     ext.get(name)
+}
+
+def defaultPropertyValue(String name, Object value) {
+    defaultPropertyValue(name, { value })
 }
 
 allprojects {
@@ -461,20 +465,23 @@ def gitCommand(command) {
         "--work-tree=${rootProject.projectDir}"] + command) as String[])
 }
 
+/** Only set a property if it hasn't already been defined and there is
+ *  a git repo */
+def maybeSetGitProperty(String name, Closure closure) {
+    defaultPropertyValue(name, {
+        gitDir != null ?
+            closure.call() :
+            "NO_GIT_REPO"
+    })
+}
+
 ext {
-    if (gitDir != null) {
-        gitDescribe = gitCommand(["describe"])
-        gitBranch = gitCommand(["rev-parse", "--abbrev-ref", "HEAD"])
-        gitCommit = gitCommand(["rev-parse", "HEAD"])
-        githubRepo = gitCommand(["remote", "get-url", "origin"])
-            .replaceAll('^.*github.com[:/](.*?)(:?\\.git)?$', '$1')
-            .toLowerCase()
-    } else {
-        gitDescribe = "NO_GIT_REPO"
-        gitBranch = "NO_GIT_REPO"
-        gitCommit = "NO_GIT_REPO"
-        githubRepo = "NO_GIT_REPO"
-    }
+    maybeSetGitProperty("gitDescribe", { gitCommand(["describe", "--tags"]) })
+    maybeSetGitProperty("gitBranch", { gitCommand(["rev-parse", "--abbrev-ref", "HEAD"]) })
+    maybeSetGitProperty("gitCommit", { gitCommand(["rev-parse", "HEAD"]) })
+    maybeSetGitProperty("githubRepo", { gitCommand(["remote", "get-url", "origin"])
+        .replaceAll('^.*github.com[:/](.*?)(:?\\.git)?$', '$1')
+        .toLowerCase() })
 }
 
 // ----------------------------------------------------------------------------
