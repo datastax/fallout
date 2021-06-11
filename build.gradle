@@ -1418,6 +1418,6 @@ task docs(dependsOn: [dumpNodeGroupStatesToPng, renderDocsDots, renderDocsPlantU
 
 wrapper {
     // https://gradle.org/release-checksums/
-    gradleVersion = '6.8.3'
-    distributionSha256Sum = '7faa7198769f872826c8ef4f1450f839ec27f0b4d5d1e51bade63667cbccd205'
+    gradleVersion = "7.1.1"
+    distributionSha256Sum = "bf8b869948901d422e9bb7d1fa61da6a6e19411baa7ad6ee929073df85d6365d"
 }
