@@ -17,8 +17,9 @@ nothing_to_push=1
 # shellcheck disable=SC2034
 while read -r local_ref local_sha remote_ref remote_sha; do
     nothing_to_push=0
-    if [[ $remote_ref == refs/heads/master ]]; then
-        fail "No pushing to master"
+
+    if [[ $remote_ref == refs/heads/master && -z "$ALLOW_PUSH_TO_MASTER" ]]; then
+        fail "No pushing to master; override this by using 'ALLOW_PUSH_TO_MASTER=1 git push'"
     fi
 
     # Prevent pushing to remote if it's OSS and we can reach the root DS
