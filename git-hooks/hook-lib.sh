@@ -100,6 +100,17 @@ function check_if_installed()
     return $failed
 }
 
+function check_git_secrets()
+{
+    if check_if_installed git-secrets; then
+        git secrets "$@"
+    elif [[ -z "$ALLOW_SKIPPED_SECRETS_CHECK" ]]; then
+        fail "git-secrets (https://github.com/awslabs/git-secrets) must be " \
+            "installed; to bypass this check prefix the git command with " \
+            "ALLOW_SKIPPED_SECRETS_CHECK=1"
+    fi
+}
+
 # GNU xargs requires --no-run-if-empty to disable always running at least once;
 # macOS does not.  See https://unix.stackexchange.com/a/61823
 if xargs --no-run-if-empty < /dev/null > /dev/null 2>&1; then

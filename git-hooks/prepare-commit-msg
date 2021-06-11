@@ -1,0 +1,9 @@
+#!/bin/bash -e
+
+. git-hooks/hook-lib.sh
+
+stage Preparing commit message
+
+check_git_secrets --prepare_commit_msg_hook -- "$@"
+
+all_checks_passed

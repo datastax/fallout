@@ -270,6 +270,9 @@ task setupGit {
                 commandLine("git", "config", key, value)
             }
         }
+        exec {
+            commandLine("git", "secrets", "--register-aws")
+        }
     }
 }
 
