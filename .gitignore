@@ -31,8 +31,8 @@ build/
 /tmp/
 
 # Local configuration files
-/fallout.yaml
-/fallout.yml
+fallout.yaml
+fallout.yml
 
 # gradle.properties is overwritten by CI to control repository access (amongst
 # other things), and should _never_ be checked in
