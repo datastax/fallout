@@ -1,6 +1,8 @@
 dependencyResolutionManagement {
+    // This should be FAIL_ON_PROJECT_REPOS; we're using PREFER_SETTINGS
+    // until https://github.com/gradle/gradle/issues/15732 is fixed.
     @Suppress("UnstableApiUsage")
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
 
     @Suppress("UnstableApiUsage")
     repositories {
