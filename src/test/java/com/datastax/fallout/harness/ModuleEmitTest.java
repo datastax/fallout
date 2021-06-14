@@ -26,6 +26,8 @@ import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.slf4j.Logger;
+import org.slf4j.helpers.NOPLogger;
 
 import com.datastax.fallout.components.impl.FakeModule;
 import com.datastax.fallout.ops.Ensemble;
@@ -46,13 +48,33 @@ class ModuleEmitTest extends EnsembleFalloutTest<FalloutConfiguration>
         return String.format("emission %d:%d", emitter, emission);
     }
 
+    /** We don't want to log every emit as that would be excessive, so suppress all logging coming from this module */
+    private static class FakeModuleWithSuppressedLogging extends FakeModule
+    {
+        public FakeModuleWithSuppressedLogging()
+        {
+            super();
+        }
+
+        public FakeModuleWithSuppressedLogging(RunToEndOfPhaseMethod runToEndOfPhaseMethod)
+        {
+            super(runToEndOfPhaseMethod);
+        }
+
+        @Override
+        protected Logger logger()
+        {
+            return NOPLogger.NOP_LOGGER;
+        }
+    }
+
     private void runEmitterModuleWithConcurrentModule(Supplier<Module> moduleSupplier)
     {
         String yaml = readYamlFile("module-emit.yaml");
 
         final ActiveTestRunBuilder activeTestRunBuilder = createActiveTestRunBuilder()
             .withComponentFactory(new TestRunnerTestHelpers.MockingComponentFactory()
-                .mockNamed(Module.class, "emitter-fake", () -> new FakeModule() {
+                .mockNamed(Module.class, "emitter-fake", () -> new FakeModuleWithSuppressedLogging() {
                     @Override
                     public void run(Ensemble ensemble, PropertyGroup properties)
                     {
@@ -89,12 +111,12 @@ class ModuleEmitTest extends EnsembleFalloutTest<FalloutConfiguration>
     @Test
     public void multiple_threads_can_emit_simultaneously_with_run_to_end_of_phase_module()
     {
-        runEmitterModuleWithConcurrentModule(() -> new FakeModule(AUTOMATIC));
+        runEmitterModuleWithConcurrentModule(() -> new FakeModuleWithSuppressedLogging(AUTOMATIC));
     }
 
     @Test
     public void multiple_threads_can_emit_simultaneously_with_run_once_module()
     {
-        runEmitterModuleWithConcurrentModule(FakeModule::new);
+        runEmitterModuleWithConcurrentModule(FakeModuleWithSuppressedLogging::new);
     }
 }
