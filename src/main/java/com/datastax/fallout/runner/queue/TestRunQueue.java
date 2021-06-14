@@ -72,7 +72,7 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
         };
     }
 
-    public final static class Blocker
+    private final static class Blocker
     {
         private static final ScopedLogger logger = ScopedLogger.getLogger(Blocker.class);
 
@@ -84,13 +84,6 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
         public Blocker(Duration temporaryDelay)
         {
             this.temporaryDelay = Optional.of(temporaryDelay);
-        }
-
-        /** Create a blocker which makes {@link #blockTemporarily()} behave the same as {@link #block()} */
-        @VisibleForTesting
-        public Blocker()
-        {
-            this.temporaryDelay = Optional.empty();
         }
 
         public boolean testRunNotTriedRecently(ReadOnlyTestRun testRun)
@@ -140,17 +133,6 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
             logger.withScopedDebug("unblock").run(() -> {
                 blocked = false;
                 notifyAll();
-            });
-        }
-
-        @VisibleForTesting
-        public synchronized void waitUntilBlocked()
-        {
-            logger.withScopedDebug("waitUntilBlocked").run(() -> {
-                while (!blocked)
-                {
-                    Exceptions.runUninterruptibly(this::wait);
-                }
             });
         }
     }
@@ -336,17 +318,7 @@ public class TestRunQueue implements ReadOnlyTestRunQueue
         Duration retryTestRunAfter,
         Predicate<ReadOnlyTestRun> available)
     {
-        this(pendingQueue, handleProcessingException, runningTestRunsSupplier, new Blocker(retryTestRunAfter),
-            available);
-    }
-
-    @VisibleForTesting
-    public TestRunQueue(PendingQueue pendingQueue,
-        BiConsumer<TestRun, Throwable> handleProcessingException,
-        Supplier<List<ReadOnlyTestRun>> runningTestRunsSupplier,
-        Blocker blocker,
-        Predicate<ReadOnlyTestRun> available)
-    {
+        Blocker blocker = new Blocker(retryTestRunAfter);
         this.handleProcessingException = handleProcessingException;
         this.queue = new SynchronizedTestRunQueue(blocker,
             new PrioritizedPendingQueue(pendingQueue, runningTestRunsSupplier,
