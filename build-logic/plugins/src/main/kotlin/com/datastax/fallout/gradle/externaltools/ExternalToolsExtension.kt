@@ -16,13 +16,7 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.TaskProvider
-import org.gradle.kotlin.dsl.domainObjectContainer
-import org.gradle.kotlin.dsl.get
-import org.gradle.kotlin.dsl.getByType
-import org.gradle.kotlin.dsl.polymorphicDomainObjectContainer
-import org.gradle.kotlin.dsl.property
-import org.gradle.kotlin.dsl.register
-import org.gradle.util.ConfigureUtil
+import org.gradle.kotlin.dsl.*
 import java.util.function.BiFunction
 import kotlin.reflect.KClass
 
@@ -34,6 +28,19 @@ private fun normalizePlatform(platform: String) =
     platformsMap.getOrDefault(platform, platform)
 
 private const val SHARED_PLATFORM_NAME = "shared"
+
+/** Replacement for [ConfigureUtil.configureUsing], since the latter has been deprecated in Gradle 7; the
+ * official advice is to ensure new objects are created using [org.gradle.api.model.ObjectFactory.newInstance],
+ * which auto-creates groovy overloads for methods with [Action] parameters (see
+ * https://github.com/gradle/gradle/blob/a67d0a570f8f3cfbf1e514479fed337dcfb256c7/subprojects/model-core/src/main/java/org/gradle/util/ConfigureUtil.java#L64).
+ *  However, this doesn't work for inner classes, and inner classes are very convenient for this implementation, so we stick
+ * with using our own overloads. */
+private fun <T> configureUsing(project: Project, configure: Closure<in Any>): Action<T> =
+    object : Action<T> {
+        override fun execute(t: T) {
+            project.configure(t as Any, configure)
+        }
+    }
 
 /** Provides a declarative DSL for defining external tools; groovy example:
  *
@@ -261,7 +268,7 @@ open class ExternalToolsExtension(private val project: Project) {
 
             /** Overload for groovy callers */
             fun platform(name: String, configure: Closure<in Any>) =
-                platform(name, ConfigureUtil.configureUsing(configure))
+                platform(name, configureUsing(project, configure))
 
             /** Shortcut syntax to add/configure multiple platforms */
             fun platforms(names: List<String>, configure: Action<P>) {
@@ -390,7 +397,7 @@ open class ExternalToolsExtension(private val project: Project) {
 
         /** Overload for groovy callers */
         fun binary(name: String, configure: Closure<in Any>) =
-            binary(name, ConfigureUtil.configureUsing(configure))
+            binary(name, configureUsing(project, configure))
 
         /** Add a [TarballTool] */
         fun tarball(name: String, configure: Action<TarballTool>) =
@@ -398,7 +405,7 @@ open class ExternalToolsExtension(private val project: Project) {
 
         /** Overload for groovy callers */
         fun tarball(name: String, configure: Closure<in Any>) =
-            tarball(name, ConfigureUtil.configureUsing(configure))
+            tarball(name, configureUsing(project, configure))
     }
 
     private val configurations = project.objects.domainObjectContainer(Configuration::class) { configurationName ->
@@ -427,10 +434,6 @@ open class ExternalToolsExtension(private val project: Project) {
     fun configuration(name: String, configure: Action<Configuration>) {
         configurations.create(name, configure)
     }
-
-    /** Overload for groovy callers */
-    fun configuration(name: String, configure: Closure<in Any>) =
-        configuration(name, ConfigureUtil.configureUsing(configure))
 
     fun configuration(name: String) = configurations.get(name)
 }

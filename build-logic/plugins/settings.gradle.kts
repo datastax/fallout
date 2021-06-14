@@ -10,8 +10,6 @@ dependencyResolutionManagement {
     }
 }
 
-enableFeaturePreview("ONE_LOCKFILE_PER_PROJECT")
-
 rootProject.name = "build-logic-plugins"
 
 includeBuild("../common-conventions")

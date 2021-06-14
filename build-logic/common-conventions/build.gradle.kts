@@ -24,11 +24,6 @@ dependencies {
     api("org.jlleitschuh.gradle:ktlint-gradle:${getPluginVersion("org.jlleitschuh.gradle.ktlint")}")
 }
 
-// see https://docs.gradle.org/current/userguide/kotlin_dsl.html#sec:kotlin-dsl_plugin
-kotlinDslPluginOptions {
-    experimentalWarning.set(false)
-}
-
 dependencyLocking {
     lockAllConfigurations()
 }

@@ -14,9 +14,7 @@ import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.bundling.Tar
 import org.gradle.api.tasks.bundling.Zip
-import org.gradle.kotlin.dsl.getByName
-import org.gradle.kotlin.dsl.register
-import org.gradle.util.TextUtil
+import org.gradle.kotlin.dsl.*
 
 /** Adds new distribution tasks that use the [SyncSymlinks] task, disables
  *  existing distribution tasks and makes them depend on the new ones (because
@@ -123,7 +121,7 @@ class SymlinksPlugin : Plugin<Project> {
         childSpec.with(distribution.contents)
         childSpec.into(archiveFileName.flatMap { fileName ->
             archiveExtension.map { extension ->
-                TextUtil.minus(fileName, "." + extension)
+                fileName.removeSuffix("." + extension)
             }
         })
 

@@ -17,11 +17,6 @@ dependencies {
     implementation("com.datastax:build-logic-common-conventions")
 }
 
-// see https://docs.gradle.org/current/userguide/kotlin_dsl.html#sec:kotlin-dsl_plugin
-kotlinDslPluginOptions {
-    experimentalWarning.set(false)
-}
-
 // Resources for use by PluginInfo
 
 val generatedMainResourcesOutputDir = file("$buildDir/src/main/resources")
