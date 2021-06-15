@@ -335,7 +335,7 @@ public class GoogleKubernetesEngineProvisioner extends AbstractKubernetesProvisi
             clusterName(nodeGroup), projectSpec.value(nodeGroup), getRegionOrZoneArg(),
             customLabels,
             machineTypeSpec.value(nodeGroup), getNodesArg(nodeGroup), clusterVersionArg,
-            extraCreateArgsSpec.value(nodeGroup));
+            extraCreateArgsSpec.optionalValue(nodeGroup).orElse(""));
         return executeInKubernetesEnv(createClusterCmd).waitForSuccess();
     }
 
