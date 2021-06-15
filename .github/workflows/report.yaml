@@ -1,0 +1,25 @@
+# Report publishing job, kept separate from potentially read-only ci job: see
+# https://github.com/dorny/test-reporter#recommended-setup-for-public-repositories
+
+name: Publish Test Reports
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types:
+      - completed
+
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Publish Test Results
+      uses: dorny/test-reporter@v1
+      with:
+        artifact: junit-xml
+        name: Test Results
+        path: |
+          **/build/reports/junit/**/*.xml
+        reporter: java-junit
