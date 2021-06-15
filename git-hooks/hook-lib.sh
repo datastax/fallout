@@ -104,6 +104,7 @@ function check_git_secrets()
 {
     if check_if_installed git-secrets; then
         git secrets "$@"
+        ok
     elif [[ -z "$ALLOW_SKIPPED_SECRETS_CHECK" ]]; then
         fail "git-secrets (https://github.com/awslabs/git-secrets) must be " \
             "installed; to bypass this check prefix the git command with " \
