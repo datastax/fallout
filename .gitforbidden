@@ -1,0 +1,22 @@
+# Inclusion patterns for git secrets
+#
+# This is under version control: DO NOT PUT LITERAL SECRETS IN HERE;
+# patterns only.  Please test the patterns, and make sure that running:
+#
+#   git secrets --scan
+#
+# ...runs _quickly_ (it should be < 1 second).  If you define a pattern that is
+# too hungry, the above command will take minutes.  An easy mistake is to use
+# literal spaces instead of \s.
+#
+# See https://github.com/awslabs/git-secrets#defining-prohibited-patterns for
+# more.
+
+# kubectl configs
+\bkind:\s*Config\b
+
+# SSH keys
+BEGIN\s([A-Z]+\s)?PRIVATE\sKEY
+
+# Docker creds
+"auths"\s*:\s*

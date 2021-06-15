@@ -273,6 +273,10 @@ task setupGit {
         exec {
             commandLine("git", "secrets", "--register-aws")
         }
+        exec {
+            commandLine("git", "secrets", "--add-provider", "--",
+                "grep", "-E", "-v", "^[[:space:]]*(#.*)?\$", ".gitforbidden")
+        }
     }
 }
 
