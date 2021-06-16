@@ -1,6 +1,5 @@
 package com.datastax.fallout.conventions
 
-import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 
@@ -8,17 +7,42 @@ plugins {
     java
 }
 
-dependencies {
-    testImplementation(platform("org.junit:junit-bom:5.+"))
-    testImplementation("org.junit.jupiter:junit-jupiter-api")
-    testImplementation("org.junit.jupiter:junit-jupiter-params")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
+// --------------------------------------------------------------------------------------------------------------------
+// Common dependencies for testing
 
-    testImplementation("org.assertj:assertj-core:3.+")
+// Create configurations to hold common test dependencies.  Rather than directly adding dependencies to the
+// standard testImplementation/testRuntimeOnly dependencies, this allows us to declare other test configurations
+// (such as implementation test) in projects using this plugin and have those configurations `extendFrom` these.
+
+val testConventionsImplementationDeps by configurations.creating {
+    isCanBeResolved = false
 }
+
+val testConventionsRuntimeOnlyDeps by configurations.creating {
+    isCanBeResolved = false
+}
+
+configurations {
+    testImplementation.get().extendsFrom(testConventionsImplementationDeps)
+    testRuntimeOnly.get().extendsFrom(testConventionsRuntimeOnlyDeps)
+}
+
+dependencies {
+    testConventionsImplementationDeps(platform("org.junit:junit-bom:5.+"))
+    testConventionsImplementationDeps("org.junit.jupiter:junit-jupiter-api")
+    testConventionsImplementationDeps("org.junit.jupiter:junit-jupiter-params")
+    testConventionsRuntimeOnlyDeps("org.junit.jupiter:junit-jupiter-engine")
+
+    testConventionsImplementationDeps("org.assertj:assertj-core:3.+")
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// Common settings for testing
 
 project.afterEvaluate {
     tasks.withType(Test::class.java) {
+        useJUnitPlatform()
+
         testLogging {
             events = setOf(TestLogEvent.SKIPPED, TestLogEvent.FAILED, TestLogEvent.PASSED)
             exceptionFormat = TestExceptionFormat.FULL

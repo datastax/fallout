@@ -1,7 +1,28 @@
 buildscript {
+    configurations.classpath {
+        resolutionStrategy.activateDependencyLocking()
+    }
+
     dependencies {
         classpath 'guru.nidi:graphviz-java:0.8.3'
         classpath 'net.sourceforge.plantuml:plantuml:1.2019.7'
+    }
+
+    dependencyLocking {
+        // The JFrog repository mirror handles the dependencies for
+        // com.github.johnrengelman.shadow incorrectly, resulting in
+        // different buildscript-gradle.lockfiles depending on whether
+        // we resolve against the mirror or maven central.  Solve the
+        // problem for now by ignoring the transitive dependencies.
+        ignoredDependencies.addAll(
+            "org.apache.ant:*",
+            "org.apache.logging.log4j:*",
+            "org.codehaus.groovy:groovy-backports-compat23",
+            "org.codehaus.plexus:plexus-utils",
+            "org.jdom:jdom2",
+            "org.ow2.asm:*",
+            "org.vafer:jdependency"
+        )
     }
 }
 
@@ -133,10 +154,10 @@ sourceSets {
 }
 
 configurations {
-    testBaseImplementation.extendsFrom(implementation)
+    testBaseImplementation.extendsFrom(implementation, testConventionsImplementationDeps)
 
     testImplementation.extendsFrom(testBaseImplementation)
-    testRuntimeOnly.extendsFrom(testBaseRuntimeOnly)
+    testRuntimeOnly.extendsFrom(testBaseRuntimeOnly, testConventionsImplementationDeps)
     testCompileOnly.extendsFrom(testBaseCompileOnly)
 }
 
@@ -234,10 +255,6 @@ dependencies {
     // will already use sourceSets.main.output by default).
     testBaseCompileOnly sourceSets.main.output
 
-    testBaseApi platform("org.junit:junit-bom:5.7.1")
-    testBaseApi "org.junit.jupiter:junit-jupiter"
-
-    testBaseApi "org.assertj:assertj-core:3.19.0"
     testBaseApi "org.awaitility:awaitility:4.0.3"
     testBaseImplementation "io.dropwizard:dropwizard-logging:${dropwizardVersion}"
     testBaseApi("io.dropwizard:dropwizard-testing:${dropwizardVersion}") {
@@ -258,6 +275,10 @@ dependencies {
     implementation('com.google.cloud:google-cloud-logging:2.2.0') {
         exclude group: 'com.google.guava', module: 'guava'
     }
+}
+
+dependencyLocking {
+    lockAllConfigurations()
 }
 
 // ----------------------------------------------------------------------------
@@ -1018,13 +1039,7 @@ allprojects {
         environment "PATH", "${externalTools.nativePath}:${System.getenv('PATH')}"
         environment "FALLOUT_TOOLS_DIR", "${testToolsRunDir}/tools"
 
-        useJUnitPlatform()
-
         jvmArgs = project.applicationGradleJvmArgs
-
-        if (rootProject.hasProperty('testIgnoreFailures')) {
-            ignoreFailures = testIgnoreFailures.toBoolean()
-        }
 
         [
             "runExpensiveTests",
@@ -1044,11 +1059,6 @@ allprojects {
             }
         }
 
-        testLogging {
-            events "skipped", "failed", "passed"
-            exceptionFormat "full"
-        }
-
         // Ensure the whole test framework uses the slf4j bridge by setting it
         // in the below properties file; if we don't do this, then there'll
         // be a period of time where the java.util.logging framework is used
@@ -1057,15 +1067,6 @@ allprojects {
             'java.util.logging.config.file':
                 "${project.rootDir}/src/testBase/resources/java.util.logging.properties"
         ]
-
-        def reportDestination = file("${buildDir}/reports/junit/${it.name}")
-
-        reports {
-            html.enabled = false
-            junitXml.enabled = true
-            junitXml.outputPerTestCase = true
-            junitXml.destination = reportDestination
-        }
 
         def jacocoPluginApplied = extensions.findByType(JacocoTaskExtension)
         if (jacocoPluginApplied) {

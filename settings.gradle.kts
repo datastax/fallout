@@ -11,6 +11,8 @@ dependencyResolutionManagement {
     }
 }
 
+enableFeaturePreview("ONE_LOCKFILE_PER_PROJECT")
+
 rootProject.name = "fallout"
 includeBuild("build-logic/test-conventions")
 includeBuild("build-logic/plugins")
