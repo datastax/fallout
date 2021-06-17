@@ -1,5 +1,6 @@
 package com.datastax.fallout.conventions
 
+import org.gradle.api.internal.tasks.testing.junitplatform.JUnitPlatformTestFramework
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 
@@ -41,7 +42,12 @@ dependencies {
 
 project.afterEvaluate {
     tasks.withType(Test::class.java) {
-        useJUnitPlatform()
+
+        // Calling useJUnitPlatform overwrites any existing options, so only do it
+        // if we're not already using it
+        if (testFramework !is JUnitPlatformTestFramework) {
+            useJUnitPlatform()
+        }
 
         testLogging {
             events = setOf(TestLogEvent.SKIPPED, TestLogEvent.FAILED, TestLogEvent.PASSED)
