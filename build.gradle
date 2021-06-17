@@ -927,7 +927,7 @@ task dockerBuild(type: Exec) {
         "--tag", latestTag,
         "--tag", versionTag,
         "--progress", "plain",
-        "--ssh", "default",
+        "--load",
         "."
 }
 
