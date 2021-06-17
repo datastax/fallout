@@ -17,7 +17,6 @@ package com.datastax.fallout.components.kubernetes;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,8 +35,6 @@ import org.slf4j.Logger;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.PropertyGroup;
-import com.datastax.fallout.ops.PropertySpec;
-import com.datastax.fallout.ops.PropertySpecBuilder;
 import com.datastax.fallout.ops.Provider;
 import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
@@ -59,21 +56,11 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
     private static final String KUBECONFIG_ENV_VAR = "KUBECONFIG";
     private static final String FALLOUT_STORAGE_CLASS_NAME = "fallout-storage";
     private static final String ARTIFACT_COLLECTOR_CONTAINER_NAME = "artifact-collector";
-    private static final String FLUENT_BIT_PERSISTENT_VOLUME_NAME = "fluent-bit-storage";
-    private static final String FLUENT_BIT_PERSISTENT_VOLUME_PATH = "/mnt/data/fluentbit";
-    private static final String FLUENT_BIT_PERSISTENT_VOLUME_CLAIM_NAME = "fluent-bit-storage-claim";
     private Path kubeConfigPath;
-
-    private final PropertySpec<String> loggingStorageCapacitySpec;
 
     public AbstractKubernetesProvisioner()
     {
         super("k8s");
-        loggingStorageCapacitySpec = PropertySpecBuilder.createStr(prefix())
-            .name("logging_capacity")
-            .description("The amount of space on disk to reserve for log collection")
-            .defaultOf("5Gi")
-            .build();
     }
 
     public NodeResponse executeInKubernetesEnv(String command)
@@ -252,69 +239,10 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
 
     protected abstract NodeGroup.State checkExistingKubernetesClusterState(NodeGroup nodeGroup);
 
-    private Path writeRenderedDefinition(Path dest, String template, Map<String, Object> scope)
-    {
-        String definition = ResourceUtils.loadResourceAsString(this, template)
-            .orElseThrow(() -> new RuntimeException("Could not load template " + template));
-        FileUtils.writeString(dest, renderDefinitionWithScopes(definition, List.of(scope)));
-        return dest;
-    }
-
-    private boolean createLocalPersistentVolumes(NodeGroup nodeGroup)
-    {
-        var kubeCtlProvider = nodeGroup.findFirstRequiredProvider(KubeControlProvider.class)
-            .createNamespacedKubeCtl(Optional.empty());
-        var scratchSpace = getNodeGroup().getLocalScratchSpace().makeScratchSpaceFor(this).getPath();
-
-        boolean success = kubeCtlProvider
-            .applyManifest(writeRenderedDefinition(scratchSpace.resolve("persistent-volume.yaml"),
-                "local-storage-persistent-volume.yaml.mustache", Map.of("name",
-                    FLUENT_BIT_PERSISTENT_VOLUME_NAME, "capacity", loggingStorageCapacitySpec.value(nodeGroup),
-                    "path", FLUENT_BIT_PERSISTENT_VOLUME_PATH)))
-            .waitForSuccess();
-
-        return success && kubeCtlProvider
-            .applyManifest(writeRenderedDefinition(scratchSpace.resolve("persistent-volume-claim.yaml"),
-                "local-storage-persistent-volume-claim.yaml.mustache", Map.of("name",
-                    FLUENT_BIT_PERSISTENT_VOLUME_CLAIM_NAME, "capacity", loggingStorageCapacitySpec.value(nodeGroup))))
-            .waitForSuccess();
-    }
-
-    @Override
-    protected boolean prepareImpl(NodeGroup nodeGroup)
-    {
-        return createLocalPersistentVolumes(nodeGroup);
-    }
-
-    /**
-     *  Fluent bit is installed as a DaemonSet which runs an agent on every Node in the kubernetes cluster.
-     *  The agents will collect, filter and parse logs from every pod on the cluster and write them to the
-     *  local persistent volume created in createLocalPersistentVolumes. The logs are then collected from the PVs in
-     *  downloadProvisionerArtifactsImpl.
-     */
-    private boolean installFluentBit(NodeGroup nodeGroup)
-    {
-        var kubeCtlProvider = nodeGroup.findFirstRequiredProvider(KubeControlProvider.class)
-            .createNamespacedKubeCtl(Optional.empty());
-
-        kubeCtlProvider.addHelmRepo("fluent", "https://fluent.github.io/helm-charts");
-        Path nodeGroupPath = nodeGroup.getLocalArtifactPath().resolve("fluent-bit");
-        FileUtils.createDirs(nodeGroupPath);
-
-        Path configPath = writeRenderedDefinition(
-            getNodeGroup().getLocalScratchSpace().makeScratchSpaceFor(this).getPath().resolve("fluentbit-config.yaml"),
-            "fluentbit-config.yaml.mustache",
-            Map.of("claim", FLUENT_BIT_PERSISTENT_VOLUME_CLAIM_NAME));
-
-        return kubeCtlProvider.installHelmChart("fluent-bit", "fluent/fluent-bit", Collections.emptyMap(),
-            Optional.of(configPath), false,
-            Duration.minutes(5), Optional.empty());
-    }
-
     @Override
     protected boolean startImpl(NodeGroup nodeGroup)
     {
-        return installFluentBit(nodeGroup);
+        return true;
     }
 
     protected boolean cleanupPersistentVolumeDisks(NodeGroup nodeGroup)
@@ -322,16 +250,10 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
         return true;
     }
 
-    private boolean uninstallFluentBit(NodeGroup nodeGroup)
-    {
-        return nodeGroup.findFirstRequiredProvider(KubeControlProvider.class)
-            .createNamespacedKubeCtl(Optional.empty()).uninstallHelmChart("fluent-bit");
-    }
-
     @Override
     protected boolean stopImpl(NodeGroup nodeGroup)
     {
-        return uninstallFluentBit(nodeGroup) && cleanupPersistentVolumeDisks(nodeGroup);
+        return cleanupPersistentVolumeDisks(nodeGroup);
     }
 
     @Override
@@ -343,9 +265,14 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
     private boolean deployPersistentVolumeClaimForArtifactCollector(NodeGroup nodeGroup, Path manifestScratchSpace,
         JsonNode pv, String pvName, String pvcName, KubeControlProvider kubeCtl)
     {
-        Path pvcManifest = writeRenderedDefinition(manifestScratchSpace.resolve(String.format("%s-pvc.yaml", pvName)),
-            "artifact-collector-pvc.yaml",
-            Map.of("pvc-name", pvcName, "pv-name", pvName, "pv-capacity", pv.at("/spec/capacity/storage").asText()));
+        String pvcTemplate = ResourceUtils.loadResourceAsString(this, "artifact-collector-pvc.yaml")
+            .orElseThrow(() -> new RuntimeException("Could not load artifact collector PVC template"));
+        String pvcDefinition = renderDefinitionWithScopes(pvcTemplate, List.of(Map.of(
+            "pvc-name", pvcName,
+            "pv-name", pvName,
+            "pv-capacity", pv.at("/spec/capacity/storage").asText())));
+        Path pvcManifest = manifestScratchSpace.resolve(String.format("%s-pvc.yaml", pvName));
+        FileUtils.writeString(pvcManifest, pvcDefinition);
         boolean deployed = kubeCtl.inNamespace(Optional.empty(),
             namespacedKubectl -> namespacedKubectl.applyManifest(pvcManifest).waitForSuccess());
         if (!deployed)
@@ -356,15 +283,16 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
     }
 
     private CompletableFuture<Boolean> deployArtifactCollectorPod(NodeGroup nodeGroup, Path manifestScratchSpace,
-        Map<String, String> targetPv, KubeControlProvider kubeCtl)
+        Map<String, String> targetPv, String artifactCollectorTemplate, KubeControlProvider kubeCtl)
     {
         return CompletableFuture.supplyAsync(() -> {
             String pvName = targetPv.get("pv-name");
             Map<String, Object> templateValues = new HashMap<>(targetPv);
             templateValues.put("container-name", ARTIFACT_COLLECTOR_CONTAINER_NAME);
+            String manifestContent = renderDefinitionWithScopes(artifactCollectorTemplate, List.of(templateValues));
+            Path manifest = manifestScratchSpace.resolve(String.format("%s-collection.yaml", pvName));
+            FileUtils.writeString(manifest, manifestContent);
 
-            Path manifest = writeRenderedDefinition(manifestScratchSpace
-                .resolve(String.format("%s-collection.yaml", pvName)), "artifact-collector-pod.yaml", templateValues);
             boolean deployed = kubeCtl.inNamespace(Optional.empty(),
                 namespacedKubectl -> namespacedKubectl.applyManifest(manifest).waitForSuccess());
 
@@ -402,8 +330,7 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
 
         for (var pv : pvList)
         {
-            if (!pv.at("/spec/storageClassName").asText().equals(FALLOUT_STORAGE_CLASS_NAME) &&
-                !pv.at("/metadata/name").asText().equals(FLUENT_BIT_PERSISTENT_VOLUME_NAME))
+            if (!pv.at("/spec/storageClassName").asText().equals(FALLOUT_STORAGE_CLASS_NAME))
             {
                 continue;
             }
@@ -450,9 +377,12 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
             return success.get();
         }
 
+        String artifactCollectorTemplate = ResourceUtils.loadResourceAsString(this, "artifact-collector-pod.yaml")
+            .orElseThrow(() -> new RuntimeException("Could not load artifact collector pod template"));
+
         List<CompletableFuture<Boolean>> artifactCollectorDeploys = pvInfos.stream()
             .map(targetPv -> deployArtifactCollectorPod(
-                nodeGroup, manifestScratchSpace, targetPv, kubeCtl))
+                nodeGroup, manifestScratchSpace, targetPv, artifactCollectorTemplate, kubeCtl))
             .collect(Collectors.toList());
 
         if (!Utils.waitForAll(artifactCollectorDeploys, nodeGroup.logger(), "Deploy artifact collector pods"))
