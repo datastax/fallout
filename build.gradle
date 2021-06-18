@@ -521,7 +521,7 @@ def maybeSetGitProperty(String name, Closure closure) {
 }
 
 ext {
-    maybeSetGitProperty("gitDescribe", { gitCommand(["describe", "--tags"]) })
+    maybeSetGitProperty("gitDescribe", { gitCommand(["describe", "--tags", "--match", "fallout-*.*.*"]) })
     maybeSetGitProperty("gitBranch", { gitCommand(["rev-parse", "--abbrev-ref", "HEAD"]) })
     maybeSetGitProperty("gitCommit", { gitCommand(["rev-parse", "HEAD"]) })
     maybeSetGitProperty("githubRepo", { gitCommand(["remote", "get-url", "origin"])
@@ -918,7 +918,7 @@ task dockerBuild(type: Exec) {
     workingDir dockerContextDir
 
     def name = "datastax/fallout"
-    def tag = gitDescribe.replace("fallout-oss-", "")
+    def tag = gitDescribe.replace("fallout-", "")
     ext.latestTag = "${name}:latest"
     ext.versionTag = "${name}:${tag}"
 
