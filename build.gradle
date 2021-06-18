@@ -918,7 +918,7 @@ task dockerBuild(type: Exec) {
     workingDir dockerContextDir
 
     def name = "datastax/fallout"
-    def tag = gitDescribe.replace("fallout-", "")
+    def tag = gitDescribe.replace("fallout-oss-", "")
     ext.latestTag = "${name}:latest"
     ext.versionTag = "${name}:${tag}"
 
