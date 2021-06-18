@@ -58,7 +58,7 @@ jobs:
           org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC
           EOF
 
-      - name: ./gradlew check
+      - name: Gradle
         env:
           JAVA_HOME: ${{ steps.setup-java-11.outputs.path }}
           JAVA8_HOME: ${{ steps.setup-java-8.outputs.path }}

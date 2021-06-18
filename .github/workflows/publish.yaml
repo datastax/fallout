@@ -1,0 +1,45 @@
+name: Publish
+
+on:
+  push:
+    tags: [ 'fallout-oss-*.*.*' ]
+
+jobs:
+  publish:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Gradle cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Setup Java 11
+        id: setup-java-11
+        uses: actions/setup-java@v2
+        with:
+          java-version: 11
+          distribution: adopt
+
+      - name: Setup docker
+        uses: docker/setup-buildx-action@v1
+
+      - name: Gradle
+        run: ./gradlew
+          --no-daemon
+          --parallel
+          --build-cache
+          -PgithubRepo=$GITHUB_REPOSITORY
+          -PgitDescribe=${GITHUB_REF#refs/tags/*}
+          -PdockerUsername=${{secrets.DOCKER_REGISTRY_USER}}
+          -PdockerPassword=${{secrets.DOCKER_REGISTRY_PASS}}
+          publish
