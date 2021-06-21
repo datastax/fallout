@@ -5,21 +5,20 @@ name: Publish Test Reports
 
 on:
   workflow_run:
-    workflows: ['CI']
-    types:
-      - completed
-
+    workflows: [ 'CI' ]
+    types: [ completed ]
 
 jobs:
   report:
     runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
 
     steps:
-    - name: Publish Test Results
-      uses: dorny/test-reporter@v1
-      with:
-        artifact: junit-xml
-        name: Test Results
-        path: |
-          **/build/reports/junit/**/*.xml
-        reporter: java-junit
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        with:
+          artifact: junit-xml
+          name: Test Results
+          path: |
+            **/build/reports/junit/**/*.xml
+          reporter: java-junit

@@ -13,70 +13,70 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
-    - name: Gradle cache
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+      - name: Gradle cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-    - name: Setup Java 8
-      id: setup-java-8
-      uses: actions/setup-java@v2
-      with:
-        java-version: 8
-        distribution: adopt
+      - name: Setup Java 8
+        id: setup-java-8
+        uses: actions/setup-java@v2
+        with:
+          java-version: 8
+          distribution: adopt
 
-    - name: Setup Java 11
-      id: setup-java-11
-      uses: actions/setup-java@v2
-      with:
-        java-version: 11
-        distribution: adopt
+      - name: Setup Java 11
+        id: setup-java-11
+        uses: actions/setup-java@v2
+        with:
+          java-version: 11
+          distribution: adopt
 
-    - name: Setup Python
-      uses: actions/setup-python@v2.2.2
-      with:
-        python-version: 3.7.x
+      - name: Setup Python
+        uses: actions/setup-python@v2.2.2
+        with:
+          python-version: 3.7.x
 
-    - name: Bootstrap python environment
-      run: |
-        pip install --user virtualenv
-        docker/build-files/bootstrap-user-python-support
+      - name: Bootstrap python environment
+        run: |
+          pip install --user virtualenv
+          docker/build-files/bootstrap-user-python-support
 
-    - name: Create gradle.properties
-      run: |
-        cat > gradle.properties <<EOF
-        # Adjust JVM memory usage to avoid "Expiring Daemon due to JVM Metaspace space being exhausted";
-        # see https://docs.gradle.org/current/userguide/build_environment.html#sec:configuring_jvm_memory
-        org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC
-        EOF
+      - name: Create gradle.properties
+        run: |
+          cat > gradle.properties <<EOF
+          # Adjust JVM memory usage to avoid "Expiring Daemon due to JVM Metaspace space being exhausted";
+          # see https://docs.gradle.org/current/userguide/build_environment.html#sec:configuring_jvm_memory
+          org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC
+          EOF
 
-    - name: ./gradlew check
-      env:
-        JAVA_HOME: ${{ steps.setup-java-11.outputs.path }}
-        JAVA8_HOME: ${{ steps.setup-java-8.outputs.path }}
-      run: ./gradlew
-        --no-daemon
-        --parallel
-        --build-cache
-        -PtestIgnoreFailures=true
-        -PgithubRepo=$GITHUB_REPOSITORY
-        -PgitDescribe=$GITHUB_SHA
-        check
+      - name: Gradle
+        env:
+          JAVA_HOME: ${{ steps.setup-java-11.outputs.path }}
+          JAVA8_HOME: ${{ steps.setup-java-8.outputs.path }}
+        run: ./gradlew
+          --no-daemon
+          --parallel
+          --build-cache
+          -PtestIgnoreFailures=true
+          -PgithubRepo=$GITHUB_REPOSITORY
+          -PgitDescribe=$GITHUB_SHA
+          check
 
-    - name: Archive JUnit XML Artifacts
-      if: always()
-      uses: actions/upload-artifact@v2
-      with:
-        # Artifact name
-        name: junit-xml
-        # A file, directory or wildcard pattern that describes what to upload
-        path: |
-          **/build/reports/junit/**/*.xml
+      - name: Archive JUnit XML Artifacts
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          # Artifact name
+          name: junit-xml
+          # A file, directory or wildcard pattern that describes what to upload
+          path: |
+            **/build/reports/junit/**/*.xml
