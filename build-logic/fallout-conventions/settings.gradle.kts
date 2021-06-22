@@ -7,4 +7,4 @@ dependencyResolutionManagement {
 
 enableFeaturePreview("ONE_LOCKFILE_PER_PROJECT")
 
-rootProject.name = "build-logic-conventions"
+rootProject.name = "build-logic-fallout-conventions"
