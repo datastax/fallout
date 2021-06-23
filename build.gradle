@@ -39,6 +39,7 @@ plugins {
     id "com.datastax.fallout.symlinks"
     id "com.datastax.fallout.externaltools"
     id "com.datastax.fallout.conventions.test"
+    id "com.datastax.fallout.conventions.lint"
     id "com.datastax.fallout.conventions.kotlin"
     id "com.datastax.fallout.conventions.common-root-project"
 
@@ -376,14 +377,6 @@ if (ideaVersion) {
 
 // ----------------------------------------------------------------------------
 // Convenience
-
-task compile {
-    setDependsOn(tasks.findAll {
-        it.name != 'compile' &&
-            it.name.startsWith('compile') &&
-            !it.name.startsWith('compileJenkins')
-    })
-}
 
 task publish {
     group 'publish'
@@ -1321,12 +1314,8 @@ spotless {
     }
 }
 
-// This should a be a reasonably quick validation that the code is "clean"
-tasks.maybeCreate("lint").configure {
-    dependsOn(spotlessCheck, ktlintCheck, compile)
-    gradle.includedBuilds.each { includedBuild ->
-        dependsOn(includedBuild.task(":lint"))
-    }
+tasks.named("lint").configure {
+    dependsOn(spotlessCheck)
 }
 
 test {

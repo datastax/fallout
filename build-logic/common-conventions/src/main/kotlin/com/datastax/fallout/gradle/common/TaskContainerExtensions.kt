@@ -6,12 +6,15 @@ import org.gradle.api.tasks.TaskContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.kotlin.dsl.*
 
-inline fun <reified T : Task> TaskContainer.maybeRegister(taskName: String): TaskProvider<T> =
+inline fun <reified T : Task> TaskContainer.maybeNamed(taskName: String): TaskProvider<T>? =
     try {
         named<T>(taskName)
     } catch (ex: UnknownTaskException) {
-        register<T>(taskName)
+        null
     }
+
+inline fun <reified T : Task> TaskContainer.maybeRegister(taskName: String): TaskProvider<T> =
+    maybeNamed<T>(taskName) ?: register<T>(taskName)
 
 inline fun <reified T : Task> TaskContainer.maybeRegister(taskName: String, noinline configuration: T.() -> Unit):
     TaskProvider<T> =

@@ -2,13 +2,11 @@
 
 package com.datastax.fallout.conventions
 
-import com.datastax.fallout.gradle.common.maybeRegister
-import org.gradle.kotlin.dsl.*
-
 plugins {
     id("org.jlleitschuh.gradle.ktlint")
+    id("com.datastax.fallout.conventions.lint")
 }
 
-tasks.maybeRegister<DefaultTask>("lint") {
+tasks.named("lint").configure {
     dependsOn("ktlintCheck")
 }
