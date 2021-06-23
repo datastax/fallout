@@ -3,9 +3,9 @@
 
 package com.datastax.fallout.conventions
 
-import com.datastax.fallout.gradle.common.maybeNamed
+import com.datastax.fallout.gradle.common.cascadeTask
 
-val lint = tasks.register("lint")
+val lint by tasks.registering
 
 project.afterEvaluate {
     lint.configure {
@@ -13,17 +13,4 @@ project.afterEvaluate {
     }
 }
 
-// If this is the root project, cascade the lint task to all subprojects and included builds
-if (project.rootProject === project) {
-    lint.configure {
-        subprojects {
-            tasks.maybeNamed<Task>("lint")?.let {
-                dependsOn(it)
-            }
-        }
-
-        gradle.includedBuilds.forEach { includedBuild ->
-            dependsOn(includedBuild.task(":lint"))
-        }
-    }
-}
+cascadeTask(project, lint)
