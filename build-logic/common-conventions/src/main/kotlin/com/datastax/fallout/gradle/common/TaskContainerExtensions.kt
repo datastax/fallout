@@ -1,4 +1,4 @@
-package com.datastax.fallout.gradle.conventions.common
+package com.datastax.fallout.gradle.common
 
 import org.gradle.api.Task
 import org.gradle.api.UnknownTaskException

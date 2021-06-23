@@ -1,6 +1,6 @@
 package com.datastax.fallout.conventions
 
-import com.datastax.fallout.gradle.conventions.common.maybeRegister
+import com.datastax.fallout.gradle.common.maybeRegister
 
 project.afterEvaluate {
 

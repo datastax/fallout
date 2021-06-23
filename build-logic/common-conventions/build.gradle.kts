@@ -10,6 +10,8 @@ plugins {
     id("org.jlleitschuh.gradle.ktlint") version "10.0.0"
 }
 
+group = "com.datastax"
+
 // see https://docs.gradle.org/current/userguide/kotlin_dsl.html#sec:kotlin-dsl_plugin
 kotlinDslPluginOptions {
     experimentalWarning.set(false)
