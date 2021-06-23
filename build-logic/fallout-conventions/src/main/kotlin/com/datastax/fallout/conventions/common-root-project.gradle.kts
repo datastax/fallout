@@ -33,7 +33,7 @@ project.afterEvaluate {
 
     // Cascade dry-run settings; see https://github.com/gradle/gradle/issues/2517
 
-    if (gradle.parent?.startParameter?.isDryRun ?: false) {
+    if (gradle.parent?.startParameter?.isDryRun == true) {
         gradle.startParameter.isDryRun = true
     }
 }
