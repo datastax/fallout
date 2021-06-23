@@ -43,10 +43,6 @@ gradlePlugin {
     }
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
-
 configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
     version.set("0.41.0")
 }
