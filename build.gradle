@@ -39,18 +39,13 @@ plugins {
     id "com.datastax.fallout.symlinks"
     id "com.datastax.fallout.externaltools"
     id "com.datastax.fallout.conventions.test"
+    id "com.datastax.fallout.conventions.kotlin"
     id "com.datastax.fallout.conventions.common-root-project"
 
     id "com.github.johnrengelman.shadow" version "6.1.0"
     id "com.github.johnrengelman.processes" version "0.5.0"
     id "com.github.voplex95.lesscompiler" version "1.0.3"
     id "com.diffplug.spotless" version "5.11.0"
-
-    // Do not use version 10.0.0 in groovy-based build.gradle scripts
-    // because of https://github.com/JLLeitschuh/ktlint-gradle/issues/443
-    // We use ktlint-gradle instead of spotless ktlint support mainly
-    // because of https://github.com/diffplug/spotless/issues/142
-    id "org.jlleitschuh.gradle.ktlint" version "9.4.1"
 
     id "de.undercouch.download" version "4.1.1"
     id "com.google.osdetector" version "1.6.2"
@@ -1327,7 +1322,8 @@ spotless {
 }
 
 // This should a be a reasonably quick validation that the code is "clean"
-task lint(dependsOn: [spotlessCheck, ktlintCheck, compile]) {
+tasks.maybeCreate("lint").configure {
+    dependsOn(spotlessCheck, ktlintCheck, compile)
     gradle.includedBuilds.each { includedBuild ->
         dependsOn(includedBuild.task(":lint"))
     }

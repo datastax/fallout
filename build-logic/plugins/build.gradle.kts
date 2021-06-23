@@ -8,7 +8,7 @@ plugins {
     `kotlin-dsl`
 
     id("com.datastax.fallout.conventions.test")
-    id("org.jlleitschuh.gradle.ktlint") version "10.0.0"
+    id("com.datastax.fallout.conventions.kotlin")
 }
 
 group = "com.datastax"
@@ -41,12 +41,4 @@ gradlePlugin {
                 "com.datastax.fallout.gradle.externaltools.ExternalToolsPlugin"
         }
     }
-}
-
-configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
-    version.set("0.41.0")
-}
-
-tasks.register("lint") {
-    dependsOn("ktlintCheck")
 }

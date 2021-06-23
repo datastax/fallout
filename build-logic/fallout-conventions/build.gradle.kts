@@ -7,7 +7,7 @@ buildscript {
 plugins {
     `kotlin-dsl`
 
-    id("org.jlleitschuh.gradle.ktlint") version "10.0.0"
+    id("com.datastax.fallout.conventions.kotlin")
 }
 
 group = "com.datastax"
@@ -23,14 +23,6 @@ kotlinDslPluginOptions {
 
 dependencyLocking {
     lockAllConfigurations()
-}
-
-configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
-    version.set("0.41.0")
-}
-
-tasks.register("lint") {
-    dependsOn("ktlintCheck")
 }
 
 // Resources for use by PluginInfo
