@@ -1,0 +1,38 @@
+# This is a Gradle generated file for dependency locking.
+# Manual edits can break the build and are not advised.
+# This file is expected to be part of source control.
+byte-streams:byte-streams:0.1.4=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+clj-ssh:clj-ssh:0.5.14=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+clj-time:clj-time:0.6.0=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+clj-tuple:clj-tuple:0.2.2=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.boundary:high-scale-lib:1.0.6=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.jcraft:jsch.agentproxy.core:0.0.9=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.jcraft:jsch.agentproxy.jsch:0.0.9=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.jcraft:jsch.agentproxy.pageant:0.0.9=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.jcraft:jsch.agentproxy.sshagent:0.0.9=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.jcraft:jsch.agentproxy.usocket-jna:0.0.9=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.jcraft:jsch.agentproxy.usocket-nc:0.0.9=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.jcraft:jsch:0.1.55=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+dev.clojurephant:clojurephant-tools:0.6.0-alpha.4=clojureTools,compileClasspath,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+fipp:fipp:0.6.2=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+gnuplot:gnuplot:0.1.0=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+hiccup:hiccup:1.0.5=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+interval-metrics:interval-metrics:1.0.0=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+joda-time:joda-time:2.2=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+knossos:knossos:0.3.1=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+net.java.dev.jna:jna-platform:4.1.0=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+net.java.dev.jna:jna:4.1.0=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+nrepl:nrepl:0.6.0=devCompileClasspath,devRuntimeClasspath,nrepl
+org.clojars.pallix:analemma:1.0.0=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.clojure:algo.generic:0.1.2=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.clojure:clojure:1.10.1=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.clojure:core.specs.alpha:0.2.44=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.clojure:data.fressian:0.2.0=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.clojure:math.combinatorics:0.1.1=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.clojure:spec.alpha:0.2.176=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.clojure:tools.cli:0.3.5=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.clojure:tools.logging:0.3.1=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.fressian:fressian:0.6.3=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+potemkin:potemkin:0.4.3=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+riddley:riddley:0.1.12=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+empty=annotationProcessor,archives,compile,compileOnly,devAnnotationProcessor,devCompile,devCompileOnly,devRuntime,runtime,shadow,testAnnotationProcessor,testCompile,testCompileOnly,testRuntime

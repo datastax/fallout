@@ -33,6 +33,25 @@ dependencyLocking {
     lockAllConfigurations()
 }
 
-tasks.register("lint") {
-    dependsOn("ktlintCheck")
+// Frustratingly, there doesn't appear to be an easy (i.e. non-baroque) way to DRY this
+// up further: the tasks that this project defines in convention plugins for use in
+// other projects can't be reused in this project, so we end up creating them again here:
+
+tasks {
+    register("lint") {
+        dependsOn(matching { it.name.startsWith("compile") })
+        dependsOn("ktlintCheck")
+    }
+
+    register("lockDependencies") {
+        doLast {
+            require(project.gradle.startParameter.isWriteDependencyLocks) {
+                "$name must be called with the --write-locks option"
+            }
+            project.configurations.filter {
+                // Add any custom filtering on the configurations to be resolved
+                it.isCanBeResolved
+            }.forEach { it.resolve() }
+        }
+    }
 }

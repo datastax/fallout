@@ -9,6 +9,7 @@ plugins {
 
     id("com.datastax.fallout.conventions.test")
     id("com.datastax.fallout.conventions.kotlin")
+    id("com.datastax.fallout.conventions.dependency-locking")
 }
 
 group = "com.datastax"
@@ -21,10 +22,6 @@ kotlinDslPluginOptions {
 dependencies {
     implementation("de.undercouch:gradle-download-task:4+")
     implementation("com.google.gradle:osdetector-gradle-plugin:1+")
-}
-
-dependencyLocking {
-    lockAllConfigurations()
 }
 
 gradlePlugin {

@@ -1,0 +1,9 @@
+# This is a Gradle generated file for dependency locking.
+# Manual edits can break the build and are not advised.
+# This file is expected to be part of source control.
+dev.clojurephant.clojure:dev.clojurephant.clojure.gradle.plugin:0.6.0-alpha.4=classpath
+dev.clojurephant:clojurephant-plugin:0.6.0-alpha.4=classpath
+org.apache.commons:commons-lang3:3.8.1=classpath
+org.apache.commons:commons-text:1.6=classpath
+us.bpsm:edn-java:0.6.0=classpath
+empty=

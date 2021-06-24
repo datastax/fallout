@@ -8,6 +8,7 @@ plugins {
     `kotlin-dsl`
 
     id("com.datastax.fallout.conventions.kotlin")
+    id("com.datastax.fallout.conventions.dependency-locking")
 }
 
 group = "com.datastax"
@@ -19,10 +20,6 @@ dependencies {
 // see https://docs.gradle.org/current/userguide/kotlin_dsl.html#sec:kotlin-dsl_plugin
 kotlinDslPluginOptions {
     experimentalWarning.set(false)
-}
-
-dependencyLocking {
-    lockAllConfigurations()
 }
 
 // Resources for use by PluginInfo
