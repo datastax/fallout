@@ -201,7 +201,7 @@ dependencies {
     implementation "com.sun.mail:javax.mail:1.6.0"
     api "org.apache.commons:commons-csv:1.5"
     api "org.hdrhistogram:HdrHistogram:2.1.12"
-    api 'com.github.pingtimeout:HdrLogProcessing:input-stream-instead-of-file-SNAPSHOT'
+    api 'com.github.pingtimeout:HdrLogProcessing:274e279'
     api "io.netty:netty-all:4.1.63.Final"
     implementation "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
     implementation "org.apache.httpcomponents:httpclient:4.5.13"
