@@ -52,3 +52,13 @@ See [LogbackConfigurator.java](src/test/java/com/datastax/fallout/LogbackConfigu
 ## Style checks
 
 To check any changed code for style violations, use the gradle `lint` target; the `check` target will run `lint` and `test`.
+
+## Updating dependencies
+
+This project uses gradle's dependency locking support to ensure a consistent set of dependencies; if you want to update any wildcarded dependencies, or if you change any dependencies in any project gradle files, please run:
+
+```
+./gradlew lockDependencies --write-locks
+```
+
+...in the root of the repository, and add the updated `*.lockfile`s to the commit.
