@@ -32,6 +32,8 @@ dependencies {
     testConventionsImplementationDeps(platform("org.junit:junit-bom:5.+"))
     testConventionsImplementationDeps("org.junit.jupiter:junit-jupiter-api")
     testConventionsImplementationDeps("org.junit.jupiter:junit-jupiter-params")
+
+    testConventionsRuntimeOnlyDeps(platform("org.junit:junit-bom:5.+"))
     testConventionsRuntimeOnlyDeps("org.junit.jupiter:junit-jupiter-engine")
 
     testConventionsImplementationDeps("org.assertj:assertj-core:3.+")
