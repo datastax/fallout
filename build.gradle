@@ -38,6 +38,7 @@ plugins {
 
     id "com.datastax.fallout.symlinks"
     id "com.datastax.fallout.externaltools"
+    id "com.datastax.fallout.fork"
     id "com.datastax.fallout.conventions.test"
     id "com.datastax.fallout.conventions.lint"
     id "com.datastax.fallout.conventions.kotlin"
@@ -45,7 +46,6 @@ plugins {
     id "com.datastax.fallout.conventions.common-root-project"
 
     id "com.github.johnrengelman.shadow" version "6.1.0"
-    id "com.github.johnrengelman.processes" version "0.5.0"
     id "com.github.node-gradle.node" version "3.0.1"
     id "com.diffplug.spotless" version "5.11.0"
 
@@ -59,7 +59,7 @@ plugins {
     id "com.waftex.assertj-generator" version "1.1.4"
 }
 
-import com.github.jengelman.gradle.plugins.processes.tasks.Fork
+import com.datastax.fallout.gradle.fork.Fork
 import static com.datastax.fallout.gradle.Utils.camelCase
 import static com.datastax.fallout.gradle.common.CascadeTaskKt.cascadeTask
 

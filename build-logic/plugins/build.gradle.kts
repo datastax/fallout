@@ -37,5 +37,10 @@ gradlePlugin {
             implementationClass =
                 "com.datastax.fallout.gradle.externaltools.ExternalToolsPlugin"
         }
+
+        create("fork") {
+            id = "com.datastax.fallout.fork"
+            implementationClass = "com.datastax.fallout.gradle.fork.ForkPlugin"
+        }
     }
 }
