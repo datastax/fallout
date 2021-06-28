@@ -426,7 +426,8 @@ task startCassandra(type: Fork) {
 
         while (!portOpened && waitSeconds && !processHandle.state.terminal) {
             try {
-                new Socket("localhost", port);
+                def socket = new Socket("localhost", port);
+                socket.close()
                 portOpened = true
             }
             catch (ConnectException e) {
