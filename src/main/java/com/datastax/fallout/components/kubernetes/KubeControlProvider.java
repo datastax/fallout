@@ -473,9 +473,12 @@ public class KubeControlProvider extends Provider
             return arguments.toString();
         }
 
+        /** Waits for timeout plus a fudge factor to allow for helm's internal timeout to trigger before we
+         *  terminate it forcibly. */
         private boolean successfulHelmCommand(NodeResponse command, Duration timeout)
         {
-            return command.doWait().withTimeout(timeout).withDisabledTimeoutAfterNoOutput().forSuccess();
+            return command.doWait().withTimeout(Duration.seconds(timeout.toSeconds() + 30))
+                .withDisabledTimeoutAfterNoOutput().forSuccess();
         }
 
         public boolean installHelmChart(Path helmChart, Map<String, String> flags, Optional<Path> optionsFile,
