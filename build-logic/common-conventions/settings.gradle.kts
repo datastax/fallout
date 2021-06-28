@@ -2,11 +2,10 @@ dependencyResolutionManagement {
     @Suppress("UnstableApiUsage")
     repositories {
         mavenCentral()
+        gradlePluginPortal()
     }
 }
 
 enableFeaturePreview("ONE_LOCKFILE_PER_PROJECT")
 
-rootProject.name = "build-logic-plugins"
-
-includeBuild("../common-conventions")
+rootProject.name = "build-logic-common-conventions"

@@ -1,9 +1,14 @@
-plugins {
-    id "dev.clojurephant.clojure" version "0.6.0-alpha.4"
-    id "org.jetbrains.gradle.plugin.idea-ext"
+buildscript {
+    configurations.classpath {
+        resolutionStrategy.activateDependencyLocking()
+    }
 }
 
-apply plugin: 'com.github.johnrengelman.shadow'
+plugins {
+    id "dev.clojurephant.clojure" version "0.6.0-alpha.4"
+    id 'com.github.johnrengelman.shadow'
+    id 'com.datastax.fallout.conventions.dependency-locking'
+}
 
 version = '0.8.0-SNAPSHOT'
 

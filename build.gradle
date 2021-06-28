@@ -39,18 +39,15 @@ plugins {
     id "com.datastax.fallout.symlinks"
     id "com.datastax.fallout.externaltools"
     id "com.datastax.fallout.conventions.test"
+    id "com.datastax.fallout.conventions.lint"
+    id "com.datastax.fallout.conventions.kotlin"
+    id "com.datastax.fallout.conventions.dependency-locking"
     id "com.datastax.fallout.conventions.common-root-project"
 
     id "com.github.johnrengelman.shadow" version "6.1.0"
     id "com.github.johnrengelman.processes" version "0.5.0"
     id "com.github.voplex95.lesscompiler" version "1.0.3"
     id "com.diffplug.spotless" version "5.11.0"
-
-    // Do not use version 10.0.0 in groovy-based build.gradle scripts
-    // because of https://github.com/JLLeitschuh/ktlint-gradle/issues/443
-    // We use ktlint-gradle instead of spotless ktlint support mainly
-    // because of https://github.com/diffplug/spotless/issues/142
-    id "org.jlleitschuh.gradle.ktlint" version "9.4.1"
 
     id "de.undercouch.download" version "4.1.1"
     id "com.google.osdetector" version "1.6.2"
@@ -204,7 +201,7 @@ dependencies {
     implementation "com.sun.mail:javax.mail:1.6.0"
     api "org.apache.commons:commons-csv:1.5"
     api "org.hdrhistogram:HdrHistogram:2.1.12"
-    api 'com.github.pingtimeout:HdrLogProcessing:input-stream-instead-of-file-SNAPSHOT'
+    api 'com.github.pingtimeout:HdrLogProcessing:274e279'
     api "io.netty:netty-all:4.1.63.Final"
     implementation "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
     implementation "org.apache.httpcomponents:httpclient:4.5.13"
@@ -275,10 +272,6 @@ dependencies {
     implementation('com.google.cloud:google-cloud-logging:2.2.0') {
         exclude group: 'com.google.guava', module: 'guava'
     }
-}
-
-dependencyLocking {
-    lockAllConfigurations()
 }
 
 // ----------------------------------------------------------------------------
@@ -381,14 +374,6 @@ if (ideaVersion) {
 
 // ----------------------------------------------------------------------------
 // Convenience
-
-task compile {
-    setDependsOn(tasks.findAll {
-        it.name != 'compile' &&
-            it.name.startsWith('compile') &&
-            !it.name.startsWith('compileJenkins')
-    })
-}
 
 task publish {
     group 'publish'
@@ -1326,11 +1311,8 @@ spotless {
     }
 }
 
-// This should a be a reasonably quick validation that the code is "clean"
-task lint(dependsOn: [spotlessCheck, ktlintCheck, compile]) {
-    gradle.includedBuilds.each { includedBuild ->
-        dependsOn(includedBuild.task(":lint"))
-    }
+tasks.named("lint").configure {
+    dependsOn(spotlessCheck)
 }
 
 test {

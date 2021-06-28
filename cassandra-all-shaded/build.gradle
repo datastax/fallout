@@ -3,12 +3,17 @@
 // fat jar of cassandra and the java driver so we can upgrade fallout's
 // direct dependencies (like guava) without stepping on cassandra's toes.
 
-plugins {
-    id 'java-library'
-    id "org.jetbrains.gradle.plugin.idea-ext"
+buildscript {
+    configurations.classpath {
+        resolutionStrategy.activateDependencyLocking()
+    }
 }
 
-apply plugin: 'com.github.johnrengelman.shadow'
+plugins {
+    id 'java-library'
+    id 'com.github.johnrengelman.shadow'
+    id 'com.datastax.fallout.conventions.dependency-locking'
+}
 
 group = 'com.datastax.fallout'
 version = '0.1'
