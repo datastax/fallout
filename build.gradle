@@ -61,6 +61,7 @@ plugins {
 
 import com.github.jengelman.gradle.plugins.processes.tasks.Fork
 import static com.datastax.fallout.gradle.Utils.camelCase
+import static com.datastax.fallout.gradle.common.CascadeTaskKt.cascadeTask
 
 group = 'com.datastax'
 version = '0.1.0-SNAPSHOT'
@@ -1110,9 +1111,7 @@ task dbTest(type: Test) {
 }
 
 ["check", "cleanCheck"].each { taskName ->
-    gradle.includedBuilds.each { includedBuild ->
-        tasks[taskName].dependsOn(includedBuild.task(":${taskName}"))
-    }
+    cascadeTask(project, tasks.named(taskName))
 }
 
 // ----------------------------------------------------------------------------
