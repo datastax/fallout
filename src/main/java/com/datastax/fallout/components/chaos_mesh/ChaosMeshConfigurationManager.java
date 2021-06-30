@@ -18,14 +18,13 @@ package com.datastax.fallout.components.chaos_mesh;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import com.google.auto.service.AutoService;
 
-import com.datastax.fallout.components.common.provider.FileProvider;
 import com.datastax.fallout.components.common.spec.KubernetesDeploymentManifestSpec;
 import com.datastax.fallout.components.kubernetes.KindProvisioner;
 import com.datastax.fallout.components.kubernetes.KubeControlProvider;
@@ -55,7 +54,7 @@ public class ChaosMeshConfigurationManager extends ConfigurationManager
     private static final String RELEASE_NAME = "chaos-mesh";
     private static final Optional<String> NAMESPACE = Optional.of(RELEASE_NAME);
 
-    private static final PropertySpec<FileProvider.LocalManagedFileRef> optionsFileSpec =
+    private static final PropertySpec<String> optionsFileSpec =
         buildHelmValuesFileSpec(prefix);
     private final PropertySpec<Boolean> installDebugSpec = buildHelmInstallDebugSpec(this::prefix);
 
@@ -139,17 +138,19 @@ public class ChaosMeshConfigurationManager extends ConfigurationManager
             return false;
         }
 
-        Map<String, String> flags = nodeGroup.getProvisioner() instanceof KindProvisioner ?
-            Map.of(
-                "chaosDaemon.runtime", "containerd",
-                "chaosDaemon.socketPath", "/run/containerd/containerd.sock") :
-            Map.of();
-
-        Optional<Path> optionsFile = optionsFileSpec.optionalValue(nodeGroup)
-            .map(localFile -> localFile.fullPath(nodeGroup));
+        final List<String> setValues = nodeGroup.getProvisioner() instanceof KindProvisioner ?
+            List.of(
+                "chaosDaemon.runtime=containerd",
+                "chaosDaemon.socketPath=/run/containerd/containerd.sock"
+            ) :
+            List.of();
 
         return inNamespace(namespacedKubeCtl -> namespacedKubeCtl.installHelmChart(
-            configFilePath(CHAOS_MESH_HELM_CHART), flags, optionsFile, installDebugSpec.value(nodeGroup),
+            configFilePath(CHAOS_MESH_HELM_CHART),
+            KubeControlProvider.HelmInstallValues.of(
+                optionsFileSpec.optionalValue(nodeGroup).stream().collect(Collectors.toList()),
+                setValues),
+            installDebugSpec.value(nodeGroup),
             Duration.minutes(5), Optional.empty()));
     }
 

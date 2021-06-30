@@ -15,11 +15,11 @@
  */
 package com.datastax.fallout.components.kubernetes;
 
-import java.nio.file.Path;
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import com.datastax.fallout.components.kubernetes.KubeControlProvider.HelmInstallValues;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.Provider;
 import com.datastax.fallout.util.Duration;
@@ -28,14 +28,14 @@ public class HelmProvider extends Provider
 {
     private final String installName;
     private final String chartLocation;
-    private final Optional<Path> pathToOriginalValues;
+    private final List<String> originalValuesFiles;
 
-    public HelmProvider(Node node, String installName, String chartLocation, Optional<Path> pathToOriginalValues)
+    public HelmProvider(Node node, String installName, String chartLocation, List<String> originalValuesFiles)
     {
         super(node, false);
         this.installName = installName;
         this.chartLocation = chartLocation;
-        this.pathToOriginalValues = pathToOriginalValues;
+        this.originalValuesFiles = originalValuesFiles;
 
         register();
     }
@@ -46,11 +46,12 @@ public class HelmProvider extends Provider
         return installName;
     }
 
-    public boolean upgrade(Optional<String> namespace, Map<String, String> values, boolean debug, Duration timeout,
+    public boolean upgrade(Optional<String> namespace, List<String> setValues, boolean debug, Duration timeout,
         Optional<String> version)
     {
         return inNamespace(namespace, kubectl -> kubectl.upgradeHelmChart(
-            installName, chartLocation, values, pathToOriginalValues, debug, timeout, version));
+            installName, chartLocation, HelmInstallValues.of(originalValuesFiles, setValues),
+            debug, timeout, version));
     }
 
     private boolean inNamespace(Optional<String> namespace,

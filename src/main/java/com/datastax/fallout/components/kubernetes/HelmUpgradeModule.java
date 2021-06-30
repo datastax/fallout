@@ -117,9 +117,10 @@ public class HelmUpgradeModule extends Module
         HelmProvider helm = maybeHelm.get();
 
         //Convert Map<String,Object> to Map<String, String>
-        Map<String, String> values = valueMapSpec.value(properties)
+        final var values = valueMapSpec.value(properties)
             .entrySet().stream()
-            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().toString()));
+            .map(e -> String.format("%s=%s", e.getKey(), e.getValue()))
+            .collect(Collectors.toList());
 
         if (helm.upgrade(namespaceSpec.optionalValue(properties), values, installDebugSpec.value(properties),
             installTimeoutSpec.value(properties), chartVersionSpec.optionalValue(properties)))

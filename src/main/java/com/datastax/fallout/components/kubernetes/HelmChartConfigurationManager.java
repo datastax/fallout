@@ -19,8 +19,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -28,9 +26,9 @@ import java.util.function.Supplier;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
-import com.datastax.fallout.components.common.provider.FileProvider;
 import com.datastax.fallout.components.common.spec.GitClone;
 import com.datastax.fallout.components.common.spec.KubernetesDeploymentManifestSpec;
+import com.datastax.fallout.components.kubernetes.KubeControlProvider.HelmInstallValues;
 import com.datastax.fallout.ops.ConfigurationManager;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.NodeGroup;
@@ -97,8 +95,32 @@ public class HelmChartConfigurationManager extends ConfigurationManager
     private final PropertySpec<String> namespaceSpec =
         KubernetesDeploymentManifestSpec.buildNameSpaceSpec(this::prefix);
 
-    private final PropertySpec<FileProvider.LocalManagedFileRef> helmInstallOptionsSpec =
+    private final PropertySpec<String> helmValuesFileSpec =
         buildHelmValuesFileSpec(this::prefix);
+
+    private final PropertySpec<List<String>> helmValuesFilesSpec = PropertySpecBuilder.createStrList(prefix)
+        .runtimePrefix(this::prefix)
+        .name("helm.install.values")
+        .description(
+            "values.yaml files to pass to the helm install --values option (see https://helm.sh/docs/chart_template_guide/values_files)")
+        .defaultOf(List.of())
+        .build();
+
+    private final PropertySpec<List<String>> helmSetValuesSpec = PropertySpecBuilder.createStrList(prefix)
+        .runtimePrefix(this::prefix)
+        .name("helm.install.set")
+        .description(
+            "list of parameters to pass to the helm install --set option (see https://helm.sh/docs/chart_template_guide/values_files)")
+        .defaultOf(List.of())
+        .build();
+
+    private final PropertySpec<List<String>> helmSetStringValuesSpec = PropertySpecBuilder.createStrList(prefix)
+        .runtimePrefix(this::prefix)
+        .name("helm.install.set_string")
+        .description(
+            "list of parameters to pass to the helm install --set-string option (see https://helm.sh/docs/chart_template_guide/values_files)")
+        .defaultOf(List.of())
+        .build();
 
     private final PropertySpec<String> providerClassSpec = PropertySpecBuilder.createStr(prefix)
         .runtimePrefix(this::prefix)
@@ -153,10 +175,20 @@ public class HelmChartConfigurationManager extends ConfigurationManager
             .add(helmRepoUrlSpec, helmRepoNameSpec, helmChartNameSpec)
             .add(chartLocationInRepoSpec)
             .addAll(gitClone.getSpecs())
-            .add(namespaceSpec, helmInstallOptionsSpec)
+            .add(namespaceSpec, helmValuesFileSpec, helmValuesFilesSpec, helmSetValuesSpec, helmSetStringValuesSpec)
             .add(providerClassSpec, providerArgsSpec)
             .add(chartVersionSpec)
             .build();
+    }
+
+    @Override
+    public void validateProperties(PropertyGroup properties) throws PropertySpec.ValidationException
+    {
+        if (helmValuesFileSpec.value(properties) != null && !helmValuesFilesSpec.value(properties).isEmpty())
+        {
+            throw new PropertySpec.ValidationException(List.of(helmValuesFileSpec, helmValuesFileSpec),
+                "Specify only one of these properties");
+        }
     }
 
     Path cloneDir()
@@ -243,15 +275,20 @@ public class HelmChartConfigurationManager extends ConfigurationManager
         if (setupParameters(nodeGroup))
         {
             return inNamespace(namespacedKubeCtl -> namespacedKubeCtl.installHelmChart(installName, chartLocation,
-                Map.of(), getOptionsFile(), installDebugSpec.value(nodeGroup), installTimeoutSpec.value(nodeGroup),
+                getInstallValues(), installDebugSpec.value(nodeGroup), installTimeoutSpec.value(nodeGroup),
                 chartVersionSpec.optionalValue(nodeGroup)));
         }
         return false;
     }
 
-    private Optional<Path> getOptionsFile()
+    private HelmInstallValues getInstallValues()
     {
-        return helmInstallOptionsSpec.optionalValue(getNodeGroup()).map(lmf -> lmf.fullPath(getNodeGroup()));
+        return HelmInstallValues.of(
+            helmValuesFileSpec.optionalValue(getNodeGroup())
+                .map(List::of)
+                .orElse(helmValuesFilesSpec.value(getNodeGroup())),
+            helmSetValuesSpec.value(getNodeGroup()),
+            helmSetStringValuesSpec.value(getNodeGroup()));
     }
 
     @Override
@@ -267,7 +304,7 @@ public class HelmChartConfigurationManager extends ConfigurationManager
         //First setup the helm upgrade provider
         try
         {
-            new HelmProvider(node, installName, chartLocation, getOptionsFile());
+            new HelmProvider(node, installName, chartLocation, getInstallValues().getValuesFiles());
         }
         catch (Throwable t)
         {
@@ -378,17 +415,18 @@ public class HelmChartConfigurationManager extends ConfigurationManager
         return Set.of(HelmProvider.class);
     }
 
-    public static PropertySpec<FileProvider.LocalManagedFileRef> buildHelmValuesFileSpec(String prefix)
+    public static PropertySpec<String> buildHelmValuesFileSpec(String prefix)
     {
         return buildHelmValuesFileSpec(() -> prefix);
     }
 
-    public static PropertySpec<FileProvider.LocalManagedFileRef> buildHelmValuesFileSpec(Supplier<String> prefix)
+    public static PropertySpec<String> buildHelmValuesFileSpec(Supplier<String> prefix)
     {
-        return PropertySpecBuilder.createLocalManagedFileRef(prefix.get())
+        return PropertySpecBuilder.createStr(prefix.get())
             .name("helm.install.values.file")
             .runtimePrefix(prefix)
-            .description("Yaml file of options to pass to helm install")
+            .description(
+                "values.yaml file to pass to helm install (see https://helm.sh/docs/chart_template_guide/values_files)")
             .build();
     }
 
