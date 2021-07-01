@@ -1000,7 +1000,9 @@ jacocoTestReport {
 
 defaultPropertyValue("testToolsRunDir", "${buildDir}/testToolsRun")
 
-task installToolsForTesting
+task installToolsForTesting {
+    dependsOn(externalTools.installAllNativeTask)
+}
 
 subprojects {
     rootProject.installToolsForTesting {
@@ -1017,9 +1019,7 @@ allprojects {
     }
 
     tasks.withType(Test) {
-        dependsOn(
-            externalTools.installAllNativeTask,
-            installToolsForTesting)
+        dependsOn(installToolsForTesting)
 
         environment "PATH", "${externalTools.nativePath}:${System.getenv('PATH')}"
         environment "FALLOUT_TOOLS_DIR", "${testToolsRunDir}/tools"
@@ -1161,9 +1161,7 @@ class RunServer extends JavaExec {
         classpath = project.tasks.run.classpath
         group = "application"
 
-        dependsOn(
-            project.externalTools.installAllNativeTask,
-            project.tasks.installToolsForTesting)
+        dependsOn(project.tasks.installToolsForTesting)
 
         environment "PATH", "${project.externalTools.nativePath}:${System.getenv('PATH')}"
         environment "FALLOUT_TOOLS_DIR", "${project.ext.testToolsRunDir}/tools"
