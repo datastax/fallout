@@ -25,19 +25,29 @@ val logger = LoggerFactory.getLogger("com.datastax.fallout.gradle.common.Cascade
  */
 fun <T : Task> cascadeTask(project: Project, task: TaskProvider<T>) {
     if (project.rootProject === project) {
-        task.configure {
-            logger.info("Cascading :${project.name}:${task.name}:")
-
-            project.subprojects {
+        project.subprojects {
+            afterEvaluate {
                 tasks.maybeNamed<Task>(task.name)?.let {
-                    logger.info("  -> subproject :${this.name}:${it.name}")
-                    dependsOn(it)
+                    logger.info(
+                        "Cascading :${project.name}:${task.name} -> " +
+                            "subproject :${this.name}:${it.name}..."
+                    )
+                    task.configure {
+                        dependsOn(it)
+                    }
                 }
             }
+        }
 
-            project.gradle.includedBuilds.forEach { includedBuild ->
-                logger.info("  -> includedBuild :${includedBuild.name}:${task.name}")
-                dependsOn(includedBuild.task(":${task.name}"))
+        project.afterEvaluate {
+            gradle.includedBuilds.forEach { includedBuild ->
+                logger.info(
+                    "Cascading :${project.name}:${task.name} -> " +
+                        "includedBuild :${includedBuild.name}:${task.name}"
+                )
+                task.configure {
+                    dependsOn(includedBuild.task(":${task.name}"))
+                }
             }
         }
     }
