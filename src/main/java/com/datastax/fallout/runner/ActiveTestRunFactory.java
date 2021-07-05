@@ -44,7 +44,7 @@ import com.datastax.fallout.runner.UserCredentialsFactory.UserCredentials;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.Test;
 import com.datastax.fallout.service.core.TestRun;
-import com.datastax.fallout.util.ComponentFactory;
+import com.datastax.fallout.util.component_discovery.ComponentFactory;
 
 /** Responsible for turning a {@link TestRun} into a runnable {@link ActiveTestRun} */
 public class ActiveTestRunFactory

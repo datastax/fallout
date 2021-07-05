@@ -55,9 +55,9 @@ import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.Test;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.User;
-import com.datastax.fallout.util.ComponentFactory;
-import com.datastax.fallout.util.ServiceLoaderComponentFactory;
-import com.datastax.fallout.util.TypedComponentFactory;
+import com.datastax.fallout.util.component_discovery.ComponentFactory;
+import com.datastax.fallout.util.component_discovery.ServiceLoaderComponentFactory;
+import com.datastax.fallout.util.component_discovery.TypedComponentFactory;
 
 public class TestRunnerTestHelpers
 {

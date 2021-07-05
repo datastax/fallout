@@ -132,7 +132,6 @@ import com.datastax.fallout.service.resources.server.PerformanceToolResource;
 import com.datastax.fallout.service.resources.server.StatusResource;
 import com.datastax.fallout.service.resources.server.TestResource;
 import com.datastax.fallout.service.views.MainView;
-import com.datastax.fallout.util.ComponentFactory;
 import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.FinishedTestRunUserNotifier;
@@ -143,6 +142,7 @@ import com.datastax.fallout.util.NamedThreadFactory;
 import com.datastax.fallout.util.ScopedLogger;
 import com.datastax.fallout.util.SlackUserMessenger;
 import com.datastax.fallout.util.UserMessenger;
+import com.datastax.fallout.util.component_discovery.ComponentFactory;
 
 public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extends Application<FC>
 {

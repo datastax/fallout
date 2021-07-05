@@ -13,12 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.fallout.util;
+package com.datastax.fallout.util.component_discovery;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import com.datastax.fallout.ops.PropertyBasedComponent;
 
-public interface ComponentFactory
+public class ServiceLoaderComponentFactory implements ComponentFactory
 {
-    public <Component extends PropertyBasedComponent>
-        Component create(Class<Component> clazz, String name);
+    static Map<Class, ServiceLoaderTypedComponentFactory> factories = new HashMap<>();
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <Component extends PropertyBasedComponent> Component create(Class<Component> clazz, String name)
+    {
+        return ((ServiceLoaderTypedComponentFactory<Component>) factories
+            .computeIfAbsent(clazz, ServiceLoaderTypedComponentFactory::new))
+                .createComponent(name);
+    }
 }

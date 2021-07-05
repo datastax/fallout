@@ -72,8 +72,8 @@ import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.TestRunIdentifier;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.service.resources.server.TestResource;
-import com.datastax.fallout.util.ComponentFactory;
-import com.datastax.fallout.util.ServiceLoaderComponentFactory;
+import com.datastax.fallout.util.component_discovery.ComponentFactory;
+import com.datastax.fallout.util.component_discovery.ServiceLoaderComponentFactory;
 
 import static com.datastax.fallout.ops.ClusterNames.generateClusterName;
 import static com.datastax.fallout.util.YamlUtils.loadYaml;
