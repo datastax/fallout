@@ -30,11 +30,6 @@ public class ServiceLoaderTypedComponentFactory<T extends PropertyBasedComponent
         loadedComponents = Utils.loadComponents(clazz);
     }
 
-    public static <T extends PropertyBasedComponent> ServiceLoaderTypedComponentFactory<T> build(Class<T> clazz)
-    {
-        return new ServiceLoaderTypedComponentFactory<>(clazz);
-    }
-
     @Override
     public T createComponent(String name)
     {
