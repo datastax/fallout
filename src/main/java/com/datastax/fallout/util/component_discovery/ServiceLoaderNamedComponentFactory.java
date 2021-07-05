@@ -21,11 +21,11 @@ import java.util.List;
 import com.datastax.fallout.ops.PropertyBasedComponent;
 import com.datastax.fallout.ops.Utils;
 
-public class ServiceLoaderTypedComponentFactory<T extends PropertyBasedComponent> implements TypedComponentFactory<T>
+public class ServiceLoaderNamedComponentFactory<T extends PropertyBasedComponent> implements NamedComponentFactory<T>
 {
     private final List<T> loadedComponents;
 
-    public ServiceLoaderTypedComponentFactory(Class<T> clazz)
+    public ServiceLoaderNamedComponentFactory(Class<T> clazz)
     {
         loadedComponents = Utils.loadComponents(clazz);
     }

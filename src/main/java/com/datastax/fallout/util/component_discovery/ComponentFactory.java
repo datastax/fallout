@@ -17,6 +17,7 @@ package com.datastax.fallout.util.component_discovery;
 
 import com.datastax.fallout.ops.PropertyBasedComponent;
 
+/** Encapsulates construction of typed, named components */
 public interface ComponentFactory
 {
     public <Component extends PropertyBasedComponent>

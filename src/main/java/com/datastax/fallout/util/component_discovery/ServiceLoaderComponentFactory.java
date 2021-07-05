@@ -22,14 +22,14 @@ import com.datastax.fallout.ops.PropertyBasedComponent;
 
 public class ServiceLoaderComponentFactory implements ComponentFactory
 {
-    static Map<Class, ServiceLoaderTypedComponentFactory> factories = new HashMap<>();
+    static Map<Class, ServiceLoaderNamedComponentFactory> factories = new HashMap<>();
 
     @Override
     @SuppressWarnings("unchecked")
     public <Component extends PropertyBasedComponent> Component create(Class<Component> clazz, String name)
     {
-        return ((ServiceLoaderTypedComponentFactory<Component>) factories
-            .computeIfAbsent(clazz, ServiceLoaderTypedComponentFactory::new))
+        return ((ServiceLoaderNamedComponentFactory<Component>) factories
+            .computeIfAbsent(clazz, ServiceLoaderNamedComponentFactory::new))
                 .createComponent(name);
     }
 }

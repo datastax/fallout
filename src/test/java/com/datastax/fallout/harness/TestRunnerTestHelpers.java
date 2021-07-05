@@ -56,8 +56,8 @@ import com.datastax.fallout.service.core.Test;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.util.component_discovery.ComponentFactory;
+import com.datastax.fallout.util.component_discovery.NamedComponentFactory;
 import com.datastax.fallout.util.component_discovery.ServiceLoaderComponentFactory;
-import com.datastax.fallout.util.component_discovery.TypedComponentFactory;
 
 public class TestRunnerTestHelpers
 {
@@ -71,7 +71,7 @@ public class TestRunnerTestHelpers
 
     public static class MockingComponentFactory implements ComponentFactory
     {
-        private Multimap<Class, TypedComponentFactory> factories = HashMultimap.create();
+        private Multimap<Class, NamedComponentFactory> factories = HashMultimap.create();
         private final ComponentFactory delegate = new ServiceLoaderComponentFactory();
 
         public <Component extends PropertyBasedComponent> MockingComponentFactory clear()
@@ -98,7 +98,7 @@ public class TestRunnerTestHelpers
         @SuppressWarnings("unchecked")
         public <Component extends PropertyBasedComponent> Component create(Class<Component> clazz, String name)
         {
-            final Collection<TypedComponentFactory> factories = this.factories.get(clazz);
+            final Collection<NamedComponentFactory> factories = this.factories.get(clazz);
 
             return (Component) factories.stream()
                 .map(factory -> factory.createComponent(name))
