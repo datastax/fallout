@@ -25,21 +25,23 @@ import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.ops.PropertyBasedComponent;
 
-public class ServiceLoaderNamedComponentFactory<T extends PropertyBasedComponent> implements NamedComponentFactory<T>
+public class ServiceLoaderNamedComponentFactory<Component extends PropertyBasedComponent>
+    implements NamedComponentFactory<Component>
 {
     private static final Logger log = LoggerFactory.getLogger(ServiceLoaderNamedComponentFactory.class);
-    private final List<T> loadedComponents;
+    private final List<Component> loadedComponents;
 
-    public ServiceLoaderNamedComponentFactory(Class<T> clazz)
+    public ServiceLoaderNamedComponentFactory(Class<Component> clazz)
     {
         loadedComponents = loadComponents(clazz);
     }
 
-    public static <T extends PropertyBasedComponent> List<T> loadComponents(Class<T> componentClass)
+    public static <Component extends PropertyBasedComponent> List<Component>
+        loadComponents(Class<Component> componentClass)
     {
         try
         {
-            ServiceLoader<T> loadedComponents = ServiceLoader.load(componentClass);
+            ServiceLoader<Component> loadedComponents = ServiceLoader.load(componentClass);
             return Lists.newArrayList(loadedComponents);
         }
         catch (Throwable t)
@@ -49,15 +51,24 @@ public class ServiceLoaderNamedComponentFactory<T extends PropertyBasedComponent
         }
     }
 
-    @Override
-    public T createComponent(String name)
+    @SuppressWarnings("unchecked")
+    private Component createNewInstance(Component componentInstance)
+        throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException
     {
-        for (T aT : loadedComponents)
+        return (Component) componentInstance.getClass().getDeclaredConstructor().newInstance();
+    }
+
+    @Override
+    public Component createComponent(String name)
+    {
+        for (Component componentInstance : loadedComponents)
         {
             try
             {
-                if (aT.name().equalsIgnoreCase(name))
-                    return (T) aT.getClass().getDeclaredConstructor().newInstance();
+                if (componentInstance.name().equalsIgnoreCase(name))
+                {
+                    return createNewInstance(componentInstance);
+                }
             }
             catch (InstantiationException | IllegalAccessException | NoSuchMethodException |
                 InvocationTargetException e)
