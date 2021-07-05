@@ -17,17 +17,36 @@ package com.datastax.fallout.util.component_discovery;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.ServiceLoader;
+
+import com.google.common.collect.Lists;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.ops.PropertyBasedComponent;
-import com.datastax.fallout.ops.Utils;
 
 public class ServiceLoaderNamedComponentFactory<T extends PropertyBasedComponent> implements NamedComponentFactory<T>
 {
+    private static final Logger log = LoggerFactory.getLogger(ServiceLoaderNamedComponentFactory.class);
     private final List<T> loadedComponents;
 
     public ServiceLoaderNamedComponentFactory(Class<T> clazz)
     {
-        loadedComponents = Utils.loadComponents(clazz);
+        loadedComponents = loadComponents(clazz);
+    }
+
+    public static <T extends PropertyBasedComponent> List<T> loadComponents(Class<T> componentClass)
+    {
+        try
+        {
+            ServiceLoader<T> loadedComponents = ServiceLoader.load(componentClass);
+            return Lists.newArrayList(loadedComponents);
+        }
+        catch (Throwable t)
+        {
+            log.error("Failed to loadComponents for " + componentClass, t);
+            throw t;
+        }
     }
 
     @Override

@@ -28,7 +28,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
-import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -38,11 +37,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.netty.util.HashedWheelTimer;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.components.common.provider.NodeInfoProvider;
 import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
@@ -57,8 +54,6 @@ import static java.util.stream.Collectors.joining;
  */
 public class Utils
 {
-    private static final Logger log = LoggerFactory.getLogger(Utils.class);
-
     public static final Duration DEFAULT_TIMEOUT = Duration.minutes(5);
 
     public interface TimeoutCheck
@@ -513,20 +508,6 @@ public class Utils
             fullCmd.add(command);
         }
         return fullCmd;
-    }
-
-    public static <T extends PropertyBasedComponent> List<T> loadComponents(Class<T> componentClass)
-    {
-        try
-        {
-            ServiceLoader<T> loadedComponents = ServiceLoader.load(componentClass);
-            return Lists.newArrayList(loadedComponents);
-        }
-        catch (Throwable t)
-        {
-            log.error("Failed to loadComponents for " + componentClass, t);
-            throw t;
-        }
     }
 
     /**

@@ -42,11 +42,11 @@ import com.datastax.fallout.ops.FalloutPropertySpecs;
 import com.datastax.fallout.ops.PropertyBasedComponent;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.Provisioner;
-import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.service.views.FalloutView;
 import com.datastax.fallout.service.views.MainView;
+import com.datastax.fallout.util.component_discovery.ServiceLoaderNamedComponentFactory;
 
 @Path("/components/{type: (provisioners|configurationmanagers|modules|checkers|artifact_checkers)}/{name}")
 @Produces(MediaType.TEXT_HTML)
@@ -136,7 +136,7 @@ public class ComponentResource
     private static List<ComponentProperties> loadComponents(FalloutConfiguration configuration,
         Class<? extends PropertyBasedComponent> clazz)
     {
-        return Utils.loadComponents(clazz)
+        return ServiceLoaderNamedComponentFactory.loadComponents(clazz)
             .stream()
             .map(c -> {
                 if (ConfigurationManager.class.isAssignableFrom(c.getClass()))

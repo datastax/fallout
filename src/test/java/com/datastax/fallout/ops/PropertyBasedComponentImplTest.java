@@ -23,6 +23,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import com.datastax.fallout.harness.ArtifactChecker;
 import com.datastax.fallout.harness.Module;
+import com.datastax.fallout.util.component_discovery.ServiceLoaderNamedComponentFactory;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 
@@ -33,7 +34,8 @@ public class PropertyBasedComponentImplTest
 {
     private static Stream<PropertyBasedComponent> fetchComponents(Class<? extends PropertyBasedComponent> clazz)
     {
-        return Utils.loadComponents(clazz).stream().map(component -> (PropertyBasedComponent) component);
+        return ServiceLoaderNamedComponentFactory.loadComponents(clazz).stream()
+            .map(component -> (PropertyBasedComponent) component);
     }
 
     static Stream<PropertyBasedComponent> fetchProvisioners()
