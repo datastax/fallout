@@ -15,14 +15,7 @@
  */
 package com.datastax.fallout.util.component_discovery;
 
-import java.util.Collection;
-
-/** Encapsulates construction of typed, named components */
-public interface ComponentFactory
+public interface NamedComponent
 {
-    /** Create a new instance of the specified class that has the specified name, or return null */
-    <Component extends NamedComponent> Component create(Class<Component> clazz, String name);
-
-    /** Return all available components of the specified class */
-    <Component extends NamedComponent> Collection<Component> exampleComponents(Class<Component> clazz);
+    String name();
 }

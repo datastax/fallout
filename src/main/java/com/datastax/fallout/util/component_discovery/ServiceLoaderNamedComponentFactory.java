@@ -16,33 +16,61 @@
 package com.datastax.fallout.util.component_discovery;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.List;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Locale;
+import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.TreeMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
-import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datastax.fallout.ops.PropertyBasedComponent;
-
-public class ServiceLoaderNamedComponentFactory<Component extends PropertyBasedComponent>
+/** Uses {@link ServiceLoader} to load all instances of a particular Component class; components with
+ *  the same name are allowed, the conflictResolver constructor parameter being used to choose between
+ *  them, by using the maximum of the two components according to the comparison it implements. */
+public class ServiceLoaderNamedComponentFactory<Component extends NamedComponent>
     implements NamedComponentFactory<Component>
 {
     private static final Logger log = LoggerFactory.getLogger(ServiceLoaderNamedComponentFactory.class);
-    private final List<Component> loadedComponents;
+    private final Map<String, Component> loadedComponents;
 
     public ServiceLoaderNamedComponentFactory(Class<Component> clazz)
     {
-        loadedComponents = loadComponents(clazz);
+        this(clazz, Comparator.comparing(component -> component.getClass().getName()));
     }
 
-    public static <Component extends PropertyBasedComponent> List<Component>
+    public ServiceLoaderNamedComponentFactory(Class<Component> clazz, Comparator<NamedComponent> conflictResolver)
+    {
+        loadedComponents = loadComponents(clazz, conflictResolver);
+    }
+
+    public static <Component extends NamedComponent> Collection<Component>
         loadComponents(Class<Component> componentClass)
+    {
+        return loadComponents(componentClass, Comparator.comparing(component -> component.getClass().getName()))
+            .values();
+    }
+
+    private static <Component extends NamedComponent> Map<String, Component>
+        loadComponents(Class<Component> componentClass, Comparator<NamedComponent> conflictResolver)
     {
         try
         {
             ServiceLoader<Component> loadedComponents = ServiceLoader.load(componentClass);
-            return Lists.newArrayList(loadedComponents);
+            return StreamSupport
+                .stream(loadedComponents.spliterator(), false)
+                // Create a map of name -> component, handling components with the same name
+                // using conflictResolver to decide which to keep
+                .collect(Collectors.toMap(
+                    component -> component.name().toLowerCase(Locale.ROOT),
+                    Function.identity(),
+                    (a, b) -> conflictResolver.compare(a, b) > 0 ? a : b,
+                    // Use a TreeMap to keep the components sorted by name
+                    TreeMap::new));
         }
         catch (Throwable t)
         {
@@ -53,29 +81,29 @@ public class ServiceLoaderNamedComponentFactory<Component extends PropertyBasedC
 
     @SuppressWarnings("unchecked")
     private Component createNewInstance(Component componentInstance)
-        throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException
     {
-        return (Component) componentInstance.getClass().getDeclaredConstructor().newInstance();
+        try
+        {
+            return (Component) componentInstance.getClass().getDeclaredConstructor().newInstance();
+        }
+        catch (InstantiationException | IllegalAccessException | NoSuchMethodException |
+            InvocationTargetException e)
+        {
+            throw new RuntimeException("Error creating instance", e);
+        }
     }
 
     @Override
-    public Component createComponent(String name)
+    public Component create(String name)
     {
-        for (Component componentInstance : loadedComponents)
-        {
-            try
-            {
-                if (componentInstance.name().equalsIgnoreCase(name))
-                {
-                    return createNewInstance(componentInstance);
-                }
-            }
-            catch (InstantiationException | IllegalAccessException | NoSuchMethodException |
-                InvocationTargetException e)
-            {
-                throw new RuntimeException("Error creating instance", e);
-            }
-        }
-        return null;
+        final var componentInstance = loadedComponents.get(name.toLowerCase(Locale.ROOT));
+        return componentInstance != null ? createNewInstance(componentInstance) : null;
+    }
+
+    /** Return components sorted by name */
+    @Override
+    public Collection<Component> exampleComponents()
+    {
+        return loadedComponents.values();
     }
 }

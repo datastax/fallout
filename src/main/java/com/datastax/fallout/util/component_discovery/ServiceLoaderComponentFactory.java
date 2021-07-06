@@ -15,21 +15,52 @@
  */
 package com.datastax.fallout.util.component_discovery;
 
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.datastax.fallout.ops.PropertyBasedComponent;
-
 public class ServiceLoaderComponentFactory implements ComponentFactory
 {
-    static Map<Class, ServiceLoaderNamedComponentFactory> factories = new HashMap<>();
+    private Map<Class<?>, ServiceLoaderNamedComponentFactory<?>> factories = new HashMap<>();
+
+    private static final Comparator<NamedComponent> DEFAULT_CONFLICT_RESOLVER = Comparator
+        .comparing((NamedComponent component) -> component.getClass().getName())
+        .reversed();
+
+    private final Comparator<NamedComponent> conflictResolver;
+
+    /** Create a ServiceLoaderComponentFactory that resolves name conflicts using {@link Class#getName} */
+    public ServiceLoaderComponentFactory()
+    {
+        this.conflictResolver = DEFAULT_CONFLICT_RESOLVER;
+    }
+
+    /** Create a ServiceLoaderComponentFactory that resolves name conflicts
+     *  using the specified resolver, falling back to {@link Class#getName} */
+    public ServiceLoaderComponentFactory(Comparator<NamedComponent> conflictResolver)
+    {
+        this.conflictResolver = conflictResolver.thenComparing(DEFAULT_CONFLICT_RESOLVER);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <Component extends NamedComponent>
+        ServiceLoaderNamedComponentFactory<Component> getNamedComponentFactory(Class<Component> clazz)
+    {
+        return (ServiceLoaderNamedComponentFactory<Component>) factories
+            .computeIfAbsent(clazz, ignored -> new ServiceLoaderNamedComponentFactory<>(clazz, conflictResolver));
+    }
 
     @Override
     @SuppressWarnings("unchecked")
-    public <Component extends PropertyBasedComponent> Component create(Class<Component> clazz, String name)
+    public <Component extends NamedComponent> Component create(Class<Component> clazz, String name)
     {
-        return ((ServiceLoaderNamedComponentFactory<Component>) factories
-            .computeIfAbsent(clazz, ServiceLoaderNamedComponentFactory::new))
-                .createComponent(name);
+        return getNamedComponentFactory(clazz).create(name);
+    }
+
+    @Override
+    public <Component extends NamedComponent> Collection<Component> exampleComponents(Class<Component> clazz)
+    {
+        return getNamedComponentFactory(clazz).exampleComponents();
     }
 }

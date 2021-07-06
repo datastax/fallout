@@ -15,10 +15,14 @@
  */
 package com.datastax.fallout.util.component_discovery;
 
-import com.datastax.fallout.ops.PropertyBasedComponent;
+import java.util.Collection;
 
 /** Encapsulates the creation of named components of a specific type */
-public interface NamedComponentFactory<Component extends PropertyBasedComponent>
+public interface NamedComponentFactory<Component extends NamedComponent>
 {
-    Component createComponent(String name);
+    /** Create a new component with the specific name, or return null if none exists */
+    Component create(String name);
+
+    /** Get example instances of all the possible components */
+    Collection<Component> exampleComponents();
 }
