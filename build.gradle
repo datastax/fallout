@@ -136,7 +136,7 @@ def jettyVersion = '9.4.35.v20201120'
 def jerseyVersion = '2.32'
 def jacksonVersion = '2.10.5'
 
-def autoServiceVersion = '1.0-rc7'
+def autoServiceVersion = '1.0'
 def autoValueVersion = '1.7.5'
 
 // Used by jepsen as well, so we define this at the project level
