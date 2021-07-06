@@ -93,6 +93,20 @@
         });
     });
 
+    /* Prevent accidental back navigation click
+       see https://stackoverflow.com/a/56687678
+    */
+    // push state to intercept on next back button click
+    history.pushState(null, document.title, location.href);
+    // back button triggers popstate
+    window.addEventListener('popstate', function (event)
+    {
+        confirm("Leaving this page will leave test definition unsaved. Continue?") ?
+            // first state pushed has been removed, another back() navigates to the previous page
+            history.back() :
+            // push another state to intercept
+            history.pushState(null, document.title, location.href);
+    });
 
 </script>
 
