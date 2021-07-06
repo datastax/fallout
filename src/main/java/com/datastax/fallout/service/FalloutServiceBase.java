@@ -143,6 +143,7 @@ import com.datastax.fallout.util.ScopedLogger;
 import com.datastax.fallout.util.SlackUserMessenger;
 import com.datastax.fallout.util.UserMessenger;
 import com.datastax.fallout.util.component_discovery.ComponentFactory;
+import com.datastax.fallout.util.component_discovery.ServiceLoaderComponentFactory;
 
 public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extends Application<FC>
 {
@@ -155,7 +156,7 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
      */
     public static final String OAUTH_BEARER_TOKEN_TYPE = "Bearer";
 
-    private ComponentFactory componentFactory = null;
+    private ComponentFactory componentFactory = new ServiceLoaderComponentFactory();
     private Client httpClient;
     private CassandraDriverManager cassandraDriverManager;
     private IntSupplier runningTestRunsCount;
@@ -713,7 +714,7 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
         // If you want to use @Auth to inject a custom Principal type into your resource
         environment.jersey().register(new AuthValueFactoryProvider.Binder<>(User.class));
 
-        final ComponentResource componentResource = new ComponentResource(conf);
+        final ComponentResource componentResource = new ComponentResource(conf, componentFactory);
         MainView mainView = new MainView(componentResource.getComponentTypes(), testRunner,
             addVersionedAssetsRewriteRule(rewriteHandler));
         componentResource.setMainView(mainView);

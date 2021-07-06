@@ -48,13 +48,6 @@ public class ServiceLoaderNamedComponentFactory<Component extends NamedComponent
         loadedComponents = loadComponents(clazz, conflictResolver);
     }
 
-    public static <Component extends NamedComponent> Collection<Component>
-        loadComponents(Class<Component> componentClass)
-    {
-        return loadComponents(componentClass, Comparator.comparing(component -> component.getClass().getName()))
-            .values();
-    }
-
     private static <Component extends NamedComponent> Map<String, Component>
         loadComponents(Class<Component> componentClass, Comparator<NamedComponent> conflictResolver)
     {
