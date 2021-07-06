@@ -44,7 +44,6 @@ import com.datastax.driver.core.Session;
 import com.datastax.fallout.LogbackConfigurator;
 import com.datastax.fallout.TestHelpers;
 import com.datastax.fallout.harness.TestRunStatusUpdatePublisher;
-import com.datastax.fallout.harness.TestRunnerTestHelpers;
 import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.FalloutServiceBase;
@@ -58,6 +57,7 @@ import com.datastax.fallout.service.db.CassandraDriverManagerHelpers;
 import com.datastax.fallout.service.db.TestRunDAO;
 import com.datastax.fallout.test.utils.WithPersistentTestOutputDir;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.component_discovery.MockingComponentFactory;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -97,8 +97,8 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
     private static class TestSupport<FC extends FalloutConfiguration, FS extends FalloutServiceBase<FC>>
         extends DropwizardTestSupport<FC>
     {
-        private final TestRunnerTestHelpers.MockingComponentFactory componentFactory =
-            new TestRunnerTestHelpers.MockingComponentFactory();
+        private final MockingComponentFactory componentFactory =
+            new MockingComponentFactory();
 
         private final TestRunStatusUpdatePublisher runnerTestRunStatusFeed = new TestRunStatusUpdatePublisher();
 
@@ -254,7 +254,7 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
         return artifactPath;
     }
 
-    public TestRunnerTestHelpers.MockingComponentFactory componentFactory()
+    public MockingComponentFactory componentFactory()
     {
         return ((TestSupport<FC, FS>) getTestSupport()).componentFactory;
     }

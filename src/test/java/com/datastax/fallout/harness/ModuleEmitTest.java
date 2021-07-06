@@ -33,6 +33,7 @@ import com.datastax.fallout.components.impl.FakeModule;
 import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.service.FalloutConfiguration;
+import com.datastax.fallout.util.component_discovery.MockingComponentFactory;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.harness.Module.RunToEndOfPhaseMethod.AUTOMATIC;
@@ -73,7 +74,7 @@ class ModuleEmitTest extends EnsembleFalloutTest<FalloutConfiguration>
         String yaml = readYamlFile("module-emit.yaml");
 
         final ActiveTestRunBuilder activeTestRunBuilder = createActiveTestRunBuilder()
-            .withComponentFactory(new TestRunnerTestHelpers.MockingComponentFactory()
+            .withComponentFactory(new MockingComponentFactory()
                 .mockNamed(Module.class, "emitter-fake", () -> new FakeModuleWithSuppressedLogging() {
                     @Override
                     public void run(Ensemble ensemble, PropertyGroup properties)

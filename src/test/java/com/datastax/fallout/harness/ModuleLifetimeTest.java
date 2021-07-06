@@ -32,6 +32,7 @@ import com.datastax.fallout.components.impl.FakeModule;
 import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.service.FalloutConfiguration;
+import com.datastax.fallout.util.component_discovery.MockingComponentFactory;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.assertj.Assertions.assertThatCode;
@@ -54,7 +55,7 @@ public class ModuleLifetimeTest extends EnsembleFalloutTest<FalloutConfiguration
         final CountDownLatch runToEndOfPhaseRunsCompleted = new CountDownLatch(RUN_TO_END_OF_PHASE_RUNS);
 
         final ActiveTestRunBuilder activeTestRunBuilder = createActiveTestRunBuilder()
-            .withComponentFactory(new TestRunnerTestHelpers.MockingComponentFactory()
+            .withComponentFactory(new MockingComponentFactory()
                 .mockNamed(Module.class, "run-once-fake", () -> new FakeModule() {
                     @Override
                     public void run(Ensemble ensemble, PropertyGroup properties)
@@ -151,7 +152,7 @@ public class ModuleLifetimeTest extends EnsembleFalloutTest<FalloutConfiguration
         AtomicBoolean tearDownCalled = new AtomicBoolean(false);
 
         final ActiveTestRunBuilder activeTestRunBuilder = createActiveTestRunBuilder()
-            .withComponentFactory(new TestRunnerTestHelpers.MockingComponentFactory()
+            .withComponentFactory(new MockingComponentFactory()
                 .mockNamed(Module.class, "fake", () -> new FakeModule() {
                     @Override
                     public void teardown(Ensemble ensemble, PropertyGroup properties)
@@ -187,7 +188,7 @@ public class ModuleLifetimeTest extends EnsembleFalloutTest<FalloutConfiguration
         AtomicReference<Module> runOnceModule = new AtomicReference<>();
 
         final ActiveTestRunBuilder activeTestRunBuilder = createActiveTestRunBuilder()
-            .withComponentFactory(new TestRunnerTestHelpers.MockingComponentFactory()
+            .withComponentFactory(new MockingComponentFactory()
                 .mockNamed(Module.class, "fake", () -> {
                     Module module = new FakeModule();
                     runOnceModule.set(module);

@@ -52,6 +52,7 @@ import com.datastax.fallout.service.core.Fakes;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.component_discovery.MockingComponentFactory;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 
@@ -285,10 +286,10 @@ public abstract class EnsembleFalloutTest<FC extends FalloutConfiguration> exten
     }
 
     protected TestResult performTestRunWithMockedComponents(String testYaml,
-        Consumer<TestRunnerTestHelpers.MockingComponentFactory> mockingComponentFactoryConsumer)
+        Consumer<MockingComponentFactory> mockingComponentFactoryConsumer)
     {
-        final TestRunnerTestHelpers.MockingComponentFactory mockingComponentFactory =
-            new TestRunnerTestHelpers.MockingComponentFactory();
+        final MockingComponentFactory mockingComponentFactory =
+            new MockingComponentFactory();
         mockingComponentFactoryConsumer.accept(mockingComponentFactory);
 
         final String testDefinition = getTestClassResource(testYaml);

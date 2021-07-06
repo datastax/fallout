@@ -17,9 +17,7 @@ package com.datastax.fallout.harness;
 
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -27,10 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
 import org.apache.commons.io.FilenameUtils;
 import org.eclipse.jetty.util.BlockingArrayQueue;
 import org.junit.jupiter.api.BeforeAll;
@@ -39,7 +34,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.datastax.fallout.TestHelpers;
-import com.datastax.fallout.ops.PropertyBasedComponent;
 import com.datastax.fallout.ops.ResourceRequirement;
 import com.datastax.fallout.runner.ActiveTestRunFactory;
 import com.datastax.fallout.runner.JobLoggersFactory;
@@ -55,9 +49,7 @@ import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.Test;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.User;
-import com.datastax.fallout.util.component_discovery.ComponentFactory;
-import com.datastax.fallout.util.component_discovery.NamedComponentFactory;
-import com.datastax.fallout.util.component_discovery.ServiceLoaderComponentFactory;
+import com.datastax.fallout.util.component_discovery.MockingComponentFactory;
 
 public class TestRunnerTestHelpers
 {
@@ -67,45 +59,6 @@ public class TestRunnerTestHelpers
             owner,
             FilenameUtils.getBaseName(resourcePath),
             EnsembleFalloutTest.readSharedYamlFile("/testrunner-test-yamls/" + resourcePath));
-    }
-
-    public static class MockingComponentFactory implements ComponentFactory
-    {
-        private Multimap<Class, NamedComponentFactory> factories = HashMultimap.create();
-        private final ComponentFactory delegate = new ServiceLoaderComponentFactory();
-
-        public <Component extends PropertyBasedComponent> MockingComponentFactory clear()
-        {
-            factories.clear();
-            return this;
-        }
-
-        public <Component extends PropertyBasedComponent> MockingComponentFactory mockAll(
-            Class<Component> clazz, Supplier<Component> factory)
-        {
-            factories.put(clazz, name -> factory.get());
-            return this;
-        }
-
-        public <Component extends PropertyBasedComponent> MockingComponentFactory mockNamed(
-            Class<Component> clazz, String name, Supplier<Component> factory)
-        {
-            factories.put(clazz, name_ -> name_.equals(name) ? factory.get() : null);
-            return this;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public <Component extends PropertyBasedComponent> Component create(Class<Component> clazz, String name)
-        {
-            final Collection<NamedComponentFactory> factories = this.factories.get(clazz);
-
-            return (Component) factories.stream()
-                .map(factory -> factory.createComponent(name))
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElseGet(() -> delegate.create(clazz, name));
-        }
     }
 
     protected static class TestRunQueueThatDiscardsRequeuedTestRuns extends TestRunQueue

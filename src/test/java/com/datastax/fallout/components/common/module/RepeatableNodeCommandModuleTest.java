@@ -45,13 +45,13 @@ import com.datastax.fallout.harness.Module;
 import com.datastax.fallout.harness.Operation;
 import com.datastax.fallout.harness.TestDefinition;
 import com.datastax.fallout.harness.TestResult;
-import com.datastax.fallout.harness.TestRunnerTestHelpers;
 import com.datastax.fallout.ops.ConfigurationManager;
 import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.Provisioner;
 import com.datastax.fallout.ops.commands.NodeResponse;
 import com.datastax.fallout.service.FalloutConfiguration;
+import com.datastax.fallout.util.component_discovery.MockingComponentFactory;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.assertj.Assertions.assertThatCode;
@@ -114,11 +114,11 @@ public class RepeatableNodeCommandModuleTest extends EnsembleFalloutTest<Fallout
     }
 
     private void runAndCheck(Map<String, Object> templateParams,
-        Consumer<TestRunnerTestHelpers.MockingComponentFactory> componentFactoryModifier,
+        Consumer<MockingComponentFactory> componentFactoryModifier,
         Consumer<Collection<Operation>> check)
     {
-        final TestRunnerTestHelpers.MockingComponentFactory componentFactory =
-            new TestRunnerTestHelpers.MockingComponentFactory()
+        final MockingComponentFactory componentFactory =
+            new MockingComponentFactory()
                 .mockAll(Provisioner.class, FakeProvisioner::new)
                 .mockAll(ConfigurationManager.class, FakeConfigurationManager::new)
                 .mockAll(Checker.class, () -> new FakeChecker() {
