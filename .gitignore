@@ -25,6 +25,7 @@ out/
 # Build artifacts
 .gradle/
 build/
+/node_modules/
 
 # Nothing creates tmp, but it's a convenient place to keep
 # temporary things

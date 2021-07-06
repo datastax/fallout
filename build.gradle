@@ -46,7 +46,7 @@ plugins {
 
     id "com.github.johnrengelman.shadow" version "6.1.0"
     id "com.github.johnrengelman.processes" version "0.5.0"
-    id "com.github.voplex95.lesscompiler" version "1.0.3"
+    id "com.github.node-gradle.node" version "3.0.1"
     id "com.diffplug.spotless" version "5.11.0"
 
     id "de.undercouch.download" version "4.1.1"
@@ -529,14 +529,26 @@ sourceSets {
 
 // LESS
 
-lessCompile {
-    source = file('src/main/resources/assets/less/fallout.less')
+node {
+    download = true
+    version = "16.1.0"
 
-    target = file("${generatedResourcesOutputDir}/assets/css/fallout.css")
+    // Prevent the node extension from declaring a repository: see
+    // https://github.com/node-gradle/gradle-node-plugin/blob/6f03c21e7e51189885a384ab533ee191c971f7dc/docs/faq.md#is-this-plugin-compatible-with-centralized-repositories-declaration
+    distBaseUrl = null
+}
+
+task lessCompile(type: NpxTask) {
+    dependsOn npmInstall
+    def source = file("src/main/resources/assets/less/fallout.less")
+    def target = file("${generatedResourcesOutputDir}/assets/css/fallout.css")
 
     // The lessCompile task doesn't declare inputs or outputs, so we do it here
-    inputs.files fileTree('src/main/resources/assets/less')
+    inputs.files fileTree("src/main/resources/assets/less")
     outputs.file target
+
+    command = "lessc"
+    args = ["$source", "$target"]
 }
 
 processResources.dependsOn(lessCompile)

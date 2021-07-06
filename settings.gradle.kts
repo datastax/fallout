@@ -13,6 +13,21 @@ dependencyResolutionManagement {
 
         // Needed for com.github.nitsanw:HdrLogProcessing
         maven(uri("https://jitpack.io"))
+
+        // see https://github.com/node-gradle/gradle-node-plugin/blob/6f03c21e7e51189885a384ab533ee191c971f7dc/docs/faq.md#is-this-plugin-compatible-with-centralized-repositories-declaration
+        ivy {
+            name = "Node.js"
+            setUrl("https://nodejs.org/dist/")
+            patternLayout {
+                artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
+            }
+            metadataSources {
+                artifact()
+            }
+            content {
+                includeModule("org.nodejs", "node")
+            }
+        }
     }
 }
 
