@@ -94,18 +94,6 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
 
     public static final String CASSANDRA_KEYSPACE = "test";
 
-    public FalloutAppExtensionBase(Class<FS> falloutServiceClass,
-        ConfigOverride... configOverrides)
-    {
-        this(falloutServiceClass, FalloutConfiguration.ServerMode.STANDALONE, configOverrides);
-    }
-
-    public FalloutAppExtensionBase(Class<FS> falloutServiceClass,
-        FalloutConfiguration.ServerMode mode, ConfigOverride... configOverrides)
-    {
-        this(falloutServiceClass, mode, null, configOverrides);
-    }
-
     private static class TestSupport<FC extends FalloutConfiguration, FS extends FalloutServiceBase<FC>>
         extends DropwizardTestSupport<FC>
     {
