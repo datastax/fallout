@@ -28,7 +28,17 @@ import com.datastax.fallout.ops.PropertyBasedComponent;
 public class MockingComponentFactory implements ComponentFactory
 {
     private final Multimap<Class<?>, NamedComponentFactory<?>> factories = HashMultimap.create();
-    private final ComponentFactory delegate = new ServiceLoaderComponentFactory();
+    private final ComponentFactory delegate;
+
+    public MockingComponentFactory(ComponentFactory delegate)
+    {
+        this.delegate = delegate;
+    }
+
+    public MockingComponentFactory()
+    {
+        this(DefaultComponentFactory.createDefaultComponentFactory());
+    }
 
     private static class MockingNamedComponentFactory<Component extends PropertyBasedComponent>
         implements NamedComponentFactory<Component>

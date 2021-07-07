@@ -143,7 +143,6 @@ import com.datastax.fallout.util.ScopedLogger;
 import com.datastax.fallout.util.SlackUserMessenger;
 import com.datastax.fallout.util.UserMessenger;
 import com.datastax.fallout.util.component_discovery.ComponentFactory;
-import com.datastax.fallout.util.component_discovery.ServiceLoaderComponentFactory;
 
 public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extends Application<FC>
 {
@@ -156,7 +155,7 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
      */
     public static final String OAUTH_BEARER_TOKEN_TYPE = "Bearer";
 
-    private ComponentFactory componentFactory = new ServiceLoaderComponentFactory();
+    private ComponentFactory componentFactory;
     private Client httpClient;
     private CassandraDriverManager cassandraDriverManager;
     private IntSupplier runningTestRunsCount;
@@ -178,6 +177,11 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
             e.printStackTrace();
             System.exit(1);
         }
+    }
+
+    protected FalloutServiceBase(ComponentFactory componentFactory)
+    {
+        this.componentFactory = componentFactory;
     }
 
     @Override
@@ -309,9 +313,15 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
     }
 
     @VisibleForTesting
-    public void withComponentFactory(ComponentFactory componentFactory)
+    public void setComponentFactory(ComponentFactory componentFactory)
     {
         this.componentFactory = componentFactory;
+    }
+
+    @VisibleForTesting
+    public ComponentFactory getComponentFactory()
+    {
+        return componentFactory;
     }
 
     @VisibleForTesting

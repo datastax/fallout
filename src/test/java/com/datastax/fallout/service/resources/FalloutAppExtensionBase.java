@@ -97,8 +97,7 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
     private static class TestSupport<FC extends FalloutConfiguration, FS extends FalloutServiceBase<FC>>
         extends DropwizardTestSupport<FC>
     {
-        private final MockingComponentFactory componentFactory =
-            new MockingComponentFactory();
+        private MockingComponentFactory componentFactory;
 
         private final TestRunStatusUpdatePublisher runnerTestRunStatusFeed = new TestRunStatusUpdatePublisher();
 
@@ -178,7 +177,8 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
         public FS newApplication()
         {
             FS falloutService = (FS) super.newApplication();
-            falloutService.withComponentFactory(componentFactory);
+            componentFactory = new MockingComponentFactory(falloutService.getComponentFactory());
+            falloutService.setComponentFactory(componentFactory);
             falloutService.withRunnerTestRunStatusFeed(runnerTestRunStatusFeed);
             return falloutService;
         }

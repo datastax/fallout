@@ -13,19 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.fallout.service;
+package com.datastax.fallout.util.component_discovery;
 
-import com.datastax.fallout.util.component_discovery.DefaultComponentFactory;
-
-public class FalloutService extends FalloutServiceBase<FalloutConfiguration>
+public class DefaultComponentFactory
 {
-    public static void main(String[] args)
+    public static ComponentFactory createDefaultComponentFactory()
     {
-        FalloutServiceBase.main(FalloutService.class, args);
-    }
-
-    public FalloutService()
-    {
-        super(DefaultComponentFactory.createDefaultComponentFactory());
+        return new ServiceLoaderComponentFactory();
     }
 }

@@ -27,7 +27,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import com.datastax.fallout.harness.ArtifactChecker;
 import com.datastax.fallout.harness.Module;
 import com.datastax.fallout.util.component_discovery.ComponentFactory;
-import com.datastax.fallout.util.component_discovery.ServiceLoaderComponentFactory;
+import com.datastax.fallout.util.component_discovery.DefaultComponentFactory;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 
@@ -41,7 +41,7 @@ public class PropertyBasedComponentImplTest
     @BeforeAll
     static void loadComponents()
     {
-        componentFactory = new ServiceLoaderComponentFactory();
+        componentFactory = DefaultComponentFactory.createDefaultComponentFactory();
     }
 
     static Stream<Arguments> componentsAndAllowedPrefixes()
