@@ -1,6 +1,5 @@
 package com.datastax.fallout.gradle.symlinks
 
-import org.assertj.core.api.AbstractPathAssert
 import org.assertj.core.api.Assertions.assertThat
 import org.gradle.testkit.runner.GradleRunner
 import org.junit.jupiter.api.BeforeEach
@@ -14,7 +13,6 @@ import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 
 class SymlinksPluginTest {
-
     private lateinit var testProjectDir: Path
     private lateinit var settingsFile: Path
     private lateinit var buildFile: Path
@@ -22,7 +20,11 @@ class SymlinksPluginTest {
     private lateinit var destDir: Path
     private lateinit var realFile: Path
     private lateinit var realFileContent: String
-    private lateinit var symLink: Path
+    private lateinit var symlinkToRealFile: Path
+    private lateinit var subDir: Path
+    private lateinit var realFileInSubDir: Path
+    private lateinit var realFileInSubDirContent: String
+    private lateinit var symlinkToRealFileInSubDir: Path
 
     @BeforeEach
     fun setup(@TempDir testProjectDir_: File) {
@@ -57,31 +59,66 @@ class SymlinksPluginTest {
         realFileContent = "a real file"
         Files.writeString(realFile, realFileContent)
 
-        symLink = sourceDir.resolve("symlink")
-        Files.createSymbolicLink(symLink, sourceDir.relativize(realFile))
-        assertThat(symLink)
+        symlinkToRealFile = sourceDir.resolve("symlink-to-real-file")
+        Files.createSymbolicLink(symlinkToRealFile, sourceDir.relativize(realFile))
+        assertThat(symlinkToRealFile)
             .hasContent(realFileContent)
+            .isSymbolicLink()
+
+        subDir = testProjectDir.resolve("source/sub")
+        Files.createDirectories(subDir)
+
+        realFileInSubDir = subDir.resolve("real-file")
+        realFileInSubDirContent = "a real file in a subdirectory"
+        Files.writeString(realFileInSubDir, realFileInSubDirContent)
+
+        symlinkToRealFileInSubDir = sourceDir.resolve("symlink-to-real-file-in-sub")
+        Files.createSymbolicLink(symlinkToRealFileInSubDir, sourceDir.relativize(realFileInSubDir))
+        assertThat(symlinkToRealFileInSubDir)
+            .hasContent(realFileInSubDirContent)
             .isSymbolicLink()
     }
 
-    private fun assertDirContainsRealFileAndSymLink(destDir: Path): AbstractPathAssert<*>? {
+    private fun assertPathIsSymlinkTo(destDir: Path, symlink: Path, realFile: Path, realFileContent: String) {
         assertThat(destDir.resolve(sourceDir.relativize(realFile)))
             .exists()
             .hasContent(realFileContent)
             .isRegularFile()
 
-        assertThat(destDir.resolve(sourceDir.relativize(symLink)))
+        assertThat(destDir.resolve(sourceDir.relativize(symlink)))
             .exists()
             .hasContent(realFileContent)
             .isSymbolicLink()
 
-        return assertThat(
+        assertThat(
             Files.readSymbolicLink(
-                destDir.resolve(sourceDir.relativize(symLink))
+                destDir.resolve(sourceDir.relativize(symlink))
             )
         )
             .isRelative()
             .isEqualTo(sourceDir.relativize(realFile))
+    }
+
+    private fun assertDirContainsRealFilesAndSymLinks(destDir: Path) {
+        assertPathIsSymlinkTo(destDir, symlinkToRealFile, realFile, realFileContent)
+        assertPathIsSymlinkTo(destDir, symlinkToRealFileInSubDir, realFileInSubDir, realFileInSubDirContent)
+    }
+
+    private fun assertCopiesSymlinksCorrectly(task: String, destDir: Path) {
+        runTask(task)
+
+        assertDirContainsRealFilesAndSymLinks(destDir)
+    }
+
+    private fun assertHandlesDanglingSymlinks(task: String, destDir: Path) {
+        // Check that dangling symlinks in the destination are handled
+        listOf(realFile, realFileInSubDir, subDir).forEach {
+            Files.delete(destDir.resolve(sourceDir.relativize(it)))
+        }
+
+        runTask(task)
+
+        assertDirContainsRealFilesAndSymLinks(destDir)
     }
 
     fun runTask(task: String) {
@@ -107,16 +144,15 @@ class SymlinksPluginTest {
             StandardOpenOption.APPEND
         )
 
-        runTask("copySymlinks")
+        val task = "copySymlinks"
 
-        assertDirContainsRealFileAndSymLink(destDir)
+        assertCopiesSymlinksCorrectly(task, destDir)
+        assertHandlesDanglingSymlinks(task, destDir)
 
         // Check that deleted files in the source persist in the destination
-        Files.delete(symLink)
+        Files.delete(symlinkToRealFile)
 
-        runTask("copySymlinks")
-
-        assertDirContainsRealFileAndSymLink(destDir)
+        assertCopiesSymlinksCorrectly(task, destDir)
     }
 
     @Test
@@ -134,21 +170,22 @@ class SymlinksPluginTest {
             StandardOpenOption.APPEND
         )
 
-        runTask("syncSymlinks")
+        val task = "syncSymlinks"
 
-        assertDirContainsRealFileAndSymLink(destDir)
+        assertCopiesSymlinksCorrectly(task, destDir)
+        assertHandlesDanglingSymlinks(task, destDir)
 
         // Check that deleted files in the source are deleted in the destination
-        Files.delete(symLink)
+        Files.delete(symlinkToRealFile)
 
-        runTask("syncSymlinks")
+        runTask(task)
 
         assertThat(destDir.resolve(sourceDir.relativize(realFile)))
             .exists()
             .hasContent(realFileContent)
             .isRegularFile()
 
-        assertThat(destDir.resolve(sourceDir.relativize(symLink)))
+        assertThat(destDir.resolve(sourceDir.relativize(symlinkToRealFile)))
             .doesNotExist()
     }
 
@@ -171,8 +208,9 @@ class SymlinksPluginTest {
 
         runTask(task)
 
-        assertDirContainsRealFileAndSymLink(
-            testProjectDir.resolve("build/install/test")
-        )
+        testProjectDir.resolve("build/install/test").let {
+            assertCopiesSymlinksCorrectly(task, it)
+            assertHandlesDanglingSymlinks(task, it)
+        }
     }
 }

@@ -23,6 +23,16 @@ class SymlinkCopyActionDecorator(
     override fun execute(stream: CopyActionProcessingStream): WorkResult {
         return delegate.execute { action ->
             stream.process { details ->
+
+                // Delete the destination if it's a symlink: the default details.copyTo
+                // tries to open a FileOutputStream on the target if it exists, and if
+                // the target is a dangling symlink we get a FileNotFoundException.
+                val destFile = fileResolver.resolve(details.relativePath).toPath()
+
+                if (Files.isSymbolicLink(destFile)) {
+                    Files.delete(destFile)
+                }
+
                 // we _always_ call the delegate: if we're wrapping a
                 // SyncCopyActionDecorator, then it tracks all the
                 // files visited and deletes the ones not seen, which
@@ -48,7 +58,6 @@ class SymlinkCopyActionDecorator(
 
                 maybeSourceFile?.let { sourceFile ->
                     if (Files.isSymbolicLink(sourceFile)) {
-                        val destFile = fileResolver.resolve(details.relativePath).toPath()
                         Files.delete(destFile)
                         Files.createSymbolicLink(destFile, Files.readSymbolicLink(sourceFile))
                     }
