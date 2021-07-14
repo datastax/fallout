@@ -14,11 +14,6 @@ plugins {
 
 group = "com.datastax"
 
-// see https://docs.gradle.org/current/userguide/kotlin_dsl.html#sec:kotlin-dsl_plugin
-kotlinDslPluginOptions {
-    experimentalWarning.set(false)
-}
-
 dependencies {
     implementation("de.undercouch:gradle-download-task:4+")
     implementation("com.google.gradle:osdetector-gradle-plugin:1+")
@@ -36,6 +31,11 @@ gradlePlugin {
             id = "com.datastax.fallout.externaltools"
             implementationClass =
                 "com.datastax.fallout.gradle.externaltools.ExternalToolsPlugin"
+        }
+
+        create("fork") {
+            id = "com.datastax.fallout.fork"
+            implementationClass = "com.datastax.fallout.gradle.fork.ForkPlugin"
         }
     }
 }

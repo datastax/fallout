@@ -38,6 +38,7 @@ plugins {
 
     id "com.datastax.fallout.symlinks"
     id "com.datastax.fallout.externaltools"
+    id "com.datastax.fallout.fork"
     id "com.datastax.fallout.conventions.test"
     id "com.datastax.fallout.conventions.lint"
     id "com.datastax.fallout.conventions.kotlin"
@@ -45,8 +46,7 @@ plugins {
     id "com.datastax.fallout.conventions.common-root-project"
 
     id "com.github.johnrengelman.shadow" version "6.1.0"
-    id "com.github.johnrengelman.processes" version "0.5.0"
-    id "com.github.voplex95.lesscompiler" version "1.0.3"
+    id "com.github.node-gradle.node" version "3.0.1"
     id "com.diffplug.spotless" version "5.11.0"
 
     id "de.undercouch.download" version "4.1.1"
@@ -56,11 +56,12 @@ plugins {
     // - handles dependencies correctly;
     // - generates a single entrypoint class;
     // - can generate assertions for non-project classes.
-    id "com.github.carlobellettini.assertj-generator-gradle-plugin-p" version "1.0"
+    id "com.waftex.assertj-generator" version "1.1.4"
 }
 
-import com.github.jengelman.gradle.plugins.processes.tasks.Fork
+import com.datastax.fallout.gradle.fork.Fork
 import static com.datastax.fallout.gradle.Utils.camelCase
+import static com.datastax.fallout.gradle.common.CascadeTaskKt.cascadeTask
 
 group = 'com.datastax'
 version = '0.1.0-SNAPSHOT'
@@ -136,7 +137,7 @@ def jettyVersion = '9.4.35.v20201120'
 def jerseyVersion = '2.32'
 def jacksonVersion = '2.10.5'
 
-def autoServiceVersion = '1.0-rc7'
+def autoServiceVersion = '1.0'
 def autoValueVersion = '1.7.5'
 
 // Used by jepsen as well, so we define this at the project level
@@ -425,7 +426,8 @@ task startCassandra(type: Fork) {
 
         while (!portOpened && waitSeconds && !processHandle.state.terminal) {
             try {
-                new Socket("localhost", port);
+                def socket = new Socket("localhost", port);
+                socket.close()
                 portOpened = true
             }
             catch (ConnectException e) {
@@ -529,14 +531,26 @@ sourceSets {
 
 // LESS
 
-lessCompile {
-    source = file('src/main/resources/assets/less/fallout.less')
+node {
+    download = true
+    version = "16.1.0"
 
-    target = file("${generatedResourcesOutputDir}/assets/css/fallout.css")
+    // Prevent the node extension from declaring a repository: see
+    // https://github.com/node-gradle/gradle-node-plugin/blob/6f03c21e7e51189885a384ab533ee191c971f7dc/docs/faq.md#is-this-plugin-compatible-with-centralized-repositories-declaration
+    distBaseUrl = null
+}
+
+task lessCompile(type: NpxTask) {
+    dependsOn npmInstall
+    def source = file("src/main/resources/assets/less/fallout.less")
+    def target = file("${generatedResourcesOutputDir}/assets/css/fallout.css")
 
     // The lessCompile task doesn't declare inputs or outputs, so we do it here
-    inputs.files fileTree('src/main/resources/assets/less')
+    inputs.files fileTree("src/main/resources/assets/less")
     outputs.file target
+
+    command = "lessc"
+    args = ["$source", "$target"]
 }
 
 processResources.dependsOn(lessCompile)
@@ -1098,9 +1112,7 @@ task dbTest(type: Test) {
 }
 
 ["check", "cleanCheck"].each { taskName ->
-    gradle.includedBuilds.each { includedBuild ->
-        tasks[taskName].dependsOn(includedBuild.task(":${taskName}"))
-    }
+    cascadeTask(project, tasks.named(taskName))
 }
 
 // ----------------------------------------------------------------------------
@@ -1406,6 +1418,6 @@ task docs(dependsOn: [dumpNodeGroupStatesToPng, renderDocsDots, renderDocsPlantU
 
 wrapper {
     // https://gradle.org/release-checksums/
-    gradleVersion = '6.8.3'
-    distributionSha256Sum = '7faa7198769f872826c8ef4f1450f839ec27f0b4d5d1e51bade63667cbccd205'
+    gradleVersion = "7.1.1"
+    distributionSha256Sum = "bf8b869948901d422e9bb7d1fa61da6a6e19411baa7ad6ee929073df85d6365d"
 }

@@ -24,11 +24,6 @@ dependencies {
     api("org.jlleitschuh.gradle:ktlint-gradle:${getPluginVersion("org.jlleitschuh.gradle.ktlint")}")
 }
 
-// see https://docs.gradle.org/current/userguide/kotlin_dsl.html#sec:kotlin-dsl_plugin
-kotlinDslPluginOptions {
-    experimentalWarning.set(false)
-}
-
 dependencyLocking {
     lockAllConfigurations()
 }
@@ -37,19 +32,37 @@ dependencyLocking {
 // up further: the tasks that this project defines in convention plugins for use in
 // other projects can't be reused in this project, so we end up creating them again here:
 
+// lint.gradle.kts
+
 tasks {
     register("lint") {
         dependsOn(matching { it.name.startsWith("compile") })
+    }
+}
+
+// kotlin.gradle.kts
+
+configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+    filter {
+        exclude { element -> element.file.startsWith(project.buildDir) }
+    }
+}
+
+tasks {
+    named("lint") {
         dependsOn("ktlintCheck")
     }
+}
 
+// dependency-locking.gradle.kts
+
+tasks {
     register("lockDependencies") {
         doLast {
             require(project.gradle.startParameter.isWriteDependencyLocks) {
                 "$name must be called with the --write-locks option"
             }
             project.configurations.filter {
-                // Add any custom filtering on the configurations to be resolved
                 it.isCanBeResolved
             }.forEach { it.resolve() }
         }

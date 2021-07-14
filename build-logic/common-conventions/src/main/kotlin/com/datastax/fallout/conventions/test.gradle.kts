@@ -58,10 +58,10 @@ project.afterEvaluate {
 
         this.let { testTask ->
             reports {
-                html.isEnabled = false
-                junitXml.isEnabled = true
+                html.required.set(false)
+                junitXml.required.set(true)
                 junitXml.isOutputPerTestCase = true
-                junitXml.destination = file("$buildDir/reports/junit/${testTask.name}")
+                junitXml.outputLocation.set(file("$buildDir/reports/junit/${testTask.name}"))
             }
         }
 
