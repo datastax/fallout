@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 import com.datastax.fallout.components.common.provider.FileProvider;
 import com.datastax.fallout.components.common.provider.FileProvider.LocalFileProvider;
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
-import com.datastax.fallout.harness.ActiveTestRunBuilder;
 import com.datastax.fallout.ops.commands.CommandExecutor;
 
 public class LocalFilesHandler implements HasAvailableProviders, PropertyRefExpander
@@ -57,7 +56,7 @@ public class LocalFilesHandler implements HasAvailableProviders, PropertyRefExpa
         return new LocalFilesHandler(List.of(), null, null);
     }
 
-    public boolean createAllLocalFiles(Ensemble ensemble, ActiveTestRunBuilder.ValidationResult validationResult)
+    public boolean createAllLocalFiles(Ensemble ensemble)
     {
         if (localFileSpecs.isEmpty())
         {
@@ -67,8 +66,7 @@ public class LocalFilesHandler implements HasAvailableProviders, PropertyRefExpa
         if (!localFileSpecs.stream().allMatch(fileSpec -> fileSpec.createLocalFile(
             ensemble.logger(),
             commandExecutor,
-            fileSpec.getFullPath(managedFilesPath),
-            validationResult)))
+            fileSpec.getFullPath(managedFilesPath))))
         {
             return false;
         }

@@ -1107,7 +1107,6 @@ public class ActiveTestRunBuilder
             .withTestRunLinkUpdater(testRunLinkUpdater)
             .build(testRunArtifactPath, testRunScratchSpace);
 
-        ensemble.createAllLocalFiles(validationResult);
         validateEnsemblePropertySpecs(ensemble, validationResult);
 
         return ensemble;
@@ -1239,19 +1238,6 @@ public class ActiveTestRunBuilder
                     String.format("Your test failed validation for the following reasons:\n%s",
                         String.join("\n", errors)));
             }
-        }
-    }
-
-    public static class NoOpValidationResult extends ValidationResult
-    {
-        @Override
-        public void addError(String error)
-        {
-        }
-
-        @Override
-        public void close()
-        {
         }
     }
 }

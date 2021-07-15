@@ -31,7 +31,6 @@ import com.google.auto.service.AutoService;
 import com.datastax.fallout.components.common.provider.FileProvider;
 import com.datastax.fallout.components.kubernetes.KubeControlProvider;
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
-import com.datastax.fallout.harness.ActiveTestRunBuilder;
 import com.datastax.fallout.ops.ConfigurationManager;
 import com.datastax.fallout.ops.FileSpec;
 import com.datastax.fallout.ops.LocalFilesHandler;
@@ -232,8 +231,7 @@ public class RemoteFilesConfigurationManager extends ConfigurationManager
     private boolean createLocalCopy(NodeGroup nodeGroup, FileSpec fileSpec, Path localFilePath)
     {
         return Exceptions.getUncheckedIO(() -> fileSpec.createLocalFile(
-            nodeGroup.logger(), nodeGroup.getProvisioner().getCommandExecutor(), localFilePath,
-            new ActiveTestRunBuilder.NoOpValidationResult()));
+            nodeGroup.logger(), nodeGroup.getProvisioner().getCommandExecutor(), localFilePath));
     }
 
     private boolean saveShadedCopy(NodeGroup nodeGroup, FileSpec fileSpec)

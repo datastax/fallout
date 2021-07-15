@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 
-import com.datastax.fallout.harness.ActiveTestRunBuilder;
 import com.datastax.fallout.harness.TestRunLinkUpdater;
 import com.datastax.fallout.harness.WorkloadComponent;
 import com.datastax.fallout.ops.TestRunScratchSpaceFactory.LocalScratchSpace;
@@ -361,9 +360,9 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
         testRunLinkUpdater.add(linkName, link);
     }
 
-    public boolean createAllLocalFiles(ActiveTestRunBuilder.ValidationResult validationResult)
+    public boolean createAllLocalFiles()
     {
-        return localFilesHandler.createAllLocalFiles(this, validationResult);
+        return localFilesHandler.createAllLocalFiles(this);
     }
 
     @Override

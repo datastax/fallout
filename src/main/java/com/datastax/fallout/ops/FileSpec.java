@@ -33,7 +33,6 @@ import org.slf4j.Logger;
 
 import com.datastax.fallout.components.common.spec.GitClone;
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
-import com.datastax.fallout.harness.ActiveTestRunBuilder;
 import com.datastax.fallout.ops.commands.CommandExecutor;
 import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
 import com.datastax.fallout.ops.utils.FileUtils;
@@ -61,8 +60,7 @@ public abstract class FileSpec
         this.path = path.startsWith("/") ? path.substring(1) : path;
     }
 
-    public boolean createLocalFile(Logger logger, CommandExecutor commandExecutor, Path fullFilePath,
-        ActiveTestRunBuilder.ValidationResult validationResult)
+    public boolean createLocalFile(Logger logger, CommandExecutor commandExecutor, Path fullFilePath)
     {
         if (Files.exists(fullFilePath))
         {
@@ -77,9 +75,7 @@ public abstract class FileSpec
         }
         catch (IOException e)
         {
-            String errorMessage = String.format("Error while creating local file %s", fullFilePath);
-            validationResult.addError(errorMessage + ": " + e.getMessage());
-            logger.error(errorMessage, e);
+            logger.error(String.format("Error while creating local file %s", fullFilePath), e);
             return false;
         }
     }

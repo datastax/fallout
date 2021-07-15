@@ -44,7 +44,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datastax.fallout.harness.ActiveTestRunBuilder;
 import com.datastax.fallout.harness.TestRunAbortedStatus;
 import com.datastax.fallout.ops.TestRunScratchSpaceFactory.LocalScratchSpace;
 import com.datastax.fallout.ops.commands.NodeCommandExecutor;
@@ -276,9 +275,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
 
     public boolean createLocalFile(Path fileLocation, FileSpec fileSpec)
     {
-        return fileSpec.createLocalFile(this.logger(), this.getProvisioner().getCommandExecutor(),
-            fileLocation,
-            new ActiveTestRunBuilder.NoOpValidationResult());
+        return fileSpec.createLocalFile(this.logger(), this.getProvisioner().getCommandExecutor(), fileLocation);
     }
 
     public boolean willHaveProvider(Class<? extends Provider> reqProvider)

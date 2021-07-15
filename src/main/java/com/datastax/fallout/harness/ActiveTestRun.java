@@ -335,7 +335,7 @@ public class ActiveTestRun implements AutoCloseable
     }
 
     @VisibleForTesting
-    CheckResourcesResult setup()
+    public CheckResourcesResult setup()
     {
         // Check before, but not after, as checking after could cause
         // cleanup required by a successful call of f to be skipped.
@@ -348,6 +348,11 @@ public class ActiveTestRun implements AutoCloseable
         try
         {
             logger.info("Setting up ensemble before beginning jepsen test");
+
+            if (!ensemble.createAllLocalFiles())
+            {
+                return CheckResourcesResult.FAILED;
+            }
 
             // Check states and kick off any post-check-state actions.
             final List<CompletableFuture<Boolean>> postCheckStateActions = ensemble

@@ -108,10 +108,6 @@ public class KubernetesJobModule extends Module
     public void validateEnsemble(EnsembleValidator validator)
     {
         validator.nodeGroupRequiresProvider(targetGroupSpec, KubeControlProvider.class);
-
-        // Validate the given job manifest contains exactly one Job manifest
-        NodeGroup targetGroup = validator.getEnsemble().getNodeGroupByAlias(targetGroupSpec.value(getProperties()));
-        extractJobName(targetGroup, getProperties());
     }
 
     private NodeGroup targetGroup;
