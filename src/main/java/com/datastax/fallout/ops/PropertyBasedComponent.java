@@ -21,6 +21,8 @@ import java.util.Optional;
 
 import org.slf4j.Logger;
 
+import com.datastax.fallout.util.component_discovery.NamedComponent;
+
 /**
  * Interface for objects that may be created as part of a definition for a test.
  * This includes ConfigurationManagers, Provisioners, Modules, and Checkers.
@@ -30,17 +32,12 @@ import org.slf4j.Logger;
  * @see com.datastax.fallout.harness.Checker
  * @see com.datastax.fallout.harness.Module
  */
-public interface PropertyBasedComponent
+public interface PropertyBasedComponent extends NamedComponent
 {
     /**
      * @return the prefix for properties of this Component
      */
     String prefix();
-
-    /**
-     * @return a unique name for this Component
-     */
-    String name();
 
     /**
      * @return the long description of this Component

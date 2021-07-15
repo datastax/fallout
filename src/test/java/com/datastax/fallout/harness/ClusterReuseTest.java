@@ -33,6 +33,7 @@ import com.datastax.fallout.ops.Provisioner;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.component_discovery.MockingComponentFactory;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 
@@ -153,7 +154,7 @@ public class ClusterReuseTest extends EnsembleFalloutTest<FalloutConfiguration>
                         super.markFailedWithReason(finalState);
                     }
                 })
-            .withComponentFactory(new TestRunnerTestHelpers.MockingComponentFactory()
+            .withComponentFactory(new MockingComponentFactory()
                 .mockAll(Provisioner.class, () -> new FakeProvisioner() {
                     @Override
                     protected boolean prepareImpl(NodeGroup nodeGroup)

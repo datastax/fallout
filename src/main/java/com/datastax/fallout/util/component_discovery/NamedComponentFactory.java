@@ -13,19 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.fallout.service;
+package com.datastax.fallout.util.component_discovery;
 
-import com.datastax.fallout.util.component_discovery.DefaultComponentFactory;
+import java.util.Collection;
 
-public class FalloutService extends FalloutServiceBase<FalloutConfiguration>
+/** Encapsulates the creation of named components of a specific type */
+public interface NamedComponentFactory<Component extends NamedComponent>
 {
-    public static void main(String[] args)
-    {
-        FalloutServiceBase.main(FalloutService.class, args);
-    }
+    /** Create a new component with the specific name, or return null if none exists */
+    Component create(String name);
 
-    public FalloutService()
-    {
-        super(DefaultComponentFactory.createDefaultComponentFactory());
-    }
+    /** Get example instances of all the possible components */
+    Collection<Component> exampleComponents();
 }

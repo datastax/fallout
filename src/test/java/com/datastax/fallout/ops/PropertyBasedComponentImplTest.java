@@ -15,14 +15,19 @@
  */
 package com.datastax.fallout.ops;
 
-import java.util.List;
+import java.util.Arrays;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import com.datastax.fallout.harness.ArtifactChecker;
 import com.datastax.fallout.harness.Module;
+import com.datastax.fallout.util.component_discovery.ComponentFactory;
+import com.datastax.fallout.util.component_discovery.DefaultComponentFactory;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 
@@ -31,72 +36,41 @@ import static com.datastax.fallout.assertj.Assertions.assertThat;
  */
 public class PropertyBasedComponentImplTest
 {
-    private static Stream<PropertyBasedComponent> fetchComponents(Class<? extends PropertyBasedComponent> clazz)
+    private static ComponentFactory componentFactory;
+
+    @BeforeAll
+    static void loadComponents()
     {
-        return Utils.loadComponents(clazz).stream().map(component -> (PropertyBasedComponent) component);
+        componentFactory = DefaultComponentFactory.createDefaultComponentFactory();
     }
 
-    static Stream<PropertyBasedComponent> fetchProvisioners()
+    static Stream<Arguments> componentsAndAllowedPrefixes()
     {
-        return fetchComponents(Provisioner.class);
+        return Stream
+            .of(
+                Pair.of(Provisioner.class,
+                    new String[] {"fallout.provisioner", "test.provisioner"}),
+                Pair.of(ConfigurationManager.class,
+                    new String[] {"fallout.configuration.management", "test.configuration.management"}),
+                Pair.of(Module.class,
+                    new String[] {"fallout.module", "test.module"}),
+                Pair.of(ArtifactChecker.class,
+                    new String[] {"fallout.artifact_checkers", "test.artifact_checkers"})
+            )
+            // expand the above into a list of components and allowed prefixes
+            .flatMap(classAndPrefixes -> componentFactory.exampleComponents(classAndPrefixes.getLeft()).stream()
+                .map(component -> Arguments.of(component, classAndPrefixes.getRight())));
+
     }
 
-    static Stream<PropertyBasedComponent> fetchConfigurationManagers()
+    @ParameterizedTest()
+    @MethodSource("componentsAndAllowedPrefixes")
+    public void component_only_uses_allowed_prefixes(PropertyBasedComponent component, String[] allowedPrefixes)
     {
-        return fetchComponents(ConfigurationManager.class);
-    }
-
-    static Stream<PropertyBasedComponent> fetchModules()
-    {
-        return fetchComponents(Module.class);
-    }
-
-    static Stream<PropertyBasedComponent> fetchArtifactCheckers()
-    {
-        return fetchComponents(ArtifactChecker.class);
-    }
-
-    private void validatePrefix(String prefix, String... options)
-    {
-        try
-        {
-            assertThat(Stream.of(options)).anyMatch(prefix::startsWith);
-            assertThat(prefix).endsWith(".");
-        }
-        catch (AssertionError e)
-        {
-            throw new AssertionError(String
-                .format("prefix \"%s\" must start with one of the following: %s and end with \".\"", prefix,
-                    List.of(options)),
-                e);
-        }
-    }
-
-    @ParameterizedTest(name = "provisioner-prefix-validation-{0}")
-    @MethodSource("fetchProvisioners")
-    public void testProvisionerPrefixFormatting(PropertyBasedComponent component)
-    {
-        validatePrefix(component.prefix(), "fallout.provisioner", "test.provisioner");
-    }
-
-    @ParameterizedTest(name = "configuration-manager-prefix-validation-{0}")
-    @MethodSource("fetchConfigurationManagers")
-    public void testConfigurationManagerPrefixFormatting(PropertyBasedComponent component)
-    {
-        validatePrefix(component.prefix(), "fallout.configuration.management", "test.configuration.management");
-    }
-
-    @ParameterizedTest(name = "module-prefix-validation-{0}")
-    @MethodSource("fetchModules")
-    public void testModulePrefixFormatting(PropertyBasedComponent component)
-    {
-        validatePrefix(component.prefix(), "fallout.module", "test.module");
-    }
-
-    @ParameterizedTest(name = "artifact-checker-prefix-validation-{0}")
-    @MethodSource("fetchArtifactCheckers")
-    public void testArtifactCheckerPrefixFormatting(PropertyBasedComponent component)
-    {
-        validatePrefix(component.prefix(), "fallout.artifact_checkers", "test.artifact_checkers");
+        String prefix = component.prefix();
+        assertThat(prefix)
+            .matches(prefix_ -> Arrays.stream(allowedPrefixes).anyMatch(prefix_::startsWith),
+                String.format("must start with one of %s", Arrays.toString(allowedPrefixes)))
+            .endsWith(".");
     }
 }

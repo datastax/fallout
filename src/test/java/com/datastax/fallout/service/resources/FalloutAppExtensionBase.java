@@ -44,7 +44,6 @@ import com.datastax.driver.core.Session;
 import com.datastax.fallout.LogbackConfigurator;
 import com.datastax.fallout.TestHelpers;
 import com.datastax.fallout.harness.TestRunStatusUpdatePublisher;
-import com.datastax.fallout.harness.TestRunnerTestHelpers;
 import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.FalloutServiceBase;
@@ -58,6 +57,7 @@ import com.datastax.fallout.service.db.CassandraDriverManagerHelpers;
 import com.datastax.fallout.service.db.TestRunDAO;
 import com.datastax.fallout.test.utils.WithPersistentTestOutputDir;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.component_discovery.MockingComponentFactory;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -94,23 +94,10 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
 
     public static final String CASSANDRA_KEYSPACE = "test";
 
-    public FalloutAppExtensionBase(Class<FS> falloutServiceClass,
-        ConfigOverride... configOverrides)
-    {
-        this(falloutServiceClass, FalloutConfiguration.ServerMode.STANDALONE, configOverrides);
-    }
-
-    public FalloutAppExtensionBase(Class<FS> falloutServiceClass,
-        FalloutConfiguration.ServerMode mode, ConfigOverride... configOverrides)
-    {
-        this(falloutServiceClass, mode, null, configOverrides);
-    }
-
     private static class TestSupport<FC extends FalloutConfiguration, FS extends FalloutServiceBase<FC>>
         extends DropwizardTestSupport<FC>
     {
-        private final TestRunnerTestHelpers.MockingComponentFactory componentFactory =
-            new TestRunnerTestHelpers.MockingComponentFactory();
+        private MockingComponentFactory componentFactory;
 
         private final TestRunStatusUpdatePublisher runnerTestRunStatusFeed = new TestRunStatusUpdatePublisher();
 
@@ -190,7 +177,8 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
         public FS newApplication()
         {
             FS falloutService = (FS) super.newApplication();
-            falloutService.withComponentFactory(componentFactory);
+            componentFactory = new MockingComponentFactory(falloutService.getComponentFactory());
+            falloutService.setComponentFactory(componentFactory);
             falloutService.withRunnerTestRunStatusFeed(runnerTestRunStatusFeed);
             return falloutService;
         }
@@ -266,7 +254,7 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
         return artifactPath;
     }
 
-    public TestRunnerTestHelpers.MockingComponentFactory componentFactory()
+    public MockingComponentFactory componentFactory()
     {
         return ((TestSupport<FC, FS>) getTestSupport()).componentFactory;
     }

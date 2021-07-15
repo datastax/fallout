@@ -42,11 +42,11 @@ import com.datastax.fallout.ops.FalloutPropertySpecs;
 import com.datastax.fallout.ops.PropertyBasedComponent;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.Provisioner;
-import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.service.views.FalloutView;
 import com.datastax.fallout.service.views.MainView;
+import com.datastax.fallout.util.component_discovery.ComponentFactory;
 
 @Path("/components/{type: (provisioners|configurationmanagers|modules|checkers|artifact_checkers)}/{name}")
 @Produces(MediaType.TEXT_HTML)
@@ -134,9 +134,9 @@ public class ComponentResource
     }
 
     private static List<ComponentProperties> loadComponents(FalloutConfiguration configuration,
-        Class<? extends PropertyBasedComponent> clazz)
+        ComponentFactory componentFactory, Class<? extends PropertyBasedComponent> clazz)
     {
-        return Utils.loadComponents(clazz)
+        return componentFactory.exampleComponents(clazz)
             .stream()
             .map(c -> {
                 if (ConfigurationManager.class.isAssignableFrom(c.getClass()))
@@ -150,39 +150,40 @@ public class ComponentResource
             .collect(Collectors.toList());
     }
 
-    private static ComponentType loadComponentType(FalloutConfiguration configuration, String type)
+    private static ComponentType loadComponentType(FalloutConfiguration configuration,
+        ComponentFactory componentFactory, String type)
     {
         switch (type)
         {
             case "provisioners":
                 return new ComponentType(type, "Provisioners",
                     "Supplies compute / disk / network resources for a test.",
-                    loadComponents(configuration, Provisioner.class));
+                    loadComponents(configuration, componentFactory, Provisioner.class));
             case "configurationmanagers":
                 return new ComponentType(type, "Configuration Managers",
                     "Installs and configures software and services.",
-                    loadComponents(configuration, ConfigurationManager.class));
+                    loadComponents(configuration, componentFactory, ConfigurationManager.class));
             case "modules":
                 return new ComponentType(type, "Modules", "Executes actions during a test.",
-                    loadComponents(configuration, Module.class));
+                    loadComponents(configuration, componentFactory, Module.class));
             case "checkers":
                 return new ComponentType(type, "Checkers",
                     "Verifies information contained in the jepsen log once a test completes.",
-                    loadComponents(configuration, Checker.class));
+                    loadComponents(configuration, componentFactory, Checker.class));
             case "artifact_checkers":
                 return new ComponentType(type, "Artifact Checkers",
                     "Checks / Extracts information from one or more downloaded artifacts once a test completes.",
-                    loadComponents(configuration, ArtifactChecker.class));
+                    loadComponents(configuration, componentFactory, ArtifactChecker.class));
         }
 
         return null;
     }
 
-    public ComponentResource(FalloutConfiguration configuration)
+    public ComponentResource(FalloutConfiguration configuration, ComponentFactory componentFactory)
     {
         this.componentTypes = Stream
             .of("provisioners", "configurationmanagers", "modules", "checkers", "artifact_checkers")
-            .map(type -> loadComponentType(configuration, type))
+            .map(type -> loadComponentType(configuration, componentFactory, type))
             .collect(Collectors.toList());
         this.componentTypeLookup = componentTypes.stream()
             .collect(Collectors.toMap(componentType -> componentType.type, Functions.identity()));

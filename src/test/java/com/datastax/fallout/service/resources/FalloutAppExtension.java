@@ -24,12 +24,12 @@ public class FalloutAppExtension extends FalloutAppExtensionBase<FalloutConfigur
 {
     public FalloutAppExtension(ConfigOverride... configOverrides)
     {
-        super(FalloutService.class, configOverrides);
+        this(FalloutConfiguration.ServerMode.STANDALONE, null, configOverrides);
     }
 
     public FalloutAppExtension(FalloutConfiguration.ServerMode mode, ConfigOverride... configOverrides)
     {
-        super(FalloutService.class, mode, configOverrides);
+        this(mode, null, configOverrides);
     }
 
     public FalloutAppExtension(FalloutConfiguration.ServerMode mode, String configPath,
