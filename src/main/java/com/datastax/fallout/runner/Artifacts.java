@@ -17,12 +17,17 @@ package com.datastax.fallout.runner;
 
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
@@ -75,6 +80,8 @@ public class Artifacts
         return hasStrippableGzSuffix(pathname) ? stripGzSuffix(pathname) : pathname;
     }
 
+    /** Get a map of <code>artifact -> size</code>, ignoring any {@link NoSuchFileException}, which
+     *  allows us to function in the presence of concurrent file and directory removal/modification. */
     public static Map<String, Long> findTestRunArtifacts(Path testRunArtifactPath) throws IOException
     {
         if (!Files.isDirectory(testRunArtifactPath, LinkOption.NOFOLLOW_LINKS))
@@ -82,9 +89,43 @@ public class Artifacts
             return Map.of();
         }
 
-        return Files.find(testRunArtifactPath, 10, (path, attr) -> !attr.isDirectory(), FileVisitOption.FOLLOW_LINKS)
-            .collect(Collectors.toMap(path -> testRunArtifactPath.relativize(path).toString(),
-                path -> path.toFile().length()));
+        final var artifacts = new HashMap<String, Long>();
+
+        Files.walkFileTree(testRunArtifactPath, Set.of(FileVisitOption.FOLLOW_LINKS), 10,
+            new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+                {
+                    artifacts.put(testRunArtifactPath.relativize(path).toString(), attrs.size());
+                    return FileVisitResult.CONTINUE;
+                }
+
+                private FileVisitResult handleEx(IOException exc) throws IOException
+                {
+                    if (exc == null || exc instanceof NoSuchFileException)
+                    {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    else
+                    {
+                        throw exc;
+                    }
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException
+                {
+                    return handleEx(exc);
+                }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException
+                {
+                    return handleEx(exc);
+                }
+            });
+
+        return artifacts;
     }
 
     public static Map<String, Long> findTestRunArtifacts(FalloutConfiguration configuration, TestRun testRun)
