@@ -1,4 +1,5 @@
 {
+    "name": "fallout",
     "dependencies": {
         "less": "^3.13"
     }
