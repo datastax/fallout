@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ master ]
   workflow_dispatch:
+    inputs:
+      gradleArgs:
+        description: 'Gradle args: use this to limit tests e.g. test --tests "..."'
+        required: true
+        default: 'check'
 
 jobs:
   build:
@@ -58,6 +63,14 @@ jobs:
           org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC
           EOF
 
+      - id: getGradleArgs
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+              echo '::set-output name=args::${{ github.event.inputs.gradleArgs }}'
+          else
+              echo '::set-output name=args::check'
+          fi
+
       - name: Gradle
         env:
           JAVA_HOME: ${{ steps.setup-java-11.outputs.path }}
@@ -69,7 +82,7 @@ jobs:
           -PtestIgnoreFailures=true
           -PgithubRepo=$GITHUB_REPOSITORY
           -PgitDescribe=$GITHUB_SHA
-          check
+          ${{ steps.getGradleArgs.outputs.args }}
 
       - name: Archive JUnit XML Artifacts
         if: always()
