@@ -112,12 +112,16 @@ class ArtifactsTest
         {
             assertThatCode(() -> {
                 int maxArtifacts = 0;
-                for (var i = 0; i != 100; ++i)
+
+                // Try to provoke an exception for at least 100 attempts, then
+                // continue for a maximum of 1000 attempts to get a non-zero result
+                for (var i = 0; i <= 100 || (i <= 1000 && maxArtifacts == 0); ++i)
                 {
                     final var testRunArtifacts = findTestRunArtifacts();
                     assertThat(testRunArtifacts).isSubsetOf(completeExpectedArtifacts);
                     maxArtifacts = Math.max(maxArtifacts, testRunArtifacts.size());
                 }
+
                 assertThat(maxArtifacts)
                     .withFailMessage("At least one call resulted in _some_ artifacts")
                     .isGreaterThan(0);
