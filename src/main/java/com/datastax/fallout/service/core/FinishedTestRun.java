@@ -80,7 +80,9 @@ public class FinishedTestRun implements ReadOnlyTestRun
     private void setFinishedAt(Date finishedAt)
     {
         this.finishedAt = finishedAt;
-        this.finishedAtDate = Date.from(finishedAt.toInstant().truncatedTo(ChronoUnit.DAYS));
+        // We can sometimes get a null finishedAt for really old testruns; handle it gracefully
+        this.finishedAtDate =
+            finishedAt == null ? null : Date.from(finishedAt.toInstant().truncatedTo(ChronoUnit.DAYS));
     }
 
     private static final UUID END_STOP_UUID = UUID.fromString("7FA1891C-66D7-4286-A858-34B27C73772A");
