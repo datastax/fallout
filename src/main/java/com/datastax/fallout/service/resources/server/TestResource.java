@@ -338,8 +338,9 @@ public class TestResource
             }
             else
             {
-                testDAO.deleteForever(userEmail, name);
+                // Delete the test _last_; this ensures we can still get at the testruns from the UI
                 testRunDAO.deleteAllForever(userEmail, name);
+                testDAO.deleteForever(userEmail, name);
             }
         }
         catch (Exception e)
@@ -386,8 +387,9 @@ public class TestResource
 
         try
         {
-            testDAO.deleteForever(userEmail, name);
+            // Delete the test _last_; this ensures we can still get at the testruns from the UI
             testRunDAO.deleteAllForever(userEmail, name);
+            testDAO.deleteForever(userEmail, name);
         }
         catch (Exception e)
         {

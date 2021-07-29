@@ -298,8 +298,8 @@ public class TestRunDAO implements Managed
         List<DeletedTestRun> runsToDeleteForever = getAllDeleted(owner, name);
         for (TestRun run : runsToDelete)
         {
-            testRunMapper.delete(run);
             finishedTestRunMapper.delete(FinishedTestRun.fromTestRun(run));
+            testRunMapper.delete(run);
         }
         for (DeletedTestRun run : runsToDeleteForever)
         {
