@@ -45,7 +45,7 @@ import com.datastax.fallout.util.Exceptions;
 
 import static com.datastax.fallout.components.kubernetes.AbstractKubernetesProvisioner.DNS1123;
 import static com.datastax.fallout.components.kubernetes.KubernetesManifestConfigurationManager.applyAndWaitForManifest;
-import static com.datastax.fallout.harness.TestDefinition.renderDefinitionWithScopes;
+import static com.datastax.fallout.util.MustacheFactoryWithoutHTMLEscaping.renderDefinitionWithScopes;
 
 /** Configuration Manager for Kubernetes Deployment objects based on templates kept as Fallout resource.
  *  Templating allows different replica and images, as well as handling naming and labels in a consistent manner.

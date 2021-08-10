@@ -46,7 +46,7 @@ import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.JsonUtils;
 import com.datastax.fallout.util.ResourceUtils;
 
-import static com.datastax.fallout.harness.TestDefinition.renderDefinitionWithScopes;
+import static com.datastax.fallout.util.MustacheFactoryWithoutHTMLEscaping.renderDefinitionWithScopes;
 
 public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvisioner
 {
