@@ -23,6 +23,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.netty.util.HashedWheelTimer;
 import org.apache.commons.io.FileUtils;
 
+import com.datastax.fallout.service.core.PeriodicTask;
 import com.datastax.fallout.service.db.TestRunDAO;
 import com.datastax.fallout.service.db.UserDAO;
 import com.datastax.fallout.util.Duration;

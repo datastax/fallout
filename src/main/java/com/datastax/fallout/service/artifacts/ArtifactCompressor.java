@@ -33,6 +33,7 @@ import io.netty.util.HashedWheelTimer;
 
 import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.runner.Artifacts;
+import com.datastax.fallout.service.core.PeriodicTask;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.db.TestDAO;

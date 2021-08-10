@@ -25,7 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.runner.QueuingTestRunner;
-import com.datastax.fallout.service.artifacts.PeriodicTask;
+import com.datastax.fallout.service.core.PeriodicTask;
 
 public class QueueAdminTask extends Task
 {
