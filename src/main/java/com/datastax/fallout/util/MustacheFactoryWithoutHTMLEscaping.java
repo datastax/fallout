@@ -48,7 +48,7 @@ public class MustacheFactoryWithoutHTMLEscaping extends DefaultMustacheFactory
         }
     }
 
-    public static String renderDefinitionWithScopes(String definition, List<Map<String, Object>> scopes)
+    public static String renderWithScopes(String definition, List<Map<String, Object>> scopes)
     {
         final var mustacheFactory = new MustacheFactoryWithoutHTMLEscaping();
         final var missingTags = new HashSet<String>();

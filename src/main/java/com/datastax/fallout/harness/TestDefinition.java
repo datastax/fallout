@@ -75,7 +75,7 @@ public class TestDefinition
         Map<String, Object> defaults = loadDefaults(defaultsAndDefinition.getLeft());
         String definition = defaultsAndDefinition.getRight();
         return MustacheFactoryWithoutHTMLEscaping
-            .renderDefinitionWithScopes(definition, List.of(defaults, templateParams));
+            .renderWithScopes(definition, List.of(defaults, templateParams));
     }
 
     public static Map<String, Object> loadDefaults(Optional<String> defaultsYaml)
