@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS test_runs (
     slackPref text,
     resourceRequirements set<frozen<resourceRequirement>>,
     links frozen<map<text,text>>,
+    keepForever boolean,
     PRIMARY KEY ((owner,testName), testRunId)
 );
 
@@ -169,6 +170,7 @@ CREATE TABLE IF NOT EXISTS deleted_test_runs (
         slackPref text,
         resourceRequirements set<frozen<resourceRequirement>>,
         links frozen<map<text,text>>,
+        keepForever boolean,
         PRIMARY KEY ((owner,testName), testRunId)
 )
 WITH default_time_to_live = 2592000;

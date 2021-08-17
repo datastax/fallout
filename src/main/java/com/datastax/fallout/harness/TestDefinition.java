@@ -18,21 +18,14 @@ package com.datastax.fallout.harness;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.StringReader;
-import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import com.github.mustachejava.Mustache;
-import com.github.mustachejava.reflect.Guard;
-import com.github.mustachejava.reflect.MissingWrapper;
-import com.github.mustachejava.reflect.ReflectionObjectHandler;
 import org.apache.commons.lang3.tuple.Pair;
 
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
@@ -81,36 +74,8 @@ public class TestDefinition
             splitDefaultsAndDefinition(getDereferencedYaml(yaml));
         Map<String, Object> defaults = loadDefaults(defaultsAndDefinition.getLeft());
         String definition = defaultsAndDefinition.getRight();
-        return renderDefinitionWithScopes(definition, List.of(defaults, templateParams));
-    }
-
-    public static String renderDefinitionWithScopes(String definition, List<Map<String, Object>> scopes)
-    {
-        final var mustacheFactory = new MustacheFactoryWithoutHTMLEscaping();
-        final var missingTags = new HashSet<String>();
-
-        // Inspired by https://github.com/spullara/mustache.java/issues/1#issuecomment-449716760
-        mustacheFactory.setObjectHandler(new ReflectionObjectHandler() {
-            @Override
-            protected MissingWrapper createMissingWrapper(String name, List<Guard> guards)
-            {
-                missingTags.add(name);
-                return super.createMissingWrapper(name, guards);
-            }
-        });
-
-        final Mustache mustache = mustacheFactory.compile(new StringReader(definition), "test yaml");
-
-        final StringWriter stringWriter = new StringWriter(definition.length() * 2);
-        mustache.execute(stringWriter, scopes.toArray());
-
-        if (!missingTags.isEmpty())
-        {
-            throw new InvalidConfigurationException("Some template tags were not given values: " +
-                String.join(", ", missingTags));
-        }
-
-        return stringWriter.toString();
+        return MustacheFactoryWithoutHTMLEscaping
+            .renderWithScopes(definition, List.of(defaults, templateParams));
     }
 
     public static Map<String, Object> loadDefaults(Optional<String> defaultsYaml)

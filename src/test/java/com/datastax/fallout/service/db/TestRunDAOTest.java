@@ -48,6 +48,7 @@ import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.util.JsonUtils;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
+import static com.datastax.fallout.assertj.Assertions.assertThatExceptionOfType;
 import static com.datastax.fallout.ops.ResourceRequirementHelpers.req;
 import static com.datastax.fallout.service.db.CassandraDriverManagerHelpers.createDriverManager;
 
@@ -336,6 +337,19 @@ public class TestRunDAOTest
 
             assertThat(fetchSavedTestRun(testRun -> testRun.setResourceRequirements(Set.of())))
                 .hasNoResourceRequirements();
+        }
+
+        @Test
+        public void test_run_marked_keep_forever_cannot_be_deleted()
+        {
+            TestRun testRun = fetchSavedTestRun();
+            testRun.setKeepForever(true);
+
+            assertThatExceptionOfType(IllegalArgumentException.class)
+                .isThrownBy(() -> testRunDAO.delete(testRun))
+                .withMessageContaining(String.format("Attempted to delete test run %s but it is marked as keep forever",
+                    testRun.getShortName()));
+            assertThat(testRunDAO.getAllDeleted(owner, testName)).doesNotContain(DeletedTestRun.fromTestRun(testRun));
         }
     }
 

@@ -259,16 +259,30 @@
                             </a>
                         {{/show.MUTATION_ACTIONS}}{{/canCancel}}
 
+                        {{#canModify}}{{#show.MUTATION_ACTIONS}}
+                            {{#keepForever}}
+                                <a title="unmark as safe from deletion" class="btn btn-info btn-xs"
+                                   onclick="setKeepTestRunForever('{{owner}}', '{{testName}}', '{{testRunId}}', false)">
+                                    <i class="fa fa-lock"></i>
+                                </a>
+                            {{/keepForever}}
+                            {{^keepForever}}
+                                <a title="mark as safe from deletion" class="btn btn-info btn-xs"
+                                   onclick="setKeepTestRunForever('{{owner}}', '{{testName}}', '{{testRunId}}', true)">
+                                    <i class="fa fa-unlock"></i>
+                                </a>
+                            {{/keepForever}}
+                        {{/show.MUTATION_ACTIONS}}{{/canModify}}
+
                         {{#canDelete}}{{#show.MUTATION_ACTIONS}}
                             <a title="Delete Test Run" class="btn btn-danger btn-xs"
                                onclick="deleteTestRun('{{owner}}', '{{testName}}', '{{testRunId}}', '{{buildShortTestRunId}}')">
                                 <i class="fa fa-trash-o"></i>
                             </a>
                         {{/show.MUTATION_ACTIONS}}{{/canDelete}}
-                    </div>
 
                         {{#canDelete}}
-                            <input type="checkbox" class="checkbox hidden" />
+                            <input type="checkbox" class="checkbox hidden"/>
                         {{/canDelete}}
 
                         {{#canDelete}}
@@ -279,6 +293,7 @@
                                 </a>
                             {{/show.RESTORE_ACTIONS}}
                         {{/canDelete}}
+                    </div>
                 </td>
             </tr>
             {{#show.RESULTS}}

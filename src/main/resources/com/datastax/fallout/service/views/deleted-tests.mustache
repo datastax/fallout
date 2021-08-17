@@ -58,20 +58,6 @@ function restoreTest(userEmail, testName){
     });
 }
 
-function restoreTestRun(userEmail, testName, testRunId) {
-    $.ajax({
-        url: "/tests/deleted/" + userEmail + "/" + testName + "/runs/" + testRunId + "/restore/api",
-        type: "POST",
-
-        success: function(data){
-            location.reload();
-        },
-        error: function(data){
-            showErrorMessage("There is a problem restoring testRun: <br>" + data.responseText)
-        }
-    });
-}
-
 function deleteDeletedTestForever(userEmail, testName){
     if (!confirm("Delete test " + testName + " forever?"))
         return;

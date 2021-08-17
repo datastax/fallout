@@ -43,9 +43,11 @@ public class LinkedTestRuns
         final String ownerLink;
         final String testLink;
         final String testRunLink;
+        final String testRunUri;
         final ReadOnlyTestRun testRun;
         final boolean canCancel;
         final boolean canDelete;
+        final boolean canModify;
         final Set<Map.Entry<String, Object>> templateParamValues;
         final Set<Map.Entry<String, String>> grafanaDashboardLinks;
 
@@ -55,9 +57,11 @@ public class LinkedTestRuns
             ownerLink = TestResource.linkForShowTests(testRun);
             testLink = TestResource.linkForShowTestRuns(testRun);
             testRunLink = TestResource.linkForShowTestRunArtifacts(testRun);
+            testRunUri = TestResource.uriForShowTestRunArtifacts(testRun).toString();
             this.testRun = testRun;
             canCancel = TestResource.canCancel(userGroupMapper, currentUser, testRun);
             canDelete = TestResource.canDelete(userGroupMapper, currentUser, testRun);
+            canModify = currentUser.map(user_ -> testRun.canBeModifiedBy(userGroupMapper, user_)).orElse(false);
 
             final Map<String, Object> templateParams = testRun.getTemplateParamsMap();
             final Map<String, Object> allTemplateParams = new LinkedHashMap<>();
@@ -151,6 +155,11 @@ public class LinkedTestRuns
             return testRun.getState().finished() ?
                 DateUtils.formatUTCDate(testRun.getFinishedAt()) :
                 "";
+        }
+
+        public String getTestRunUri()
+        {
+            return testRunUri;
         }
     }
 

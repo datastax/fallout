@@ -46,7 +46,7 @@ import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.JsonUtils;
 import com.datastax.fallout.util.ResourceUtils;
 
-import static com.datastax.fallout.harness.TestDefinition.renderDefinitionWithScopes;
+import static com.datastax.fallout.util.MustacheFactoryWithoutHTMLEscaping.renderWithScopes;
 
 public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvisioner
 {
@@ -267,7 +267,7 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
     {
         String pvcTemplate = ResourceUtils.loadResourceAsString(this, "artifact-collector-pvc.yaml")
             .orElseThrow(() -> new RuntimeException("Could not load artifact collector PVC template"));
-        String pvcDefinition = renderDefinitionWithScopes(pvcTemplate, List.of(Map.of(
+        String pvcDefinition = renderWithScopes(pvcTemplate, List.of(Map.of(
             "pvc-name", pvcName,
             "pv-name", pvName,
             "pv-capacity", pv.at("/spec/capacity/storage").asText())));
@@ -289,7 +289,7 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
             String pvName = targetPv.get("pv-name");
             Map<String, Object> templateValues = new HashMap<>(targetPv);
             templateValues.put("container-name", ARTIFACT_COLLECTOR_CONTAINER_NAME);
-            String manifestContent = renderDefinitionWithScopes(artifactCollectorTemplate, List.of(templateValues));
+            String manifestContent = renderWithScopes(artifactCollectorTemplate, List.of(templateValues));
             Path manifest = manifestScratchSpace.resolve(String.format("%s-collection.yaml", pvName));
             FileUtils.writeString(manifest, manifestContent);
 

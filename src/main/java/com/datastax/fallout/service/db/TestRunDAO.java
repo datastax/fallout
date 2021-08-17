@@ -184,6 +184,11 @@ public class TestRunDAO implements Managed
             StreamSupport.stream(deletedTestRunAccessor.getAll().spliterator(), false));
     }
 
+    public Stream<TestRun> getAll()
+    {
+        return StreamSupport.stream(testRunAccessor.getAll().spliterator(), false);
+    }
+
     public List<TestRun> getAll(String owner, String testName)
     {
         return testRunAccessor.getAll(owner, testName).all();
@@ -258,6 +263,13 @@ public class TestRunDAO implements Managed
 
     void delete(TestRun testRun)
     {
+        if (testRun.keepForever())
+        {
+            var msg = String
+                .format("Attempted to delete test run %s but it is marked as keep forever", testRun.getShortName());
+            logger.error(msg);
+            throw new IllegalArgumentException(msg);
+        }
         DeletedTestRun deletedtestrun = DeletedTestRun.fromTestRun(testRun);
 
         BatchStatement batchStatement = new BatchStatement();

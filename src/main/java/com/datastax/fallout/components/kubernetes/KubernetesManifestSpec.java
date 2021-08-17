@@ -31,7 +31,7 @@ import com.datastax.fallout.ops.PropertySpecBuilder;
 import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.util.Exceptions;
 
-import static com.datastax.fallout.harness.TestDefinition.renderDefinitionWithScopes;
+import static com.datastax.fallout.util.MustacheFactoryWithoutHTMLEscaping.renderWithScopes;
 
 /**
  * Container for the PropertySpecs required to define the contents and location of a Kubernetes manifest.
@@ -114,7 +114,7 @@ public class KubernetesManifestSpec
                 manifestContent = Optional.of(FileUtils.readString(managedSourceFile));
             }
             manifestContent = Optional.of(
-                renderDefinitionWithScopes(manifestContent.get(),
+                renderWithScopes(manifestContent.get(),
                     List.of(manifestContentTemplateSpec.value(properties))));
         }
         return manifestContent

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.fallout.service.artifacts;
+package com.datastax.fallout.service.core;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
@@ -44,7 +44,7 @@ public abstract class PeriodicTask implements Managed
      *  this means that the timer dispatch thread will be blocked while running.  This allows the
      *  timer to queue up other tasks that have triggered while this task was running.  The
      *  alternative would be to skip tasks that can't be run, but that could leave to starvation. */
-    PeriodicTask(boolean startPaused, HashedWheelTimer timer, ReentrantLock runningTaskLock,
+    public PeriodicTask(boolean startPaused, HashedWheelTimer timer, ReentrantLock runningTaskLock,
         Duration delay, Duration repeat)
     {
         this.startPaused = startPaused;
@@ -103,7 +103,7 @@ public abstract class PeriodicTask implements Managed
         }
     }
 
-    void runExclusively(Runnable exclusive)
+    protected void runExclusively(Runnable exclusive)
     {
         try (var lockHolder = LockHolder.acquire(runningTaskLock))
         {

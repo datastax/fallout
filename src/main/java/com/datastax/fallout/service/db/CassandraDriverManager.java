@@ -245,6 +245,7 @@ public class CassandraDriverManager implements Managed
         testRunsColumns.put("artifacts", "frozen<map<text,bigint>>");
         testRunsColumns.put("artifactsLastUpdated", "timestamp");
         testRunsColumns.put("links", "frozen<map<text,text>>");
+        testRunsColumns.put("keepForever", "boolean");
 
         Map<String, String> deletedTestRunsColumns = new HashMap<>();
         deletedTestRunsColumns.put("emailPref", "text");
@@ -253,6 +254,7 @@ public class CassandraDriverManager implements Managed
         deletedTestRunsColumns.put("artifacts", "frozen<map<text,bigint>>");
         deletedTestRunsColumns.put("artifactsLastUpdated", "timestamp");
         deletedTestRunsColumns.put("links", "frozen<map<text,text>>");
+        deletedTestRunsColumns.put("keepForever", "boolean");
 
         Map<String, String> finishedTestRunsColumns = new HashMap<>();
         finishedTestRunsColumns.put("resourceRequirements", "set<frozen<resourceRequirement>>");

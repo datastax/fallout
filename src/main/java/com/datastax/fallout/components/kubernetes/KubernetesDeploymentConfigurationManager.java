@@ -45,7 +45,7 @@ import com.datastax.fallout.util.Exceptions;
 
 import static com.datastax.fallout.components.kubernetes.AbstractKubernetesProvisioner.DNS1123;
 import static com.datastax.fallout.components.kubernetes.KubernetesManifestConfigurationManager.applyAndWaitForManifest;
-import static com.datastax.fallout.harness.TestDefinition.renderDefinitionWithScopes;
+import static com.datastax.fallout.util.MustacheFactoryWithoutHTMLEscaping.renderWithScopes;
 
 /** Configuration Manager for Kubernetes Deployment objects based on templates kept as Fallout resource.
  *  Templating allows different replica and images, as well as handling naming and labels in a consistent manner.
@@ -154,7 +154,7 @@ public abstract class KubernetesDeploymentConfigurationManager extends Configura
     @Override
     public boolean configureImpl(NodeGroup nodeGroup)
     {
-        String deployment = renderDefinitionWithScopes(getDeploymentTemplate(), List.of(getTemplateParams()));
+        String deployment = renderWithScopes(getDeploymentTemplate(), List.of(getTemplateParams()));
         FileUtils.writeString(getDeploymentArtifact(), deployment);
 
         return nodeGroup.findFirstRequiredProvider(KubeControlProvider.class)

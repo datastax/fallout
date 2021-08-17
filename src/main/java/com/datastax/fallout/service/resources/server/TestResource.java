@@ -51,7 +51,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -308,12 +307,8 @@ public class TestResource
 
         assertCanBeModifiedBy(userGroupMapper, user, test);
 
-        List<PerformanceReport> perfReports = reportDAO.getAll().stream()
-            .filter(perfReport -> perfReport.getReportTestRuns() != null &&
-                perfReport.getReportTestRuns().stream()
-                    .filter(Objects::nonNull)
-                    .anyMatch(tri -> tri.getTestName().equals(name) && tri.getTestOwner().equals(userEmail)))
-            .collect(Collectors.toList());
+        List<PerformanceReport> perfReports = PerformanceReportDAO.getPerformanceReportsContainingTestRun(reportDAO,
+            tri -> tri.getTestName().equals(name) && tri.getTestOwner().equals(userEmail));
 
         if (!perfReports.isEmpty())
         {
@@ -328,6 +323,16 @@ public class TestResource
                 reportNameEmailPairs);
             throw new WebApplicationException(
                 "Cannot delete test while being used by any Performance report(s): " + reportNameEmailPairs,
+                Response.Status.FORBIDDEN);
+        }
+        List<UUID> testRunsSafeFromDeletion = testRunDAO.getAll(test.getOwner(), test.getName()).stream().filter(
+            TestRun::keepForever)
+            .map(TestRun::getTestRunId)
+            .collect(Collectors.toList());
+        if (!testRunsSafeFromDeletion.isEmpty())
+        {
+            throw new WebApplicationException(
+                "Cannot delete test while test run(s) are marked safe from deletion: " + testRunsSafeFromDeletion,
                 Response.Status.FORBIDDEN);
         }
         try
@@ -723,7 +728,7 @@ public class TestResource
 
     public static boolean canDelete(UserGroupMapper userGroupMapper, Optional<User> user, ReadOnlyTestRun testRun)
     {
-        if (testRun == null || !testRun.getState().finished())
+        if (testRun == null || !testRun.getState().finished() || testRun.keepForever())
         {
             return false;
         }
@@ -820,13 +825,14 @@ public class TestResource
             return Response.status(Response.Status.CONFLICT)
                 .entity("Cannot delete an unfinished test run").build();
         }
+        else if (testRun.keepForever())
+        {
+            return Response.status(Response.Status.CONFLICT)
+                .entity("Cannot delete a test run marked as \"keep forever\"").build();
+        }
 
-        List<PerformanceReport> perfReports = reportDAO.getAll().stream()
-            .filter(perfReport -> perfReport.getReportTestRuns() != null &&
-                perfReport.getReportTestRuns().stream()
-                    .filter(Objects::nonNull)
-                    .anyMatch(tri -> tri.getTestRunId().equals(UUID.fromString(testRunId))))
-            .collect(Collectors.toList());
+        List<PerformanceReport> perfReports = PerformanceReportDAO.getPerformanceReportsContainingTestRun(reportDAO,
+            tri -> tri.getTestRunId().equals(UUID.fromString(testRunId)));
 
         if (!perfReports.isEmpty())
         {
@@ -891,6 +897,22 @@ public class TestResource
         @PathParam("testRunId") String testRunId)
     {
         return assertExists(testRunDAO.getDeleted(userEmail, testName, UUID.fromString(testRunId)));
+    }
+
+    @POST
+    @Path("{userEmail: " + EMAIL_PATTERN + "}/{name: " + NAME_PATTERN + "}/runs/{testRunId: " + ID_PATTERN +
+        "}/setKeepForever/api")
+    @Timed
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response setKeepTestRunForever(@Auth User user, @PathParam("userEmail") String userEmail,
+        @PathParam("name") String testName, @PathParam("testRunId") String testRunId,
+        @QueryParam("keepForever") boolean keepForever)
+    {
+        TestRun testRun = assertExistsAndCanBeModifiedBy(userGroupMapper,
+            user, testRunDAO.get(userEmail, testName, UUID.fromString(testRunId)));
+        testRun.setKeepForever(keepForever);
+        testRunDAO.update(testRun);
+        return Response.ok().build();
     }
 
     @PUT
@@ -1369,10 +1391,14 @@ public class TestResource
             this.name = name;
             this.testRun = run;
             this.testRuns = new LinkedTestRuns(userGroupMapper, user, List.of(testRun))
-                .hide(OWNER, TEST_NAME, TEST_RUN, RESULTS, ARTIFACTS_LINK, MUTATION_ACTIONS,
-                    RESTORE_ACTIONS, DELETE_MANY);
+                .hide(OWNER, TEST_NAME, TEST_RUN, RESULTS, ARTIFACTS_LINK, MUTATION_ACTIONS, DELETE_MANY);
             this.configuration = configuration;
             this.deleted = run instanceof DeletedTestRun;
+            if (!deleted)
+            {
+                testRuns.hide(RESTORE_ACTIONS);
+            }
+
             baseUri = uriFor(TestResource.class, "showTestRunArtifacts",
                 testRun.getOwner(), testRun.getTestName(), testRun.getTestRunId());
 

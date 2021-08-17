@@ -49,3 +49,32 @@ function deleteTestRun(userEmail, testName, testRunId, shortTestRunId) {
         }
     });
 }
+
+function setKeepTestRunForever(userEmail, testName, testRunId, keepForever) {
+    $.ajax({
+            url: "/tests/" + userEmail + "/" + testName +
+                "/runs/" + testRunId + "/setKeepForever/api" + "?keepForever=" + keepForever,
+            type: "POST",
+            success: function(data) {
+                location.reload();
+            },
+            error: function(data) {
+                showErrorMessage("There was an error setting keep forever Test Run:<br>" +
+                    data.responseText);
+            }
+        });
+}
+
+function restoreTestRun(userEmail, testName, testRunId) {
+    $.ajax({
+        url: "/tests/deleted/" + userEmail + "/" + testName + "/runs/" + testRunId + "/restore/api",
+        type: "POST",
+
+        success: function(data){
+            location.reload();
+        },
+        error: function(data){
+            showErrorMessage("There is a problem restoring testRun: <br>" + data.responseText)
+        }
+    });
+}
