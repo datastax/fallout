@@ -188,6 +188,13 @@ public class FinishedTestRun implements ReadOnlyTestRun
     }
 
     @Override
+    // needs to be overwritten but should never be accessed
+    public boolean keepForever()
+    {
+        return true;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o)

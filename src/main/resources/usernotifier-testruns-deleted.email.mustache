@@ -1,0 +1,27 @@
+<html><body>
+Hi,
+<br/>
+
+<p>The following test runs are past the fallout retention policy and have been deleted:</p>
+    {{#reapedTestNotificationDetails}}
+        <p>
+            <strong>{{getKey}}</strong>
+            <br/>
+            {{#getValue}}
+                {{#testRuns}}
+                    <strong>UUID:</strong> {{testRun.getTestRunId}} <strong>Finished at:</strong> {{testRun.getFinishedAt}} <strong>Link:</strong> {{testRunLink}}
+                    <br/>
+                {{/testRuns}}
+            {{/getValue}}
+            <br/>
+        </p>
+    {{/reapedTestNotificationDetails}}
+<p>
+You have <strong>30 days</strong> to restore any test runs you wish to save from the Trash bin and mark them as safe from
+    deletion before they are <strong>permanently deleted</strong>.
+<br/>
+<strong>The trash bin is available at: </strong>
+<br/>
+<a href="{{externalUrl}}/tests/ui/deleted">{{externalUrl}}/tests/ui/deleted</a>
+</p>
+</body></html>

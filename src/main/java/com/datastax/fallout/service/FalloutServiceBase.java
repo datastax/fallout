@@ -112,6 +112,7 @@ import com.datastax.fallout.service.cli.FalloutStandaloneCommand;
 import com.datastax.fallout.service.cli.GenerateNginxConf;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
+import com.datastax.fallout.service.core.TestRunReaper;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.service.db.CassandraDriverManager;
 import com.datastax.fallout.service.db.CassandraDriverManager.SchemaMode;
@@ -668,7 +669,14 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
             runningTaskLock, Duration.hours(12), Duration.hours(24),
             artifactPath, testRunDAO, testDAO));
 
-        QueueAdminTask queueAdminTask = new QueueAdminTask(testRunner, List.of(artifactScrubber, artifactCompressor));
+        TestRunReaper testRunReaper = m.manage(new TestRunReaper(conf.getStartPaused(), timer,
+            runningTaskLock, Duration.hours(18), Duration.days(7),
+            testRunDAO, reportDAO, testDAO, mailer, SlackUserMessenger.create(conf.getSlackToken(),
+                m.manage(FalloutClientBuilder.forComponent(SlackUserMessenger.class).build(), Client::close)),
+            conf.getExternalUrl()));
+
+        QueueAdminTask queueAdminTask = new QueueAdminTask(testRunner,
+            List.of(artifactScrubber, artifactCompressor, testRunReaper));
         environment.admin().addTask(queueAdminTask);
 
         final var artifactUsageAdminTask = new ArtifactUsageAdminTask(testRunDAO);

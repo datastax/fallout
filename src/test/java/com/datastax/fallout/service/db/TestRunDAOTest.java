@@ -343,9 +343,7 @@ public class TestRunDAOTest
         public void test_run_marked_keep_forever_cannot_be_deleted()
         {
             TestRun testRun = fetchSavedTestRun();
-            assertThat(testRun.keepForever()).isEqualTo(false);
-            testRun.toggleKeepForever();
-            assertThat(testRun.keepForever()).isEqualTo(true);
+            testRun.setKeepForever(true);
 
             assertThatExceptionOfType(IllegalArgumentException.class)
                 .isThrownBy(() -> testRunDAO.delete(testRun))

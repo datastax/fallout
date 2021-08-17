@@ -44,7 +44,7 @@ public abstract class PeriodicTask implements Managed
      *  this means that the timer dispatch thread will be blocked while running.  This allows the
      *  timer to queue up other tasks that have triggered while this task was running.  The
      *  alternative would be to skip tasks that can't be run, but that could leave to starvation. */
-    PeriodicTask(boolean startPaused, HashedWheelTimer timer, ReentrantLock runningTaskLock,
+    public PeriodicTask(boolean startPaused, HashedWheelTimer timer, ReentrantLock runningTaskLock,
         Duration delay, Duration repeat)
     {
         this.startPaused = startPaused;

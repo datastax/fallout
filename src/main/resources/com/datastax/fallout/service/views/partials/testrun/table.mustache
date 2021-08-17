@@ -259,39 +259,41 @@
                             </a>
                         {{/show.MUTATION_ACTIONS}}{{/canCancel}}
 
-                        {{#keepForever}}{{#show.MUTATION_ACTIONS}}
-                            <a title="unmark as safe from deletion" class="btn btn-info btn-xs"
-                               onclick="toggleKeepTestRunForever('{{owner}}', '{{testName}}', '{{testRunId}}', '{{buildShortTestRunId}}')">
-                                <i class="fa fa-lock"></i>
-                            </a>
-                        {{/show.MUTATION_ACTIONS}}{{/keepForever}}
-                        {{^keepForever}}{{#show.MUTATION_ACTIONS}}
-                            <a title="mark as safe from deletion" class="btn btn-info btn-xs"
-                               onclick="toggleKeepTestRunForever('{{owner}}', '{{testName}}', '{{testRunId}}', '{{buildShortTestRunId}}')">
-                                <i class="fa fa-unlock"></i>
-                            </a>
-                        {{/show.MUTATION_ACTIONS}}{{/keepForever}}
+                        {{#canModify}}{{#show.MUTATION_ACTIONS}}
+                            {{#keepForever}}
+                                <a title="unmark as safe from deletion" class="btn btn-info btn-xs"
+                                   onclick="setKeepTestRunForever('{{owner}}', '{{testName}}', '{{testRunId}}', false)">
+                                    <i class="fa fa-lock"></i>
+                                </a>
+                            {{/keepForever}}
+                            {{^keepForever}}
+                                <a title="mark as safe from deletion" class="btn btn-info btn-xs"
+                                   onclick="setKeepTestRunForever('{{owner}}', '{{testName}}', '{{testRunId}}', true)">
+                                    <i class="fa fa-unlock"></i>
+                                </a>
+                            {{/keepForever}}
+                        {{/show.MUTATION_ACTIONS}}{{/canModify}}
 
-                        {{#canDelete}}{{^keepForever}}{{#show.MUTATION_ACTIONS}}
+                        {{#canDelete}}{{#show.MUTATION_ACTIONS}}
                             <a title="Delete Test Run" class="btn btn-danger btn-xs"
                                onclick="deleteTestRun('{{owner}}', '{{testName}}', '{{testRunId}}', '{{buildShortTestRunId}}')">
                                 <i class="fa fa-trash-o"></i>
                             </a>
-                        {{/show.MUTATION_ACTIONS}}{{/keepForever}}{{/canDelete}}
+                        {{/show.MUTATION_ACTIONS}}{{/canDelete}}
+
+                        {{#canDelete}}
+                            <input type="checkbox" class="checkbox hidden"/>
+                        {{/canDelete}}
+
+                        {{#canDelete}}
+                            {{#show.RESTORE_ACTIONS}}
+                                <a title="Restore Test Run" class="btn btn-primary btn-xs"
+                                   onclick="restoreTestRun('{{owner}}', '{{testName}}', '{{testRunId}}')">
+                                    <i class="fa fa-recycle"></i>
+                                </a>
+                            {{/show.RESTORE_ACTIONS}}
+                        {{/canDelete}}
                     </div>
-
-                    {{#canDelete}}{{^keepForever}}
-                        <input type="checkbox" class="checkbox hidden"/>
-                    {{/keepForever}}{{/canDelete}}
-
-                    {{#canDelete}}
-                        {{#show.RESTORE_ACTIONS}}
-                            <a title="Restore Test Run" class="btn btn-primary btn-xs"
-                               onclick="restoreTestRun('{{owner}}', '{{testName}}', '{{testRunId}}')">
-                                <i class="fa fa-recycle"></i>
-                            </a>
-                        {{/show.RESTORE_ACTIONS}}
-                    {{/canDelete}}
                 </td>
             </tr>
             {{#show.RESULTS}}

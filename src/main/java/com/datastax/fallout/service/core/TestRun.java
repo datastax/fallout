@@ -43,6 +43,7 @@ import com.datastax.driver.mapping.annotations.ClusteringColumn;
 import com.datastax.driver.mapping.annotations.Column;
 import com.datastax.driver.mapping.annotations.PartitionKey;
 import com.datastax.driver.mapping.annotations.Table;
+import com.datastax.fallout.cassandra.shaded.com.google.common.annotations.VisibleForTesting;
 import com.datastax.fallout.harness.TestDefinition;
 import com.datastax.fallout.ops.ResourceRequirement;
 
@@ -192,7 +193,7 @@ public class TestRun implements ReadOnlyTestRun
     private Map<String, String> links = new HashMap<>();
 
     @Column
-    private Boolean keepForever;
+    private boolean keepForever;
 
     public TestRun()
     {
@@ -585,14 +586,15 @@ public class TestRun implements ReadOnlyTestRun
             definition;
     }
 
-    public Boolean keepForever()
+    public boolean keepForever()
     {
-        return keepForever != null && keepForever;
+        return keepForever;
     }
 
-    public void toggleKeepForever()
+    @VisibleForTesting
+    public void setKeepForever(boolean keepForever)
     {
-        this.keepForever = this.keepForever == null || !this.keepForever;
+        this.keepForever = keepForever;
     }
 
     @Override

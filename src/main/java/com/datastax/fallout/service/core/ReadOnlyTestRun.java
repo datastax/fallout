@@ -102,6 +102,8 @@ public interface ReadOnlyTestRun extends HasPermissions
 
     Map<String, Object> getTemplateParamsMap();
 
+    boolean keepForever();
+
     default boolean belongsTo(Test test)
     {
         return test != null && getOwner().equals(test.getOwner()) && getTestName().equals(test.getName());
