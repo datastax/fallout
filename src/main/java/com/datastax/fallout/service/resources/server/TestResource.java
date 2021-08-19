@@ -887,11 +887,13 @@ public class TestResource
         return Response.ok().build();
     }
 
+    /*
     @GET
     @Path("deleted/{userEmail: " + EMAIL_PATTERN + "}/{name: " + NAME_PATTERN + "}/runs/{testRunId: " + ID_PATTERN +
         "}/api")
     @Timed
     @Produces(MediaType.APPLICATION_JSON)
+    */
     public TestRun getDeletedTestRunApi(@Auth User user, @PathParam("userEmail") String userEmail,
         @PathParam("name") String testName,
         @PathParam("testRunId") String testRunId)
@@ -1134,10 +1136,12 @@ public class TestResource
         }
     }
 
+    /*
     @GET
     @Path("ui/deleted")
     @Timed
     @Produces(MediaType.TEXT_HTML)
+    */
     public FalloutView showDeletedTests(@Auth Optional<User> user)
     {
         List<DeletedTest> tests = testDAO.getAllDeleted();
