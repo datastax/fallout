@@ -9,7 +9,7 @@ Hi,
             <br/>
             {{#getValue}}
                 {{#testRuns}}
-                    <strong>UUID:</strong> {{testRun.getTestRunId}} <strong>Finished at:</strong> {{testRun.getFinishedAt}} <strong>Link:</strong> {{testRunLink}}
+                    <strong>UUID:</strong> <a href="{{testRunUri}}">{{testRun.getTestRunId}}</a> <strong>Finished at:</strong> {{testRun.getFinishedAt}}
                     <br/>
                 {{/testRuns}}
             {{/getValue}}

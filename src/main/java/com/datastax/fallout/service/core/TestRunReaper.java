@@ -118,7 +118,8 @@ public class TestRunReaper extends PeriodicTask
             var testRuns = entry.getValue();
             testRuns.sort(Comparator.comparing(TestRun::getFinishedAt));
             reapedTestNotificationDetails
-                .put(entry.getKey(), new LinkedTestRuns(UserGroupMapper.empty(), Optional.empty(), testRuns));
+                .put(entry.getKey(),
+                    new LinkedTestRuns(UserGroupMapper.empty(), Optional.empty(), testRuns, externalUrl));
         }
 
         var emailDefinition = ResourceUtils

@@ -15,6 +15,9 @@
  */
 package com.datastax.fallout.service.views;
 
+import javax.ws.rs.core.UriBuilder;
+
+import java.net.URI;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -52,12 +55,14 @@ public class LinkedTestRuns
         final Set<Map.Entry<String, String>> grafanaDashboardLinks;
 
         LinkedTestRun(UserGroupMapper userGroupMapper, Optional<User> currentUser,
-            Set<String> templateParamColumns, ReadOnlyTestRun testRun)
+            Set<String> templateParamColumns, ReadOnlyTestRun testRun, String externalUrl)
         {
             ownerLink = TestResource.linkForShowTests(testRun);
             testLink = TestResource.linkForShowTestRuns(testRun);
             testRunLink = TestResource.linkForShowTestRunArtifacts(testRun);
-            testRunUri = TestResource.uriForShowTestRunArtifacts(testRun).toString();
+            testRunUri = UriBuilder.fromUri(externalUrl)
+                .uri(TestResource.uriForShowTestRunArtifacts(testRun))
+                .toString();
             this.testRun = testRun;
             canCancel = TestResource.canCancel(userGroupMapper, currentUser, testRun);
             canDelete = TestResource.canDelete(userGroupMapper, currentUser, testRun);
@@ -203,12 +208,24 @@ public class LinkedTestRuns
     public LinkedTestRuns(UserGroupMapper userGroupMapper, Optional<User> currentUser,
         boolean areQueued, Collection<? extends ReadOnlyTestRun> testRuns)
     {
+        this(userGroupMapper, currentUser, areQueued, testRuns, "");
+    }
+
+    public LinkedTestRuns(UserGroupMapper userGroupMapper, Optional<User> currentUser,
+        Collection<? extends ReadOnlyTestRun> testRuns, String externalUrl)
+    {
+        this(userGroupMapper, currentUser, false, testRuns, externalUrl);
+    }
+
+    private LinkedTestRuns(UserGroupMapper userGroupMapper, Optional<User> currentUser,
+        boolean areQueued, Collection<? extends ReadOnlyTestRun> testRuns, String externalUrl)
+    {
         testRuns.stream()
             .flatMap(testRun -> testRun.getTemplateParamsMap().keySet().stream())
             .forEach(templateParamColumns::add);
 
         this.testRuns = testRuns.stream()
-            .map(tr -> new LinkedTestRun(userGroupMapper, currentUser, templateParamColumns, tr))
+            .map(tr -> new LinkedTestRun(userGroupMapper, currentUser, templateParamColumns, tr, externalUrl))
             .collect(Collectors.toList());
 
         this.areQueued = areQueued;
