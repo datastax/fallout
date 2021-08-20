@@ -77,8 +77,7 @@ public class TestRunReaper extends PeriodicTask
         return logger;
     }
 
-    private static void notifyOwner(String owner, UserMessenger userMessenger, String subject, String message,
-        Map<String, List<TestRun>> testRunsByTest)
+    private static void notifyOwner(String owner, UserMessenger userMessenger, String subject, String message)
     {
         logger.withScopedInfo("Notifying {} of deleted test runs via {}", owner, userMessenger.getClass()).run(() -> {
             try
@@ -87,8 +86,7 @@ public class TestRunReaper extends PeriodicTask
             }
             catch (UserMessenger.MessengerException e)
             {
-                logger.error("{} Failed to notify user {} of deleted test runs {}", userMessenger.getClass(), owner,
-                    testRunsByTest, e);
+                logger.error("{} Failed to notify user {} of deleted test runs {}", userMessenger.getClass(), owner, e);
             }
         });
     }
@@ -134,13 +132,10 @@ public class TestRunReaper extends PeriodicTask
             renderWithScopes(emailDefinition,
                 List.of(
                     Map.of("reapedTestNotificationDetails", new ArrayList<>(reapedTestNotificationDetails.entrySet()),
-                        "externalUrl", externalUrl))),
-            testRunsByTest);
+                        "externalUrl", externalUrl))));
 
         notifyOwner(owner, slackMessenger, null, renderWithScopes(slackDefinition,
-            List.of(Map.of("reapedTestNotificationDetails", new ArrayList<>(reapedTestNotificationDetails.entrySet()),
-                "externalUrl", externalUrl))),
-            testRunsByTest);
+            List.of(Map.of("externalUrl", externalUrl))));
     }
 
     /**
