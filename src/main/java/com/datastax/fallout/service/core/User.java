@@ -357,6 +357,11 @@ public class User implements Principal
 
     public synchronized void addNebulaAppCred(NebulaAppCred appCred)
     {
+        if (nebulaAppCreds.stream().anyMatch(existingCred -> appCred.id.equals(existingCred.id)))
+        {
+            throw new IllegalArgumentException(
+                String.format("A Nebula application credential with ID (%s) already exists", appCred.id));
+        }
         nebulaAppCreds.add(appCred);
         ensureNebulaAppCreds();
     }

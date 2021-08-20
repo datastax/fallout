@@ -289,11 +289,18 @@ public class AccountResource
         @FormParam("appCredsId") @NotEmpty String appCredsId,
         @FormParam("appCredsSecret") @NotEmpty String appCredsSecret)
     {
-        User.NebulaAppCred appCred = new User.NebulaAppCred(projectName, appCredsId, appCredsSecret);
-        user.addNebulaAppCred(appCred);
-        userDAO.updateUserCredentials(user);
+        try
+        {
+            User.NebulaAppCred appCred = new User.NebulaAppCred(projectName, appCredsId, appCredsSecret);
+            user.addNebulaAppCred(appCred);
+            userDAO.updateUserCredentials(user);
 
-        return Response.ok().build();
+            return Response.ok().build();
+        }
+        catch (IllegalArgumentException e)
+        {
+            return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
+        }
     }
 
     @POST
