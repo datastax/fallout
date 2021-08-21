@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -54,6 +55,7 @@ public class NoSqlBenchModule extends Module
     private static final String NB_STACKTRACES_ARG = "--show-stacktraces";
     private static final Set<String> FALLOUT_MANAGED_ARGS = Set.of(
         "host", "cycles", "alias", "run", "start", "--log-histograms", "--log-histostats", "--logs-dir");
+    private static final long SHUTDOWN_GRACE_MILLIS = 300000; // 5 minutes
 
     private static final PropertySpec<Integer> numClientsSpecs = PropertySpecBuilder.createInt(prefix)
         .name("num_clients")
@@ -327,7 +329,7 @@ public class NoSqlBenchModule extends Module
         }
 
         boolean success = Utils.waitForSuccess(logger(), nosqlBenchCommands,
-            wo -> wo.timeout = timeoutSpec.toDuration(properties));
+            wo -> wo.timeout = workloadTimeout(properties));
         if (success)
         {
             emitOk("nosqlbench successful");
@@ -336,6 +338,14 @@ public class NoSqlBenchModule extends Module
         {
             emitFail("nosqlbench failed");
         }
+    }
+
+    private Duration workloadTimeout(PropertyGroup properties)
+    {
+        return workloadDurationSpec.optionalValue(properties)
+            .map(workloadDuration -> new Duration(workloadDuration.toMillis() + SHUTDOWN_GRACE_MILLIS,
+                TimeUnit.MILLISECONDS))
+            .orElseGet(() -> timeoutSpec.toDuration(properties));
     }
 
     private void addOptionIfNotSpecified(Predicate<String> predicate, String arg)
