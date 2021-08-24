@@ -31,7 +31,6 @@ import java.util.zip.ZipInputStream;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import com.datastax.fallout.harness.EnsembleFalloutTest;
@@ -294,7 +293,6 @@ public class TestResourceHttpTest
         }
 
         @org.junit.jupiter.api.Test
-        @Disabled("Disabled until FAL-1720 is resolved")
         public void delete_test_runs_works()
         {
             assertThat(createTest("/", "fakes")).hasStatusInfo(CREATED);
@@ -312,7 +310,6 @@ public class TestResourceHttpTest
         }
 
         @org.junit.jupiter.api.Test
-        @Disabled("Disabled until FAL-1720 is resolved")
         public void delete_test_works()
         {
             assertThat(createTest("/", "fakes")).hasStatusInfo(CREATED);
@@ -328,7 +325,6 @@ public class TestResourceHttpTest
         }
 
         @org.junit.jupiter.api.Test
-        @Disabled("Disabled until FAL-1720 is resolved")
         public void restore_test_works()
         {
             assertThat(createTest("/", "fakes")).hasStatusInfo(CREATED);
@@ -353,7 +349,6 @@ public class TestResourceHttpTest
         }
 
         @org.junit.jupiter.api.Test
-        @Disabled("Disabled until FAL-1720 is resolved")
         public void restore_test_run_works()
         {
             assertThat(createTest("/", "fakes")).hasStatusInfo(CREATED);
@@ -380,7 +375,6 @@ public class TestResourceHttpTest
         }
 
         @org.junit.jupiter.api.Test
-        @Disabled("Disabled until FAL-1720 is resolved")
         public void delete_deleted_test_forever_works()
         {
             Response test = createTest("/", "fakes");

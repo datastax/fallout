@@ -123,8 +123,14 @@ public class TestRunDAO implements Managed
     @Accessor
     private interface DeletedTestRunAccessor
     {
+        @Query("SELECT * FROM deleted_test_runs WHERE owner = :owner")
+        Result<DeletedTestRun> getAll(String owner);
+
         @Query("SELECT * FROM deleted_test_runs WHERE owner = :owner AND testName = :testName")
         Result<DeletedTestRun> getAll(String owner, String testName);
+
+        @Query("SELECT testname FROM deleted_test_runs WHERE owner = :owner")
+        ResultSet getTestNamesOfDeletedTestRuns(String owner);
 
         @Query("SELECT * FROM deleted_test_runs")
         Result<DeletedTestRun> getAll();
@@ -229,9 +235,16 @@ public class TestRunDAO implements Managed
         return deletedTestRunAccessor.getAll(owner, testName).all();
     }
 
-    public List<DeletedTestRun> getAllDeleted()
+    public List<DeletedTestRun> getAllDeleted(String owner)
     {
-        return deletedTestRunAccessor.getAll().all();
+        return deletedTestRunAccessor.getAll(owner).all();
+    }
+
+    public List<String> getTestNamesOfDeletedTestRuns(String owner)
+    {
+        return deletedTestRunAccessor.getTestNamesOfDeletedTestRuns(owner).all().stream()
+            .map(row -> row.getString("testName")).collect(
+                Collectors.toList());
     }
 
     public void add(TestRun testRun)

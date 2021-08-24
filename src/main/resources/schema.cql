@@ -175,6 +175,8 @@ CREATE TABLE IF NOT EXISTS deleted_test_runs (
 )
 WITH default_time_to_live = 2592000;
 
+CREATE INDEX IF NOT EXISTS deleted_test_runs_by_owner on deleted_test_runs(owner);
+
 CREATE TYPE IF NOT EXISTS testRunIdentifier (
     testOwner text,
     testName text,

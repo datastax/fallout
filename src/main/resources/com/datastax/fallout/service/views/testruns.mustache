@@ -28,7 +28,9 @@
                     <a href="/tests/tools/edit?email={{email}}&name={{name}}" type="button" class="btn btn-info">Edit YAML</a>
                 {{/deleted}}
                 <a href="/tests/tools/create?email={{email}}&name={{name}}" type="button" class="btn btn-info">Clone Test</a>
-                </p>
+                {{^deleted}}
+                    <a href="/tests/ui/{{email}}/{{name}}/deleted" type="button" class="btn btn-info">View deleted test runs</a>
+                {{/deleted}}
             </div>
         </div>
 

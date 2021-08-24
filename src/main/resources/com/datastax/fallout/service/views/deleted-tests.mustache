@@ -9,21 +9,23 @@
     <div class="container-fluid">
 
         <div class="row">
-            <h2>Trash Bin</h2>
+            <h2>Trash Bin of {{{linkForShowTests}}}: {{testName}}</h2>
             <p>Items will be permanently deleted after {{deletedTtlDays}} days</p>
         </div>
         <!-- /.row -->
         {{> partials/message-area}}
 
-        <div class="row">
-            <h3>Deleted Tests</h3>
-            {{^deletedTests.tests.empty}}
-                {{> partials/test/table}}
-            {{/deletedTests.tests.empty}}
-            {{#deletedTests.tests.empty}}
-                <p>No tests found<p>
-            {{/deletedTests.tests.empty}}
-        </div>
+        {{^testName}}
+            <div class="row">
+                <h3>Deleted Tests</h3>
+                {{^deletedTests.tests.empty}}
+                    {{> partials/test/table}}
+                {{/deletedTests.tests.empty}}
+                {{#deletedTests.tests.empty}}
+                    <p>No tests found<p>
+                {{/deletedTests.tests.empty}}
+            </div>
+        {{/testName}}
 
         <!-- /.row -->
 
@@ -34,6 +36,25 @@
                     {{> partials/testrun/table}}
                 {{/deletedTestRuns}}
             {{/deletedTestRuns.testRuns.empty}}
+
+            {{^linksToDeletedTestRuns.empty}}
+                <p> List of test runs too long to display on one page, please click the name of the test to view deleted test runs</p>
+                <table class="testnames-table table table-bordered">
+                    <colgroup>
+                        <col>
+                    </colgroup>
+                        <tr>
+                            <th> Test Name </th>
+                        </tr>
+                        {{#linksToDeletedTestRuns}}
+                            <tr>
+                                <td>
+                                    {{{.}}}
+                                </td>
+                            </tr>
+                        {{/linksToDeletedTestRuns}}
+                </table>
+            {{/linksToDeletedTestRuns.empty}}
         </div>
 
         <!-- /.row -->

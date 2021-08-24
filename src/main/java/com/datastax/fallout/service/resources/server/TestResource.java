@@ -44,6 +44,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -887,13 +888,11 @@ public class TestResource
         return Response.ok().build();
     }
 
-    /*
     @GET
     @Path("deleted/{userEmail: " + EMAIL_PATTERN + "}/{name: " + NAME_PATTERN + "}/runs/{testRunId: " + ID_PATTERN +
         "}/api")
     @Timed
     @Produces(MediaType.APPLICATION_JSON)
-    */
     public TestRun getDeletedTestRunApi(@Auth User user, @PathParam("userEmail") String userEmail,
         @PathParam("name") String testName,
         @PathParam("testRunId") String testRunId)
@@ -1136,19 +1135,59 @@ public class TestResource
         }
     }
 
-    /*
+    private static String linkForShowDeletedTestRuns(String ownerEmail, String testName)
+    {
+        return FalloutView.linkFor(testName, TestResource.class, "showDeletedTestRuns", ownerEmail, testName);
+    }
+
+    private FalloutView showTrashBinView(User user, String owner)
+    {
+        List<DeletedTest> tests = testDAO.getAllDeleted(owner);
+        tests.sort(Comparator.comparing(Test::getName));
+        List<String> testNamesOfDeletedTestRuns = testRunDAO.getTestNamesOfDeletedTestRuns(owner);
+        if (testNamesOfDeletedTestRuns.size() > 50)
+        {
+            testNamesOfDeletedTestRuns = testNamesOfDeletedTestRuns.stream()
+                .distinct()
+                .sorted()
+                .map(testName -> linkForShowDeletedTestRuns(owner, testName))
+                .collect(Collectors.toList());
+            return new TrashBinView(user, owner, "", tests, List.of(), testNamesOfDeletedTestRuns);
+        }
+        else
+        {
+            List<DeletedTestRun> testRuns = testRunDAO.getAllDeleted(owner);
+            testRuns.sort(Comparator.comparing(TestRun::getTestName));
+            return new TrashBinView(user, owner, "", tests, testRuns);
+        }
+    }
+
     @GET
     @Path("ui/deleted")
     @Timed
     @Produces(MediaType.TEXT_HTML)
-    */
-    public FalloutView showDeletedTests(@Auth Optional<User> user)
+    public FalloutView showDeletedTests(@Auth User user)
     {
-        List<DeletedTest> tests = testDAO.getAllDeleted();
-        tests.sort(Comparator.comparing(Test::getName));
-        List<DeletedTestRun> testRuns = testRunDAO.getAllDeleted();
-        testRuns.sort(Comparator.comparing(TestRun::getTestName));
-        return new TrashBinView(user, tests, testRuns);
+        return showTrashBinView(user, user.getEmail());
+    }
+
+    @GET
+    @Path("ui/{userEmail: " + EMAIL_PATTERN + "}/deleted")
+    @Timed
+    @Produces(MediaType.TEXT_HTML)
+    public FalloutView showDeletedTests(@Auth User user, @PathParam("userEmail") String email)
+    {
+        return showTrashBinView(user, email);
+    }
+
+    @GET
+    @Path("ui/{userEmail: " + EMAIL_PATTERN + "}/{name: " + NAME_PATTERN + "}/deleted")
+    @Timed
+    @Produces(MediaType.TEXT_HTML)
+    public FalloutView showDeletedTestRuns(@Auth User user, @PathParam("userEmail") String owner,
+        @PathParam("name") String testName)
+    {
+        return new TrashBinView(user, owner, testName, List.of(), testRunDAO.getAllDeleted(owner, testName));
     }
 
     @GET
@@ -1543,16 +1582,30 @@ public class TestResource
     {
         final LinkedTests tests;
         final LinkedTestRuns deletedTestRuns;
+        final List<String> linksToDeletedTestRuns;
         final long deletedTtlDays;
+        final String linkForShowTests;
+        final String testName;
 
-        public TrashBinView(Optional<User> user, List<DeletedTest> tests, List<DeletedTestRun> testRuns)
+        private TrashBinView(User user, String email, String testName, List<DeletedTest> tests,
+            List<DeletedTestRun> testRuns,
+            List<String> linksToDeletedTestRuns)
         {
             super("deleted-tests.mustache", user, mainView);
-            this.tests = new LinkedTests(user, tests, createCanDeletePredicate());
+            this.linkForShowTests = linkForShowTests(email);
+            this.testName = testName;
+            this.tests = new LinkedTests(Optional.of(user), tests, createCanDeletePredicate());
             this.deletedTestRuns =
-                new LinkedTestRuns(userGroupMapper, user, testRuns).hide(MUTATION_ACTIONS, TEMPLATE_PARAMS, DELETE_MANY,
-                    SIZE_ON_DISK);
+                new LinkedTestRuns(userGroupMapper, Optional.of(user), testRuns).hide(MUTATION_ACTIONS, TEMPLATE_PARAMS,
+                    DELETE_MANY, SIZE_ON_DISK);
+            this.linksToDeletedTestRuns = linksToDeletedTestRuns;
             deletedTtlDays = testDAO.deletedTtl().toDays();
+        }
+
+        public TrashBinView(User user, String email, String testName, List<DeletedTest> tests,
+            List<DeletedTestRun> testRuns)
+        {
+            this(user, email, testName, tests, testRuns, Collections.emptyList());
         }
     }
 }
