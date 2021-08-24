@@ -45,6 +45,8 @@ import com.datastax.fallout.service.resources.RestApiBuilder;
 import com.datastax.fallout.util.Exceptions;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
+import static com.datastax.fallout.service.core.Fakes.TEST_NAME;
+import static com.datastax.fallout.service.core.Fakes.TEST_RUN_ID;
 import static com.datastax.fallout.service.core.Fakes.TEST_USER_EMAIL;
 import static com.datastax.fallout.service.core.TestRun.State.FAILED;
 import static com.datastax.fallout.service.core.TestRun.State.PASSED;
@@ -372,6 +374,14 @@ public class TestResourceHttpTest
                     .hasStatusInfo(NOT_FOUND);
                 assertThat(api.build(TestResource.class, "getTestForUserApi", "fakes").get()).hasStatusInfo(OK);
             }
+        }
+
+        @org.junit.jupiter.api.Test
+        public void restoring_a_non_existent_deleted_test_run_returns_404()
+        {
+            assertThat(api.build(TestResource.class, "restoreTestRun",
+                TEST_USER_EMAIL, TEST_NAME, TEST_RUN_ID.toString()).post(null))
+                    .hasStatusInfo(NOT_FOUND);
         }
 
         @org.junit.jupiter.api.Test

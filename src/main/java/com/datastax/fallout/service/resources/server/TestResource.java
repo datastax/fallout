@@ -874,7 +874,8 @@ public class TestResource
     public Response restoreTestRun(@Auth User user, @PathParam("userEmail") String userEmail,
         @PathParam("name") String testName, @PathParam("testRunId") String testRunId)
     {
-        DeletedTestRun deletedTestRun = testRunDAO.getDeleted(userEmail, testName, UUID.fromString(testRunId));
+        DeletedTestRun deletedTestRun = assertExistsAndCanBeModifiedBy(userGroupMapper, user,
+            testRunDAO.getDeleted(userEmail, testName, UUID.fromString(testRunId)));
         try
         {
             testDAO.restoreTestRun(deletedTestRun);
