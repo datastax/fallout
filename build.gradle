@@ -727,24 +727,6 @@ externalTools {
             }
         }
 
-        tarball("kots") {
-            // https://github.com/replicatedhq/kots/releases/
-
-            platforms(["linux", "darwin"]) {
-                source.set("https://github.com/replicatedhq/kots/releases/download/v1.41.1/" +
-                    "kots_${platform}_amd64.tar.gz")
-                symlinkName.set("kubectl-kots")
-            }
-
-            platform("linux") {
-                checksum.set("e7259868190d88d5c3fcd432fb1d44a6b4dae2a032ecdfe0034c98a8bbf814a0")
-            }
-
-            platform("darwin") {
-                checksum.set("d438f2ac05e0d82509f63072b1f07f686bd1f80d7b1b9663be9cf0cf09b06aba")
-            }
-        }
-
         tarball("helm") {
             // https://github.com/helm/helm/releases
 

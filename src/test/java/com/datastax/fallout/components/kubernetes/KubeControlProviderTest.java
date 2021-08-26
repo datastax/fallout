@@ -28,9 +28,7 @@ class KubeControlProviderTest
     @ParameterizedTest
     @CsvSource({
         "the-namespace,log stuff,kubectl --namespace=the-namespace log stuff",
-        ",log stuff,kubectl log stuff",
-        "the-namespace,kots install sentry-pro,kubectl kots --namespace=the-namespace install sentry-pro",
-        ",kots install sentry-pro,kubectl kots install sentry-pro"
+        ",log stuff,kubectl log stuff"
     })
     void inserts_namespace_when_a_namespace_is_provided(String namespace, String command, String expected)
     {

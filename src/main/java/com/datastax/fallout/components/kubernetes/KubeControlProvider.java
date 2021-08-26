@@ -103,15 +103,6 @@ public class KubeControlProvider extends Provider
 
         if (namespace.isPresent())
         {
-            // Saying `kubectl -n foo kots` produces an error as of kubectl 1.20.4 and kots 1.31.1: we need
-            // to provide the namespace to the kots subcommand:
-            final var KOTS_PREFIX = "kots ";
-            if (command.startsWith(KOTS_PREFIX))
-            {
-                cmdPrefix += KOTS_PREFIX;
-                command = command.substring(KOTS_PREFIX.length());
-            }
-
             cmdPrefix += String.format("--namespace=%s ", namespace.get());
         }
 
