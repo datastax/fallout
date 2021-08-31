@@ -48,6 +48,8 @@ import io.dropwizard.logging.FileAppenderFactory;
 import io.dropwizard.logging.LoggerConfiguration;
 import io.dropwizard.logging.LoggingFactory;
 import io.dropwizard.metrics.graphite.GraphiteReporterFactory;
+import io.dropwizard.request.logging.LogbackAccessRequestLogFactory;
+import io.dropwizard.server.DefaultServerFactory;
 
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
 import com.datastax.fallout.ops.JobFileLoggers;
@@ -643,6 +645,13 @@ public class FalloutConfiguration extends Configuration
     public void updateLogDir()
     {
         modifyAppLogAppenders(FileAppenderFactory.class, appender -> {
+            updateLogFilename(appender::getCurrentLogFilename, appender::setCurrentLogFilename);
+            updateLogFilename(appender::getArchivedLogFilenamePattern, appender::setArchivedLogFilenamePattern);
+        });
+
+        final var serverFactory = (DefaultServerFactory) getServerFactory();
+        final var requestLogFactory = (LogbackAccessRequestLogFactory) serverFactory.getRequestLogFactory();
+        modifyAppenders(FileAppenderFactory.class, requestLogFactory.getAppenders(), appender -> {
             updateLogFilename(appender::getCurrentLogFilename, appender::setCurrentLogFilename);
             updateLogFilename(appender::getArchivedLogFilenamePattern, appender::setArchivedLogFilenamePattern);
         });

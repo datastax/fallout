@@ -44,6 +44,7 @@ import static org.awaitility.Awaitility.await;
 public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
 {
     private static final String APP_LOG_FILENAME = "fallout.log";
+    private static final String REQUEST_LOG_FILENAME = "access.log";
 
     /**
      * we do not use {@link org.junit.jupiter.api.extension.RegisterExtension} here: we want to start {@link FalloutAppExtension} manually
@@ -62,8 +63,14 @@ public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
             "  appenders:",
             "    - type: file",
             "      archive: false",
-            "      currentLogFilename: fallout.log",
-            "    - type: console"
+            "      currentLogFilename: " + APP_LOG_FILENAME,
+            "    - type: console",
+            "server:",
+            "  requestLog:",
+            "    appenders:",
+            "      - type: file",
+            "        archive: false",
+            "        currentLogFilename: " + REQUEST_LOG_FILENAME
         ), StandardCharsets.UTF_8);
     }
 
@@ -83,7 +90,10 @@ public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
     private void startService(FalloutConfiguration.ServerMode mode, String directory)
     {
         startService(mode,
-            ConfigOverride.config("logging.appenders[0].currentLogFilename", directory + APP_LOG_FILENAME));
+            ConfigOverride.config("logging.appenders[0].currentLogFilename",
+                directory + APP_LOG_FILENAME),
+            ConfigOverride.config("server.requestLog.appenders[0].currentLogFilename",
+                directory + REQUEST_LOG_FILENAME));
     }
 
     @AfterEach
@@ -117,6 +127,9 @@ public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
         FalloutConfiguration.ServerMode serverMode, String appenderDirectory)
     {
         startService(serverMode, appenderDirectory);
-        await().untilAsserted(() -> assertThat(logPath(serverMode, APP_LOG_FILENAME)).exists());
+        await().untilAsserted(() -> {
+            assertThat(logPath(serverMode, APP_LOG_FILENAME)).exists();
+            assertThat(logPath(serverMode, REQUEST_LOG_FILENAME)).exists();
+        });
     }
 }
