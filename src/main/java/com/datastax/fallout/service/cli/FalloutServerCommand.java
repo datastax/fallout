@@ -75,7 +75,7 @@ public abstract class FalloutServerCommand<FC extends FalloutConfiguration> exte
     /** Called to update configuration immediately after parsing */
     protected void updateConfiguration(FalloutConfiguration falloutConfiguration, Namespace namespace)
     {
-        falloutConfiguration.updateLogFormat();
+        falloutConfiguration.updateAppLogFormat();
         falloutConfiguration.updateLogDir();
         falloutConfiguration.updateMetricsSuffix();
     }

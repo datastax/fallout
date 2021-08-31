@@ -583,7 +583,7 @@ public class FalloutConfiguration extends Configuration
     }
 
     /** Updates all configured loggers with the current setting of {@link #getLogDir()} */
-    public <A extends AppenderFactory<?>> void modifyAppenders(Class<A> clazz, Consumer<A> appenderModifier)
+    private <A extends AppenderFactory<?>> void modifyAppLogAppenders(Class<A> clazz, Consumer<A> appenderModifier)
     {
         final LoggingFactory loggingFactory = getLoggingFactory();
         final var objectMapper = Jackson.newObjectMapper();
@@ -623,9 +623,9 @@ public class FalloutConfiguration extends Configuration
     }
 
     /** Updates all configured loggers with a fixed consistent format if no format has been set */
-    public void updateLogFormat()
+    public void updateAppLogFormat()
     {
-        modifyAppenders(AbstractAppenderFactory.class, appender -> {
+        modifyAppLogAppenders(AbstractAppenderFactory.class, appender -> {
             appender.setLogFormat(JobFileLoggers.FALLOUT_PATTERN);
         });
     }
@@ -642,7 +642,7 @@ public class FalloutConfiguration extends Configuration
     /** Updates all configured loggers with the current setting of {@link #getLogDir()} */
     public void updateLogDir()
     {
-        modifyAppenders(FileAppenderFactory.class, appender -> {
+        modifyAppLogAppenders(FileAppenderFactory.class, appender -> {
             updateLogFilename(appender::getCurrentLogFilename, appender::setCurrentLogFilename);
             updateLogFilename(appender::getArchivedLogFilenamePattern, appender::setArchivedLogFilenamePattern);
         });

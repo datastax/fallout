@@ -36,7 +36,7 @@ public abstract class FalloutCommand<FC extends FalloutConfiguration> extends Fa
             new FalloutConfigurationFactoryFactory<>(bootstrap.getConfigurationFactoryFactory(),
                 falloutConfiguration -> {
                     falloutConfiguration.forceLoggingToConsoleOnly();
-                    falloutConfiguration.updateLogFormat();
+                    falloutConfiguration.updateAppLogFormat();
                 });
 
         bootstrap.setConfigurationFactoryFactory(falloutConfigurationFactoryFactory);
