@@ -19,14 +19,18 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 import com.google.common.collect.ImmutableList;
 import io.dropwizard.testing.ConfigOverride;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import com.datastax.fallout.service.resources.FalloutAppExtension;
 import com.datastax.fallout.test.utils.WithPersistentTestOutputDir;
@@ -34,12 +38,13 @@ import com.datastax.fallout.util.Exceptions;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.FalloutConfiguration.ServerMode.RUNNER;
-import static com.datastax.fallout.service.FalloutConfiguration.ServerMode.STANDALONE;
 import static org.awaitility.Awaitility.await;
 
 @Tag("requires-db")
 public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
 {
+    private static final String APP_LOG_FILENAME = "fallout.log";
+
     /**
      * we do not use {@link org.junit.jupiter.api.extension.RegisterExtension} here: we want to start {@link FalloutAppExtension} manually
      **/
@@ -75,9 +80,10 @@ public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
         Exceptions.runUnchecked(() -> falloutService.before(persistentTestOutputDir()));
     }
 
-    private void startService(FalloutConfiguration.ServerMode mode, String logFile)
+    private void startService(FalloutConfiguration.ServerMode mode, String directory)
     {
-        startService(mode, ConfigOverride.config("logging.appenders[0].currentLogFilename", logFile));
+        startService(mode,
+            ConfigOverride.config("logging.appenders[0].currentLogFilename", directory + APP_LOG_FILENAME));
     }
 
     @AfterEach
@@ -91,24 +97,26 @@ public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
         return persistentTestOutputDir().resolve(logDir);
     }
 
-    @Test
-    public void standalone_mode_ignores_appender_directory()
+    private Path logPath(FalloutConfiguration.ServerMode mode, String logFilename)
     {
-        startService(STANDALONE, "foo/bar/fallout.log");
-        await().untilAsserted(() -> assertThat(logPath("logs/fallout.log")).exists());
+        return mode == RUNNER ?
+            logPath("logs/runners/1/" + logFilename) :
+            logPath("logs/" + logFilename);
     }
 
-    @Test
-    public void runner_mode_ignores_appender_directory()
+    static Stream<Arguments> modesAndDirectories()
     {
-        startService(RUNNER, "foo/bar/fallout.log");
-        await().untilAsserted(() -> assertThat(logPath("logs/runners/1/fallout.log")).exists());
+        return Arrays.stream(FalloutConfiguration.ServerMode.values())
+            .flatMap(mode -> Stream.of("foo/bar/", "")
+                .map(dir -> Arguments.arguments(mode, dir)));
     }
 
-    @Test
-    public void runner_mode_appends_runner_id_to_default_path()
+    @ParameterizedTest
+    @MethodSource("modesAndDirectories")
+    public void appender_directory_is_ignored_and_runner_mode_uses_a_different_directory(
+        FalloutConfiguration.ServerMode serverMode, String appenderDirectory)
     {
-        startService(RUNNER, "fallout.log");
-        await().untilAsserted(() -> assertThat(logPath("logs/runners/1/fallout.log")).exists());
+        startService(serverMode, appenderDirectory);
+        await().untilAsserted(() -> assertThat(logPath(serverMode, APP_LOG_FILENAME)).exists());
     }
 }
