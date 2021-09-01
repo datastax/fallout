@@ -20,7 +20,9 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.google.common.collect.ImmutableMap;
@@ -89,6 +91,7 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
     private Path artifactPath;
     private CompletableFuture<Integer> serverPort = new CompletableFuture<>();
     private Optional<FalloutAppExtensionBase<FC, FS>> runnerServiceExtension = Optional.empty();
+    private final Set<ConfigOverride> configOverrides;
     private boolean isSchemaCreator = true;
     private int activeScopes = 0;
 
@@ -101,20 +104,8 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
 
         private final TestRunStatusUpdatePublisher runnerTestRunStatusFeed = new TestRunStatusUpdatePublisher();
 
-        private static ConfigOverride[] addToConfigOverrides(ConfigOverride[] configOverrides)
-        {
-            return Stream
-                .concat(Stream.of(
-                    ConfigOverride.config("keyspace", CASSANDRA_KEYSPACE),
-                    ConfigOverride.config("logTestRunsToConsole", "true")),
-                    Stream.concat(
-                        Stream.of(configOverrides),
-                        LogbackConfigurator.getConfigOverrides()))
-                .toArray(ConfigOverride[]::new);
-        }
-
         TestSupport(Class<? extends FalloutServiceBase<FC>> falloutServiceClass, String configPath,
-            FalloutConfiguration.ServerMode mode, ConfigOverride... configOverrides)
+            FalloutConfiguration.ServerMode mode)
         {
             super(falloutServiceClass, configPath, (String) null,
                 application -> {
@@ -168,8 +159,7 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
                             break;
                     }
                     return command;
-                },
-                addToConfigOverrides(configOverrides));
+                });
         }
 
         @SuppressWarnings("unchecked")
@@ -194,7 +184,16 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
         FalloutConfiguration.ServerMode mode, String configPath,
         ConfigOverride... configOverrides)
     {
-        super(new TestSupport<>(falloutServiceClass, configPath, mode, configOverrides));
+        super(new TestSupport<>(falloutServiceClass, configPath, mode));
+
+        this.configOverrides = Stream
+            .concat(Stream.of(
+                ConfigOverride.config("keyspace", CASSANDRA_KEYSPACE),
+                ConfigOverride.config("logTestRunsToConsole", "true")),
+                Stream.concat(
+                    Stream.of(configOverrides),
+                    LogbackConfigurator.getConfigOverrides()))
+            .collect(Collectors.toSet());
 
         // ServiceListener.onRun will run _after_ configuration setup and _before_ starting the server; this is ideal
         // for setting up things that need the configuration but need to be in place before startup.
@@ -233,7 +232,7 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
         {
             final FalloutAppExtensionBase<FC, FS> runnerServiceExtension =
                 new FalloutAppExtensionBase<>(falloutServiceClass,
-                    FalloutConfiguration.ServerMode.RUNNER, configPath, configOverrides);
+                    FalloutConfiguration.ServerMode.RUNNER, configPath);
 
             // The RUNNER FalloutServiceRule will create the schema for us, because RUNNER is created first, so the
             // QUEUE should run in its default mode.
@@ -298,6 +297,12 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
     {
         setTestOutputDir(persistentTestOutputDir);
 
+        // ConfigOverrides are applied globally via system properties, and they also keep state within
+        // themselves, so it's not safe to pass them to different FalloutAppExtensionBase instances
+        // without cloning, which they don't support => don't pass them at all, and apply them
+        // here (instead of allowing {@link DropWizardTestSupport#applyConfigOverrides} to do it).
+        configOverrides.forEach(ConfigOverride::addToSystemProperties);
+
         // Start the RUNNER if required, so that the QUEUE finds it on startup
         runnerServiceExtension.ifPresent(rule -> Exceptions.runUnchecked(rule::before));
 
@@ -313,6 +318,9 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
         runnerServiceExtension.ifPresent(FalloutAppExtensionBase::after);
 
         getApplication().shutdown();
+
+        configOverrides.forEach(ConfigOverride::removeFromSystemProperties);
+
         super.after();
     }
 
