@@ -177,7 +177,7 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
     private void ensureEmptyDirectoryExists(Path path)
     {
         FileUtils.createDirs(path);
-        assertThat(FileUtils.listDir(path).isEmpty());
+        assertThat(FileUtils.listDir(path)).isEmpty();
     }
 
     public FalloutAppExtensionBase(Class<FS> falloutServiceClass,
