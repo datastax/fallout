@@ -256,10 +256,18 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
         return cleanupPersistentVolumeDisks(nodeGroup);
     }
 
+    /**
+     * Not all sub-classes deploy a storage class with the {@link FALLOUT_STORAGE_CLASS_NAME}. Further,
+     * not all kubernetes based tests have the required permissions to execute {@link collectPersistentVolumeArtifacts}.
+     * Currently we only run PV artifact collection when Fallout has deployed a storage class, and assume the
+     * necessary permissions are in place.
+     */
     @Override
     protected boolean downloadProvisionerArtifactsImpl(NodeGroup nodeGroup, Path localPath)
     {
-        return collectPersistentVolumeArtifacts(nodeGroup);
+        return getProvisionerStorageClassYaml()
+            .map(ignored -> collectPersistentVolumeArtifacts(nodeGroup))
+            .orElse(true);
     }
 
     private boolean deployPersistentVolumeClaimForArtifactCollector(NodeGroup nodeGroup, Path manifestScratchSpace,
