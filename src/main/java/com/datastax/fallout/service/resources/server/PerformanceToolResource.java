@@ -176,7 +176,8 @@ public class PerformanceToolResource
     @Produces(MediaType.TEXT_HTML)
     public FalloutView start(@Auth User user)
     {
-        return new FalloutView("performance-tool-start.mustache", user, mainView);
+        return new FalloutView(List.of("Create Performance Report"),
+            "performance-tool-start.mustache", user, mainView);
     }
 
     @POST
@@ -357,7 +358,7 @@ public class PerformanceToolResource
 
         public ListView(Optional<User> user, String email, List<PerformanceReport> reports)
         {
-            super("performance-tool-list.mustache", user, mainView);
+            super(List.of(email, "Perf Reports"), "performance-tool-list.mustache", user, mainView);
             this.email = email;
             this.reports = reports;
         }
@@ -375,7 +376,8 @@ public class PerformanceToolResource
 
         public ReportView(Optional<User> user, PerformanceReport report, LinkedTestRuns linkedTestRuns)
         {
-            super("performance-tool-report.mustache", user, mainView);
+            super(List.of(report.getReportName(), report.getEmail(), "Perf Reports"),
+                "performance-tool-report.mustache", user, mainView);
             this.report = report;
             this.linkedTestRuns = linkedTestRuns;
         }

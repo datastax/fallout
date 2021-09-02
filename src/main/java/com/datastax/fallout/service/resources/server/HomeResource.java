@@ -112,7 +112,7 @@ public class HomeResource
 
         public DirectoryView(Optional<User> user)
         {
-            super("directory.mustache", user, mainView);
+            super(List.of("Users"), "directory.mustache", user, mainView);
 
             this.allUsers = userDAO.getAllUsers();
             this.allUsers.sort(Comparator.comparing(userMap -> userMap.get("name")));
@@ -136,7 +136,7 @@ public class HomeResource
 
         public CurrentTestsView(Optional<User> user)
         {
-            super("current-tests.mustache", user, mainView);
+            super(List.of("Test Queue"), "current-tests.mustache", user, mainView);
             List<ReadOnlyTestRun> runningTestRuns = testRunner.getRunningTestRunsOrderedByDuration();
             List<ReadOnlyTestRun> queuedTestRuns = testRunner.getQueuedTestRuns();
 
@@ -166,7 +166,7 @@ public class HomeResource
     {
         public HomeView(Optional<User> user)
         {
-            super("home.mustache", user, mainView);
+            super(List.of(), "home.mustache", user, mainView);
         }
     }
 }

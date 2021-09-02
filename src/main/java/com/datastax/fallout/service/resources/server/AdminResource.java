@@ -114,7 +114,7 @@ public class AdminResource
     {
         public TestAdminView(User user)
         {
-            super("test-admin.mustache", user, mainView);
+            super(List.of("Admin"), "test-admin.mustache", user, mainView);
         }
 
         public String getArtifactUsageTaskName()

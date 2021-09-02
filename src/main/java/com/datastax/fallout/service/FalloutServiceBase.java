@@ -734,7 +734,8 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
 
         final ComponentResource componentResource = new ComponentResource(conf, componentFactory);
         MainView mainView = new MainView(componentResource.getComponentTypes(), testRunner,
-            addVersionedAssetsRewriteRule(rewriteHandler));
+            addVersionedAssetsRewriteRule(rewriteHandler),
+            conf::hideDisplayedEmailDomains);
         componentResource.setMainView(mainView);
 
         CommandExecutor commandExecutor = new LocalCommandExecutor();

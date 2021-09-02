@@ -16,6 +16,7 @@
 package com.datastax.fallout.service.views;
 
 import java.util.List;
+import java.util.function.Function;
 
 import com.datastax.fallout.FalloutVersion;
 import com.datastax.fallout.runner.QueuingTestRunner;
@@ -27,14 +28,17 @@ public final class MainView
     private final List<ComponentResource.ComponentType> componentTypes;
     private final QueuingTestRunner testRunner;
     public final String assetsRoot;
+    private final Function<String, String> hideDisplayedEmailDomains;
     public final String falloutVersion = FalloutVersion.getVersion();
 
     public MainView(List<ComponentResource.ComponentType> componentTypes,
-        QueuingTestRunner testRunner, String assetsRoot)
+        QueuingTestRunner testRunner, String assetsRoot,
+        Function<String, String> hideDisplayedEmailDomains)
     {
         this.componentTypes = componentTypes;
         this.testRunner = testRunner;
         this.assetsRoot = assetsRoot;
+        this.hideDisplayedEmailDomains = hideDisplayedEmailDomains;
     }
 
     public List<ComponentResource.ComponentType> getComponentTypes()
@@ -45,5 +49,10 @@ public final class MainView
     public QueuingTestRunner getTestRunner()
     {
         return testRunner;
+    }
+
+    public String hideDisplayedEmailDomains(String title)
+    {
+        return hideDisplayedEmailDomains.apply(title);
     }
 }

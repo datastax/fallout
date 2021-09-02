@@ -206,7 +206,7 @@ public class ComponentResource
 
         public ComponentDocsView(Optional<User> user, ComponentType componentType, String name)
         {
-            super("component-docs.mustache", user, mainView);
+            super(List.of(name, "Docs"), "component-docs.mustache", user, mainView);
             this.componentType = componentType;
             this.componentProperties = componentType != null ? componentType.componentLookup.get(name) : null;
         }

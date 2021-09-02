@@ -598,7 +598,7 @@ public class AccountResource
 
         public AccountView(FalloutConfiguration configuration, User user)
         {
-            super("user_account.mustache", user, mainView);
+            super(List.of(user.getEmail(), "Profile"), "user_account.mustache", user, mainView);
             this.showOpenstackSection =
                 !configuration.getUseTeamOpenstackCredentials() || userGroupMapper.isCIUser(user);
             allEmailNotify = Arrays.stream(TestCompletionNotification.values())

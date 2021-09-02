@@ -109,6 +109,11 @@ public class FalloutConfiguration extends Configuration
     @JsonProperty
     private boolean datastaxOnly = false;
 
+    /** A list of domains (in the form '@example.com') to hide in
+     *  displayed emails in contexts where it makes sense to do so */
+    @JsonProperty
+    protected List<String> hideDisplayedEmailDomains = List.of();
+
     /** Forces local commands to use Java 8: for testing fallout itself only */
     @JsonProperty
     private boolean forceJava8ForLocalCommands = false;
@@ -323,6 +328,15 @@ public class FalloutConfiguration extends Configuration
     public boolean isDatastaxOnly()
     {
         return datastaxOnly;
+    }
+
+    public String hideDisplayedEmailDomains(String input)
+    {
+        for (var domain : hideDisplayedEmailDomains)
+        {
+            input = input.replace(domain, "");
+        }
+        return input;
     }
 
     public boolean forceJava8ForLocalCommands()

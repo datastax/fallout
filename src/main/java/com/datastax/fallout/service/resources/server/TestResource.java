@@ -983,7 +983,7 @@ public class TestResource
 
         public TestBuilderView(User user, Test test, boolean edit)
         {
-            super("test-create.mustache", user, mainView);
+            super(List.of("Edit Test"), "test-create.mustache", user, mainView);
             this.test = test;
             this.edit = edit;
         }
@@ -1117,7 +1117,8 @@ public class TestResource
 
         public LiveArtifactView(Optional<User> user, TestRun testRun, String artifactPath)
         {
-            super("live-artifact-view.mustache", user, mainView);
+            super(List.of(artifactPath, testRun.buildShortTestRunId(), testRun.getTestName(), testRun.getOwner()),
+                "live-artifact-view.mustache", user, mainView);
             this.testRun = testRun;
             this.artifactsLink = linkForShowTestRunArtifacts(testRun);
             URI falloutArtifactUri = UriBuilder.fromUri(uriForShowTestRunArtifacts(testRun))
@@ -1293,7 +1294,7 @@ public class TestResource
 
         public TestView(Optional<User> user, String email, List<Test> tests, QueuingTestRunner testRunner)
         {
-            super("test.mustache", user, mainView);
+            super(List.of(email, "Tests"), "test.mustache", user, mainView);
             this.email = email;
             final List<ReadOnlyTestRun> runningTestRuns = testRunner.getRunningTestRunsOrderedByDuration();
             this.tests = new LinkedTests(user, tests, createCanDeletePredicate())
@@ -1344,7 +1345,8 @@ public class TestResource
 
         public TestRunView(Optional<User> user, String email, Test test, List<TestRun> testRuns, boolean deleted)
         {
-            super("testruns.mustache", user, mainView);
+            super(List.of(test.getName(), test.getOwner(), "Test Runs"),
+                "testruns.mustache", user, mainView);
             this.email = email;
 
             this.testRuns = new LinkedTestRuns(userGroupMapper, user, testRuns)
@@ -1430,7 +1432,8 @@ public class TestResource
 
         public TestDetailsView(Optional<User> user, String name, TestRun run, FalloutConfiguration configuration)
         {
-            super("testdetails.mustache", user, mainView);
+            super(List.of(run.buildShortTestRunId(), run.getTestName(), run.getOwner(), "Artifacts"),
+                "testdetails.mustache", user, mainView);
 
             this.name = name;
             this.testRun = run;
@@ -1592,7 +1595,7 @@ public class TestResource
             List<DeletedTestRun> testRuns,
             List<String> linksToDeletedTestRuns)
         {
-            super("deleted-tests.mustache", user, mainView);
+            super(List.of("Trash", user.getEmail()), "deleted-tests.mustache", user, mainView);
             this.linkForShowTests = linkForShowTests(email);
             this.testName = testName;
             this.tests = new LinkedTests(Optional.of(user), tests, createCanDeletePredicate());

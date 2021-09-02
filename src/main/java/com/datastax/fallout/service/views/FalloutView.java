@@ -22,7 +22,9 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URI;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import io.dropwizard.views.View;
 
@@ -35,19 +37,23 @@ public class FalloutView extends View
     protected final User user;
     protected final Date generationDate;
     private final MainView mainView;
+    private final String title;
 
-    public FalloutView(String templateName, User user, MainView mainView)
+    public FalloutView(List<String> titleParts, String templateName, User user, MainView mainView)
     {
         super("/" + FalloutView.class.getPackage().getName().replace('.', '/') + "/" + templateName);
+        this.title = titleParts.stream()
+            .filter(s -> !s.isBlank())
+            .map(mainView::hideDisplayedEmailDomains)
+            .collect(Collectors.joining(" | "));
         this.user = user;
         this.generationDate = new Date();
         this.mainView = mainView;
     }
 
-    public FalloutView(String templateName, Optional<User> user,
-        MainView mainView)
+    public FalloutView(List<String> titleParts, String templateName, Optional<User> user, MainView mainView)
     {
-        this(templateName, user.orElse(null), mainView);
+        this(titleParts, templateName, user.orElse(null), mainView);
     }
 
     public final User getUser()
@@ -106,5 +112,10 @@ public class FalloutView extends View
     public MainView getMainView()
     {
         return mainView;
+    }
+
+    public String getTitle()
+    {
+        return title;
     }
 }
