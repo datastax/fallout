@@ -47,7 +47,7 @@ if check_if_installed shellcheck; then
     list_changed_files | \
         _xargs -0 awk -v ORS='' '
         # Ignore generated gradle wrappers
-        FILENAME ~ /\/gradlew$/ {
+        FILENAME ~ /^(.+\/)?gradlew$/ {
             nextfile
         }
         # Shell files either end in .sh or start with a shbang
