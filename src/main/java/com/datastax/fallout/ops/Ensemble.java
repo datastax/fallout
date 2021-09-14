@@ -360,6 +360,11 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
         testRunLinkUpdater.add(linkName, link);
     }
 
+    public LocalFilesHandler getLocalFilesHandler()
+    {
+        return localFilesHandler;
+    }
+
     public boolean createAllLocalFiles()
     {
         return localFilesHandler.createAllLocalFiles(this);

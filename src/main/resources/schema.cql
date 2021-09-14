@@ -44,6 +44,11 @@ CREATE TYPE IF NOT EXISTS dockerRegistryCredential (
     password text,
 );
 
+CREATE TYPE IF NOT EXISTS genericSecret (
+    name text,
+    secret text
+);
+
 CREATE TABLE IF NOT EXISTS users (
     email text PRIMARY KEY,
     name text,
@@ -70,6 +75,7 @@ CREATE TABLE IF NOT EXISTS users (
     s3fsCreds set<frozen<backupServiceCred>>,
     defaultBackupServiceCred text,
     dockerRegistryCredentials set<frozen<dockerRegistryCredential>>,
+    genericSecrets map<text, text>,
     emailPref text,
     slackPref text
 );

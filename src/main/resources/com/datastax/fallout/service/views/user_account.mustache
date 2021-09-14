@@ -200,6 +200,43 @@
             </div>
         </div>
 
+        <div class="modal fade" id="genericSecretModal" role="dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <!-- Modal Header -->
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span aria-hidden="true">&times;</span>
+                            <span class="sr-only">Close</span>
+                        </button>
+                        <h4 class="modal-title" id="genericSecretFormLabel">Add Generic Secret</h4>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="modal-body">
+                        <form role="form" id="genericSecretForm" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="secretName">Name</label>
+                                <input type="text" class="form-control" id="secretName" name="secretName"
+                                       placeholder="Enter name"/>
+                            </div>
+                            <div class="form-group">
+                                <label for="secret">Secret</label>
+                                <input type="text" class="form-control" id="secret" name="secret"
+                                       placeholder="Enter secret"/>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="genericSecretButton">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             {{> partials/message-area}}
             <form id="profile-form" onsubmit="return false;">
@@ -598,6 +635,48 @@
                                     </div>
                                 </div>
                             </div>
+                            <!--Generic Secrets-->
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">
+                                        <a data-toggle="collapse" data-parent="#accordion" href="#genericSecret-form-collapse"
+                                           aria-expanded="false" class="collapsed">Generic Secrets</a>
+                                    </h4>
+                                </div>
+                                <div id="genericSecret-form-collapse" class="panel-collapse collapse">
+                                    <div class="panel-body" id="genericSecretTableDiv">
+                                        <form id="genericSecret-form" onsubmit="return false;">
+                                            <div class="form-group">
+                                                <button class="btn btn-primary" data-toggle="modal"
+                                                        data-target="#genericSecretModal">
+                                                    Add Generic Secretss
+                                                </button>
+                                                <table class="table table-bordered table-striped"
+                                                       id="genericSecretTable">
+                                                    <thead>
+                                                    <tr>
+                                                        <th>Name</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                    </thead>
+                                                    {{#genericSecrets}}
+                                                        <tbody>
+                                                        <td>{{.}}</td>
+                                                        <td>
+                                                            <a title="Delete Secret"
+                                                               class="btn btn-danger btn-xs"
+                                                               onclick="deleteGenericSecret('{{.}}')">
+                                                                <i class="fa fa-trash-o"></i>
+                                                            </a>
+                                                        </td>
+                                                        </tbody>
+                                                    {{/genericSecrets}}
+                                                </table>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -691,6 +770,10 @@
                 submitCredentialForm("dockerRegistryCredForm", "docker_registry_creds", "dockerRegistryCredModal", "dockerRegistryCredTableDiv")
             });
 
+            $("#genericSecretButton").click(function() {
+                submitCredentialForm("genericSecretForm", "generic_secret", "genericSecretModal", "genericSecretTableDiv")
+            });
+
             function setDefaultAstraServiceAccount(clientName) {
                 setDefaultCreds("astra_service_account_default", {clientName: clientName}, "default_astra_service_account",
                  "default_astra_service_account_id");
@@ -734,6 +817,11 @@
             function deleteDockerRegistryCred(dockerRegistry) {
                 var confirmMessage = "Delete Docker Registry credential " + dockerRegistry + "?";
                 deleteCreds("docker_registry_creds", {dockerRegistry:dockerRegistry}, confirmMessage, "dockerRegistryCredTableDiv");
+            };
+
+            function deleteGenericSecret(name) {
+                var confirmMessage = "Delete generic secret " + name + "?";
+                deleteCreds("generic_secret", {secretName:name}, confirmMessage, "genericSecretTableDiv");
             }
 
             $(function() {

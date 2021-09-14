@@ -17,6 +17,7 @@ package com.datastax.fallout.ops;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface PropertyGroup
 {
@@ -39,10 +40,39 @@ public interface PropertyGroup
     void validate(List<PropertySpec<?>> propertySpecs, boolean ignoreFalloutProperties, boolean failForUnknownProps)
         throws PropertySpec.ValidationException;
 
-    enum ExpandRefsMode
+    class ExpandRefsMode
     {
-        EXPAND_REFS,
-        IGNORE_REFS
+        private final Mode mode;
+        private final Set<String> ignoredRefs;
+
+        enum Mode
+        {
+            EXPAND_ALL, IGNORE_ALL, IGNORE_SOME
+        }
+
+        private ExpandRefsMode(Mode mode, Set<String> ignoredRefs)
+        {
+            this.mode = mode;
+            this.ignoredRefs = ignoredRefs;
+        }
+
+        public static final ExpandRefsMode IGNORE_REFS = new ExpandRefsMode(Mode.IGNORE_ALL, Set.of());
+        public static final ExpandRefsMode EXPAND_REFS = new ExpandRefsMode(Mode.EXPAND_ALL, Set.of());
+
+        public static ExpandRefsMode ignoreSomeRefs(Set<String> ignoredRefs)
+        {
+            return new ExpandRefsMode(Mode.IGNORE_SOME, ignoredRefs);
+        }
+
+        public boolean expandRefs()
+        {
+            return mode != Mode.IGNORE_ALL;
+        }
+
+        public Set<String> ignoredRefs()
+        {
+            return ignoredRefs;
+        }
     }
 
     Object get(String name, ExpandRefsMode expandRefsMode);

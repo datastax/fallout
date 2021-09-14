@@ -65,6 +65,7 @@ public class CredentialsMaskingLayoutEncoder extends LayoutWrappingEncoder<ILogg
             user.getBackupServiceCreds().forEach(bsc -> secrets.add(bsc.s3SecretKey));
             user.getDockerRegistryCredentials().forEach(drc -> secrets.add(drc.password));
             user.getNebulaAppCreds().forEach(nac -> secrets.add(nac.secret));
+            secrets.addAll(user.getGenericSecrets().values());
             secrets.add(user.getEc2SecretKey());
             secrets.add(user.getOpenstackPassword());
 
@@ -79,7 +80,7 @@ public class CredentialsMaskingLayoutEncoder extends LayoutWrappingEncoder<ILogg
         public String doLayout(ILoggingEvent event)
         {
             String logLine = super.doLayout(event);
-            return secrets.stream().reduce(logLine, (line, secret) -> line.replaceAll(secret, "<redacted>"));
+            return secrets.stream().reduce(logLine, (line, secret) -> line.replace(secret, "<redacted>"));
         }
     }
 }

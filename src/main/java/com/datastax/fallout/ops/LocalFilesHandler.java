@@ -26,7 +26,7 @@ import com.datastax.fallout.components.common.provider.FileProvider.LocalFilePro
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
 import com.datastax.fallout.ops.commands.CommandExecutor;
 
-public class LocalFilesHandler implements HasAvailableProviders, PropertyRefExpander
+public class LocalFilesHandler implements HasAvailableProviders
 {
     private static final String MANAGED_FILES_DIRECTORY = "managed_files";
 
@@ -92,17 +92,19 @@ public class LocalFilesHandler implements HasAvailableProviders, PropertyRefExpa
             Set.of(FileProvider.LocalFileProvider.class);
     }
 
-    @Override
-    public String expandRefs(String propertyValue)
+    public PropertyRefExpander.Handler createPropertyRefHandler()
     {
-        return FileProvider.expandManagedFileRefs(
-            propertyValue, relativePath -> {
+        return new PropertyRefExpander.Handler("file") {
+            @Override
+            public String expandKey(String relativePath)
+            {
                 if (localFileSpecs.stream().noneMatch(fileSpec -> fileSpec.matchesManagedFileRef(relativePath)))
                 {
                     throw new InvalidConfigurationException(String.format(
                         "<<file:%s>> is not defined in a local_files section", relativePath));
                 }
                 return managedFilesPath.resolve(relativePath).toString();
-            });
+            }
+        };
     }
 }

@@ -20,7 +20,9 @@ import javax.validation.constraints.Pattern;
 
 import java.nio.ByteBuffer;
 import java.security.Principal;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -129,6 +131,9 @@ public class User implements Principal
 
     @Column
     private Set<DockerRegistryCredential> dockerRegistryCredentials = new HashSet<>();
+
+    @Column
+    private Map<String, String> genericSecrets = new HashMap<>();
 
     public String getEmail()
     {
@@ -582,6 +587,26 @@ public class User implements Principal
     {
         dockerRegistryCredentials.add(cred);
         ensureDefaultBackupServiceCredentials();
+    }
+
+    public Map<String, String> getGenericSecrets()
+    {
+        return genericSecrets;
+    }
+
+    public void setGenericSecrets(Map<String, String> genericSecrets)
+    {
+        this.genericSecrets = genericSecrets;
+    }
+
+    public synchronized void addGenericSecret(String secretName, String secret)
+    {
+        genericSecrets.put(secretName, secret);
+    }
+
+    public synchronized void dropGenericSecret(String name)
+    {
+        genericSecrets.remove(name);
     }
 
     @Override

@@ -29,8 +29,6 @@ import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.datastax.fallout.ops.PropertyGroup.ExpandRefsMode.EXPAND_REFS;
-
 /**
  * Represents a user defined set of Properties used by Fallout components
  * to configure themselves
@@ -40,7 +38,7 @@ public class WritablePropertyGroup implements PropertyGroup
     private String prefix = "";
     private static final Logger logger = LoggerFactory.getLogger(WritablePropertyGroup.class);
     private final Map<String, Object> properties;
-    private PropertyRefExpander refExpander = s -> s;
+    private PropertyRefExpander refExpander = new PropertyRefExpander();
 
     public void setRefExpander(PropertyRefExpander refExpander)
     {
@@ -194,22 +192,24 @@ public class WritablePropertyGroup implements PropertyGroup
     }
 
     /** Recursively apply expander to all String values found in value */
-    private Object expandRefs(Object value)
+    private Object expandRefs(Object value, Set<String> ignoredRefs)
     {
         if (value instanceof String)
         {
-            return refExpander.expandRefs((String) value);
+            return refExpander.expandRefs((String) value, ignoredRefs);
         }
         else if (value instanceof List<?>)
         {
-            return ((List<?>) value).stream().map(this::expandRefs).collect(Collectors.toList());
+            return ((List<?>) value).stream()
+                .map(value_ -> expandRefs(value_, ignoredRefs))
+                .collect(Collectors.toList());
         }
         else if (value instanceof Map<?, ?>)
         {
             return ((Map<?, ?>) value).entrySet().stream()
                 .map(entry -> Map.entry(
-                    expandRefs(entry.getKey()),
-                    expandRefs(entry.getValue())))
+                    expandRefs(entry.getKey(), ignoredRefs),
+                    expandRefs(entry.getValue(), ignoredRefs)))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         }
         else
@@ -221,8 +221,8 @@ public class WritablePropertyGroup implements PropertyGroup
     @Override
     public Object get(String name, ExpandRefsMode expandRefsMode)
     {
-        return expandRefsMode == EXPAND_REFS ?
-            expandRefs(properties.get(name)) :
+        return expandRefsMode.expandRefs() ?
+            expandRefs(properties.get(name), expandRefsMode.ignoredRefs()) :
             properties.get(name);
     }
 

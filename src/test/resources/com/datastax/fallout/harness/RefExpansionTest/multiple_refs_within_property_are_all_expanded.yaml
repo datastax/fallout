@@ -1,0 +1,21 @@
+ensemble:
+  server:
+    node.count: 1
+    provisioner:
+      name: local
+
+  client: server
+
+workload:
+  phases:
+    - ref-in-lists-and-maps:
+        module: fake
+        properties:
+          list:
+            - "<<identity:weasel>>: <<secret:weasel-sound>>"
+            - "<<identity:stoat>>: <<secret:stoat-sound>>"
+            - "<<identity:badger>>: <<secret:badger-sound>>"
+
+  checkers:
+    nofail:
+      checker: nofail

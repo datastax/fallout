@@ -23,6 +23,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -569,6 +570,13 @@ public class PropertySpecBuilder<T>
     public PropertySpecBuilder<T> disableRefExpansion()
     {
         expandRefsMode = PropertyGroup.ExpandRefsMode.IGNORE_REFS;
+        return this;
+    }
+
+    @Deprecated
+    public PropertySpecBuilder<T> disableRefExpansion(Set<String> ignoredRefs)
+    {
+        expandRefsMode = PropertyGroup.ExpandRefsMode.ignoreSomeRefs(ignoredRefs);
         return this;
     }
 

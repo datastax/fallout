@@ -57,10 +57,12 @@ import com.datastax.fallout.ops.MultiConfigurationManager;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.NodeGroupBuilder;
 import com.datastax.fallout.ops.PropertyBasedComponent;
+import com.datastax.fallout.ops.PropertyRefExpander;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.Provider;
 import com.datastax.fallout.ops.Provisioner;
 import com.datastax.fallout.ops.TestRunScratchSpaceFactory.TestRunScratchSpace;
+import com.datastax.fallout.ops.UserSecretsPropertyRefHandler;
 import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.ops.WritablePropertyGroup;
 import com.datastax.fallout.ops.commands.CommandExecutor;
@@ -114,6 +116,7 @@ public class ActiveTestRunBuilder
     private UserCredentials userCredentials;
     private JobLoggers loggers;
     private TestRunScratchSpace testRunScratchSpace;
+    private final PropertyRefExpander propertyRefExpander = new PropertyRefExpander();
     private Optional<LocalFilesHandler> explicitLocalFilesHandler = Optional.empty();
 
     enum DeprecatedPropertiesHandling
@@ -468,7 +471,7 @@ public class ActiveTestRunBuilder
         //Finally set the property group
         ngBuilder.withPropertyGroup(propertyGroup);
 
-        propertyGroup.setRefExpander(getLocalFilesHandler());
+        propertyGroup.setRefExpander(propertyRefExpander);
     }
 
     private NodeGroupBuilder getOrCreateLocalBuilder()
@@ -760,7 +763,7 @@ public class ActiveTestRunBuilder
         {
             ((ToolComponent) componentInstance).setToolExecutor(toolExecutor);
         }
-        componentProps.setRefExpander(getLocalFilesHandler());
+        componentProps.setRefExpander(propertyRefExpander);
         return componentInstance;
     }
 
@@ -856,6 +859,13 @@ public class ActiveTestRunBuilder
     public ActiveTestRunBuilder withTestRunLinkUpdater(TestRunLinkUpdater testRunLinkUpdater)
     {
         this.testRunLinkUpdater = testRunLinkUpdater;
+        return this;
+    }
+
+    @VisibleForTesting
+    public ActiveTestRunBuilder addPropertyRefHandler(PropertyRefExpander.Handler converter)
+    {
+        propertyRefExpander.addHandler(converter);
         return this;
     }
 
@@ -1107,6 +1117,8 @@ public class ActiveTestRunBuilder
             .withTestRunLinkUpdater(testRunLinkUpdater)
             .build(testRunArtifactPath, testRunScratchSpace);
 
+        propertyRefExpander.addHandler(ensemble.getLocalFilesHandler().createPropertyRefHandler());
+
         validateEnsemblePropertySpecs(ensemble, validationResult);
 
         return ensemble;
@@ -1176,8 +1188,9 @@ public class ActiveTestRunBuilder
         Preconditions.checkArgument(loggers != null, "loggers is missing");
         Preconditions.checkArgument(resourceChecker != null, "resourceChecker is missing");
 
-        Ensemble ensemble;
+        propertyRefExpander.addHandler(new UserSecretsPropertyRefHandler(userCredentials.owner.getGenericSecrets()));
 
+        Ensemble ensemble;
         try (ValidationResult validationResult = new ValidationResult())
         {
             ensemble = buildEnsemble(validationResult);

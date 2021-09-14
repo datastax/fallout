@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -492,6 +493,20 @@ public class AccountResource
         return Response.ok().build();
     }
 
+    @POST
+    @Path("/profile/generic_secret")
+    @Timed
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response addGenericSecret(@Auth User user,
+        @FormParam("secretName") @NotEmpty String credentialName,
+        @FormParam("secret") @NotEmpty String secret)
+    {
+        user.addGenericSecret(credentialName, secret);
+        userDAO.updateUserCredentials(user);
+
+        return Response.ok().build();
+    }
+
     @DELETE
     @Path("/profile/docker_registry_creds")
     @Timed
@@ -501,6 +516,20 @@ public class AccountResource
         String dockerRegistry = getNonNullNonEmpty(json, "dockerRegistry");
 
         user.dropDockerRegistryCredential(dockerRegistry);
+        userDAO.updateUserCredentials(user);
+
+        return Response.ok().build();
+    }
+
+    @DELETE
+    @Path("/profile/generic_secret")
+    @Timed
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response dropGenericSecret(@Auth User user, Map<String, String> json)
+    {
+        String genericSecret = getNonNullNonEmpty(json, "secretName");
+
+        user.dropGenericSecret(genericSecret);
         userDAO.updateUserCredentials(user);
 
         return Response.ok().build();
@@ -593,6 +622,7 @@ public class AccountResource
         protected final Collection<UserGroupMapper.UserGroup> allUserGroups = userGroupMapper.getGroups();
         final List<Pair<TestCompletionNotification, Boolean>> allEmailNotify;
         final List<Pair<TestCompletionNotification, Boolean>> allSlackNotify;
+        final Set<String> genericSecrets;
 
         protected final boolean showOpenstackSection;
 
@@ -607,6 +637,7 @@ public class AccountResource
             allSlackNotify = Arrays.stream(TestCompletionNotification.values())
                 .map(notify -> Pair.of(notify, user.getSlackPref() == notify))
                 .collect(Collectors.toList());
+            genericSecrets = user.getGenericSecrets().keySet();
         }
     }
 

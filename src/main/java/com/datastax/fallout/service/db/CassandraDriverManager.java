@@ -232,6 +232,7 @@ public class CassandraDriverManager implements Managed
         usersColumns.put("defaultBackupServiceCred", "text");
         usersColumns.put("backupServiceCreds", "set<frozen<backupServiceCred>>");
         usersColumns.put("dockerRegistryCredentials", "set<frozen<dockerRegistryCredential>>");
+        usersColumns.put("genericSecrets", "map<text, text>");
 
         Map<String, String> testRunsColumns = new HashMap<>();
         testRunsColumns.put("parsedloginfo", "text");
