@@ -1325,14 +1325,19 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         public Optional<Pair<Function<NodeGroup, CheckResourcesResult>, ActionStates>>
             nextResourceAction(State endState)
         {
-            return nextTransitionState(endState).flatMap(transitionState -> transitionState.transition.resourceAction
-                .map(action -> Pair.of(action, new ActionStates(transitionState, transitionState.transition.next))));
+            return nextTransitionState(endState)
+                .flatMap(transitionState -> transitionState.transition.resourceAction
+                    .map(action -> Pair.of(action,
+                        new ActionStates(transitionState, transitionState.transition.next))));
         }
 
-        public Optional<Pair<Function<NodeGroup, Boolean>, ActionStates>> nextBooleanAction(State endState)
+        public Optional<Pair<Function<NodeGroup, Boolean>, ActionStates>>
+            nextBooleanAction(State endState)
         {
-            return nextTransitionState(endState).flatMap(transitionState -> transitionState.transition.booleanAction
-                .map(action -> Pair.of(action, new ActionStates(transitionState, transitionState.transition.next))));
+            return nextTransitionState(endState)
+                .flatMap(transitionState -> transitionState.transition.booleanAction
+                    .map(action -> Pair.of(action,
+                        new ActionStates(transitionState, transitionState.transition.next))));
         }
     }
 
