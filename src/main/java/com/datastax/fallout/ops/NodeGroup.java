@@ -429,9 +429,9 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         State.checkValidTransition(state, endState);
 
         return actionSupplier.apply(state, endState)
-            .map(actionAndStates ->
+            .map(transitionAction ->
             // perform NodeGroup action
-            applyTransitionActionAndUpdateState(actionAndStates, success, failure)
+            transitionAction.applyAndUpdateState(this, success, failure)
                 .thenComposeAsync(actionResult -> wasSuccessful.apply(actionResult) ?
                     // previous action was successful, continue transition to endState.
                     applyTransitionActions(actionSupplier, success, failure, wasSuccessful, endState) :
@@ -548,32 +548,45 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
             });
     }
 
-    //
-    // Action Methods
-    //
-    private <T> CompletableFuture<T> applyTransitionActionAndUpdateState(
-        TransitionAction<T> transitionAction, T success, T failure)
+    /** Encapsulates an {@link #action} for a {@link #transition} that, if successful,
+     *  will place the {@link NodeGroup} in the {@link #runLevel} {@link State} */
+    private static class TransitionAction<Result>
     {
-        return CompletableFuture.supplyAsync(() -> {
-            setState(transitionAction.transition);
+        private final Function<NodeGroup, Result> action;
+        private final State transition;
+        private final State runLevel;
 
-            T result = transitionAction.action.apply(this);
+        TransitionAction(Function<NodeGroup, Result> action, State transition, State runLevel)
+        {
+            this.action = action;
+            this.transition = transition;
+            this.runLevel = runLevel;
+        }
 
-            if (result != success)
-            {
-                setState(FAILED);
+        private CompletableFuture<Result> applyAndUpdateState(NodeGroup nodeGroup,
+            Result success, Result failure)
+        {
+            return CompletableFuture.supplyAsync(() -> {
+                nodeGroup.setState(transition);
+
+                Result result = action.apply(nodeGroup);
+
+                if (result != success)
+                {
+                    nodeGroup.setState(FAILED);
+                    return result;
+                }
+
+                nodeGroup.setState(runLevel);
+
                 return result;
-            }
-
-            setState(transitionAction.runLevel);
-
-            return result;
-        })
-            .exceptionally(e -> {
-                logger.error("Error encountered during {}: {}", transitionAction.transition, e);
-                setState(FAILED);
-                return failure;
-            });
+            })
+                .exceptionally(e -> {
+                    nodeGroup.logger.error("Error encountered during {}: {}", transition, e);
+                    nodeGroup.setState(FAILED);
+                    return failure;
+                });
+        }
     }
 
     synchronized private CheckResourcesResult reserve()
@@ -1089,22 +1102,6 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
             legalTransitions.put(DESTROYING, DESTROYED);
             legalTransitions.put(STOPPED, STARTING);
             legalTransitions.put(STOPPED, DESTROYING);
-        }
-
-        /** Encapsulates an {@link #action} for a {@link #transition} that, if successful,
-         *  will place the {@link NodeGroup} in the {@link #runLevel} {@link State} */
-        static class TransitionAction<Result>
-        {
-            final Function<NodeGroup, Result> action;
-            final State transition;
-            final State runLevel;
-
-            TransitionAction(Function<NodeGroup, Result> action, State transition, State runLevel)
-            {
-                this.action = action;
-                this.transition = transition;
-                this.runLevel = runLevel;
-            }
         }
 
         static class Transition
