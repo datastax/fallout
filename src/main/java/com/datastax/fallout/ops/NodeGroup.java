@@ -1219,28 +1219,6 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
             this.runLevel = new RunLevel(up, down);
         }
 
-        public static void setState(NodeGroup nodeGroup, State next) throws IllegalStateException
-        {
-            State nodeState = nodeGroup.getState();
-
-            //Can always transition to same state
-            if (nodeState == next)
-                return;
-
-            //We use FAILED as our error code. In the case of DESTROYED we want to ignore this
-            //Since this is already a useful failed state.
-            if (nodeState == DESTROYED && next == FAILED)
-                return;
-
-            if (nodeState.valid(nodeGroup, next))
-            {
-                nodeGroup.setState(next);
-                return;
-            }
-
-            throw new IllegalStateException("Unknown/disallowed state transition " + nodeState + " -> " + next);
-        }
-
         public boolean isTransitioningState()
         {
             return transition != null;

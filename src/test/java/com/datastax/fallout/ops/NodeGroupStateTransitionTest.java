@@ -524,7 +524,7 @@ class NodeGroupStateTransitionTest extends TestHelpers.FalloutTest<FalloutConfig
         @MethodSource("illegalTransitions")
         public void illegal_transitions_fail_and_leave_nodegroup_alone(Transition transition)
         {
-            NodeGroup.State.setState(nodeGroup, transition.startState);
+            nodeGroup.setState(transition.startState);
 
             assertThat(waitForTransition(nodeGroup, transition.endState)).wasNotSuccessful();
             assertThat(nodeGroup).hasState(transition.startState);
@@ -543,7 +543,7 @@ class NodeGroupStateTransitionTest extends TestHelpers.FalloutTest<FalloutConfig
         public void legal_transitions_work_and_invoke_the_expected_provisioner_and_configuration_manager_calls(
             Transition transition)
         {
-            NodeGroup.State.setState(nodeGroup, transition.startState);
+            nodeGroup.setState(transition.startState);
 
             final EnumMap<NodeGroup.State, Expectations> stateExpectations = stateExpectations();
 
