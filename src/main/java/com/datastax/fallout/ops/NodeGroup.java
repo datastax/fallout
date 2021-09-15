@@ -413,8 +413,8 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
     // Transition Methods
     //
 
-    private <T> CompletableFuture<T> progressivelyApplyAction(
-        BiFunction<State, State, Optional<State.ActionStates<T>>> actionSupplier,
+    private <T> CompletableFuture<T> applyTransitionActions(
+        BiFunction<State, State, Optional<TransitionAction<T>>> actionSupplier,
         T success, T failure, Function<T, Boolean> wasSuccessful,
         final State endState)
     {
@@ -431,10 +431,10 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         return actionSupplier.apply(state, endState)
             .map(actionAndStates ->
             // perform NodeGroup action
-            handleAction(actionAndStates, success, failure)
+            applyTransitionActionAndUpdateState(actionAndStates, success, failure)
                 .thenComposeAsync(actionResult -> wasSuccessful.apply(actionResult) ?
                     // previous action was successful, continue transition to endState.
-                    progressivelyApplyAction(actionSupplier, success, failure, wasSuccessful, endState) :
+                    applyTransitionActions(actionSupplier, success, failure, wasSuccessful, endState) :
                     // previous action failed, stop transition.
                     CompletableFuture.completedFuture(actionResult)
                 ))
@@ -444,18 +444,18 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
 
     /** Returns a CompletableFuture that, when complete, indicates that the
      *  node group has completed all transitions that involve a group resource action. */
-    private CompletableFuture<CheckResourcesResult> progressivelyApplyResourceAction(final State endState)
+    private CompletableFuture<CheckResourcesResult> applyResourceTransitionActions(final State endState)
     {
-        return progressivelyApplyAction(State::nextResourceAction,
+        return applyTransitionActions(State::nextResourceTransitionAction,
             CheckResourcesResult.AVAILABLE, CheckResourcesResult.FAILED, CheckResourcesResult::wasSuccessful,
             endState);
     }
 
     /** Returns a CompletableFuture that, when complete, indicates that the
      *  node group has completed all transitions that involve a group boolean action. */
-    private CompletableFuture<Boolean> progressivelyApplyBooleanAction(final State endState)
+    private CompletableFuture<Boolean> applyBooleanTransitionActions(final State endState)
     {
-        return progressivelyApplyAction(State::nextBooleanAction,
+        return applyTransitionActions(State::nextBooleanTransitionAction,
             true, false, Function.identity(),
             endState);
     }
@@ -516,7 +516,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
             // Do group transitions below endState
             .thenComposeAsync(ignored -> {
                 logger.info(logMessage);
-                return progressivelyApplyResourceAction(endState);
+                return applyResourceTransitionActions(endState);
             })
             .thenComposeAsync(resourceTransitions -> {
                 if (!resourceTransitions.wasSuccessful())
@@ -524,7 +524,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
                     return CompletableFuture.completedFuture(resourceTransitions);
                 }
 
-                return progressivelyApplyBooleanAction(endState)
+                return applyBooleanTransitionActions(endState)
                     .thenApplyAsync(CheckResourcesResult::fromWasSuccessful);
             })
             .exceptionally(ex -> {
@@ -551,12 +551,13 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
     //
     // Action Methods
     //
-    private <T> CompletableFuture<T> handleAction(State.ActionStates<T> actionStates, T success, T failure)
+    private <T> CompletableFuture<T> applyTransitionActionAndUpdateState(
+        TransitionAction<T> transitionAction, T success, T failure)
     {
         return CompletableFuture.supplyAsync(() -> {
-            setState(actionStates.transition);
+            setState(transitionAction.transition);
 
-            T result = actionStates.action.apply(this);
+            T result = transitionAction.action.apply(this);
 
             if (result != success)
             {
@@ -564,12 +565,12 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
                 return result;
             }
 
-            setState(actionStates.runLevel);
+            setState(transitionAction.runLevel);
 
             return result;
         })
             .exceptionally(e -> {
-                logger.error("Error encountered during {}: {}", actionStates.transition, e);
+                logger.error("Error encountered during {}: {}", transitionAction.transition, e);
                 setState(FAILED);
                 return failure;
             });
@@ -1090,13 +1091,15 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
             legalTransitions.put(STOPPED, DESTROYING);
         }
 
-        public static class ActionStates<Result>
+        /** Encapsulates an {@link #action} for a {@link #transition} that, if successful,
+         *  will place the {@link NodeGroup} in the {@link #runLevel} {@link State} */
+        static class TransitionAction<Result>
         {
             final Function<NodeGroup, Result> action;
             final State transition;
             final State runLevel;
 
-            public ActionStates(Function<NodeGroup, Result> action, State transition, State runLevel)
+            TransitionAction(Function<NodeGroup, Result> action, State transition, State runLevel)
             {
                 this.action = action;
                 this.transition = transition;
@@ -1322,18 +1325,18 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
             }
         }
 
-        public Optional<ActionStates<CheckResourcesResult>> nextResourceAction(State endState)
+        public Optional<TransitionAction<CheckResourcesResult>> nextResourceTransitionAction(State endState)
         {
             return nextTransitionState(endState)
                 .flatMap(transitionState -> transitionState.transition.resourceAction
-                    .map(action -> new ActionStates<>(action, transitionState, transitionState.transition.next)));
+                    .map(action -> new TransitionAction<>(action, transitionState, transitionState.transition.next)));
         }
 
-        public Optional<ActionStates<Boolean>> nextBooleanAction(State endState)
+        public Optional<TransitionAction<Boolean>> nextBooleanTransitionAction(State endState)
         {
             return nextTransitionState(endState)
                 .flatMap(transitionState -> transitionState.transition.booleanAction
-                    .map(action -> new ActionStates<>(action, transitionState, transitionState.transition.next)));
+                    .map(action -> new TransitionAction<>(action, transitionState, transitionState.transition.next)));
         }
     }
 
