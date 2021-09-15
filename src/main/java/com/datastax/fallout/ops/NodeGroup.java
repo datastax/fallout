@@ -40,7 +40,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -415,7 +414,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
     //
 
     private <T> CompletableFuture<T> progressivelyApplyAction(
-        BiFunction<State, State, Optional<Pair<Function<NodeGroup, T>, State.ActionStates>>> actionSupplier,
+        BiFunction<State, State, Optional<State.ActionStates<T>>> actionSupplier,
         T success, T failure, Function<T, Boolean> wasSuccessful,
         final State endState)
     {
@@ -432,7 +431,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         return actionSupplier.apply(state, endState)
             .map(actionAndStates ->
             // perform NodeGroup action
-            handleAction(actionAndStates.getLeft(), actionAndStates.getRight(), success, failure)
+            handleAction(actionAndStates, success, failure)
                 .thenComposeAsync(actionResult -> wasSuccessful.apply(actionResult) ?
                     // previous action was successful, continue transition to endState.
                     progressivelyApplyAction(actionSupplier, success, failure, wasSuccessful, endState) :
@@ -552,13 +551,12 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
     //
     // Action Methods
     //
-    private <T> CompletableFuture<T> handleAction(Function<NodeGroup, T> action,
-        State.ActionStates actionStates, T success, T failure)
+    private <T> CompletableFuture<T> handleAction(State.ActionStates<T> actionStates, T success, T failure)
     {
         return CompletableFuture.supplyAsync(() -> {
             setState(actionStates.transition);
 
-            T result = action.apply(this);
+            T result = actionStates.action.apply(this);
 
             if (result != success)
             {
@@ -1092,13 +1090,15 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
             legalTransitions.put(STOPPED, DESTROYING);
         }
 
-        public static class ActionStates
+        public static class ActionStates<Result>
         {
+            final Function<NodeGroup, Result> action;
             final State transition;
             final State runLevel;
 
-            public ActionStates(State transition, State runLevel)
+            public ActionStates(Function<NodeGroup, Result> action, State transition, State runLevel)
             {
+                this.action = action;
                 this.transition = transition;
                 this.runLevel = runLevel;
             }
@@ -1322,22 +1322,18 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
             }
         }
 
-        public Optional<Pair<Function<NodeGroup, CheckResourcesResult>, ActionStates>>
-            nextResourceAction(State endState)
+        public Optional<ActionStates<CheckResourcesResult>> nextResourceAction(State endState)
         {
             return nextTransitionState(endState)
                 .flatMap(transitionState -> transitionState.transition.resourceAction
-                    .map(action -> Pair.of(action,
-                        new ActionStates(transitionState, transitionState.transition.next))));
+                    .map(action -> new ActionStates<>(action, transitionState, transitionState.transition.next)));
         }
 
-        public Optional<Pair<Function<NodeGroup, Boolean>, ActionStates>>
-            nextBooleanAction(State endState)
+        public Optional<ActionStates<Boolean>> nextBooleanAction(State endState)
         {
             return nextTransitionState(endState)
                 .flatMap(transitionState -> transitionState.transition.booleanAction
-                    .map(action -> Pair.of(action,
-                        new ActionStates(transitionState, transitionState.transition.next))));
+                    .map(action -> new ActionStates<>(action, transitionState, transitionState.transition.next)));
         }
     }
 
