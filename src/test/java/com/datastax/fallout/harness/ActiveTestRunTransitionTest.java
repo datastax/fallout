@@ -15,23 +15,32 @@
  */
 package com.datastax.fallout.harness;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.AppenderBase;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
 
 import com.datastax.fallout.TestHelpers;
-import com.datastax.fallout.components.common.configuration_manager.NoopConfigurationManager;
-import com.datastax.fallout.components.common.provisioner.LocalProvisioner;
+import com.datastax.fallout.components.fakes.FakeConfigurationManager;
+import com.datastax.fallout.components.fakes.FakeProvisioner;
 import com.datastax.fallout.ops.EnsembleBuilder;
 import com.datastax.fallout.ops.FalloutPropertySpecs;
 import com.datastax.fallout.ops.JobConsoleLoggers;
+import com.datastax.fallout.ops.JobLoggers;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.NodeGroupBuilder;
 import com.datastax.fallout.ops.WritablePropertyGroup;
+import com.datastax.fallout.runner.CheckResourcesResult;
 import com.datastax.fallout.runner.UserCredentialsFactory;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.Fakes;
@@ -47,12 +56,13 @@ public class ActiveTestRunTransitionTest extends TestHelpers.FalloutTest<Fallout
 
     private ActiveTestRun withRunLevels(Optional<NodeGroup.State> launchState, Optional<NodeGroup.State> finalState)
     {
-        NodeGroupBuilder testGroupBuilder = nodeGroupBuilder(launchState);
+        NodeGroupBuilder testGroupBuilder = nodeGroupBuilderWithLaunchState(launchState);
         finalState.ifPresent(ignored -> testGroupBuilder.withFinalRunLevel(finalState));
-        return withRunLevels(testGroupBuilder);
+        return createActiveTestRun(testGroupBuilder);
     }
 
-    private ActiveTestRun withRunLevels(NodeGroupBuilder testGroupBuilder)
+    private ActiveTestRun createActiveTestRunWithLoggers(NodeGroupBuilder testGroupBuilder,
+        Function<UserCredentialsFactory.UserCredentials, JobLoggers> jobLoggersFactory)
     {
         EnsembleBuilder ensembleBuilder = EnsembleBuilder.create()
             .withServerGroup(testGroupBuilder)
@@ -61,13 +71,15 @@ public class ActiveTestRunTransitionTest extends TestHelpers.FalloutTest<Fallout
         UserCredentialsFactory.UserCredentials userCredentials =
             new UserCredentialsFactory.UserCredentials(getTestUser(), Optional.empty());
 
+        final var loggers = jobLoggersFactory.apply(userCredentials);
+
         return ActiveTestRunBuilder.create()
             .withTestRunIdentifier(Fakes.TEST_RUN_IDENTIFIER)
             .withEnsembleBuilder(ensembleBuilder)
             .withWorkload(new Workload(new ArrayList<>(), new HashMap<>(), new HashMap<>()))
             .withTestRunStatusUpdater(
                 new TestRunAbortedStatusUpdater(new InMemoryTestRunStateStorage(TestRun.State.CREATED)))
-            .withLoggers(new JobConsoleLoggers(userCredentials))
+            .withLoggers(loggers)
             .withResourceChecker((e) -> List.of(CompletableFuture.completedFuture(true)))
             .withTestRunArtifactPath(persistentTestOutputDir())
             .withTestRunScratchSpace(persistentTestScratchSpace())
@@ -76,17 +88,38 @@ public class ActiveTestRunTransitionTest extends TestHelpers.FalloutTest<Fallout
             .build();
     }
 
-    private NodeGroupBuilder nodeGroupBuilder(Optional<NodeGroup.State> launchState)
+    private ActiveTestRun createActiveTestRun(NodeGroupBuilder testGroupBuilder)
+    {
+        return createActiveTestRunWithLoggers(testGroupBuilder, JobConsoleLoggers::new);
+    }
+
+    private NodeGroupBuilder nodeGroupBuilder(Optional<NodeGroup.State> launchState, CheckResourcesResult createResult)
     {
         WritablePropertyGroup pg = new WritablePropertyGroup();
         launchState.ifPresent(ls -> pg.put(FalloutPropertySpecs.launchRunLevelPropertySpec.name(), ls));
 
         return NodeGroupBuilder.create()
-            .withProvisioner(new LocalProvisioner())
-            .withConfigurationManager(new NoopConfigurationManager())
+            .withProvisioner(new FakeProvisioner() {
+                @Override
+                protected CheckResourcesResult createImpl(NodeGroup nodeGroup)
+                {
+                    return createResult;
+                }
+            })
+            .withConfigurationManager(new FakeConfigurationManager())
             .withPropertyGroup(pg)
             .withNodeCount(1)
             .withName(NODE_GROUP_NAME);
+    }
+
+    private NodeGroupBuilder nodeGroupBuilderWithLaunchState(Optional<NodeGroup.State> launchState)
+    {
+        return nodeGroupBuilder(launchState, CheckResourcesResult.AVAILABLE);
+    }
+
+    private NodeGroupBuilder nodeGroupBuilderWithCreateResult(CheckResourcesResult createResult)
+    {
+        return nodeGroupBuilder(Optional.empty(), createResult);
     }
 
     private void testActiveTestRunTransitions(ActiveTestRun atr, NodeGroup.State launchLevel,
@@ -141,9 +174,69 @@ public class ActiveTestRunTransitionTest extends TestHelpers.FalloutTest<Fallout
     @Test
     public void an_active_test_run_marked_for_reuse_will_preserve_the_nodegroup_state()
     {
-        NodeGroupBuilder testGroupBuilder = nodeGroupBuilder(Optional.empty());
+        NodeGroupBuilder testGroupBuilder = nodeGroupBuilderWithLaunchState(Optional.empty());
         testGroupBuilder.withFinalRunLevel(Optional.empty()); // mark_for_reuse: true in yaml
         testActiveTestRunTransitions(
-            withRunLevels(testGroupBuilder), DEFAULT_LAUNCH_RUNLEVEL, DEFAULT_LAUNCH_RUNLEVEL);
+            createActiveTestRun(testGroupBuilder), DEFAULT_LAUNCH_RUNLEVEL, DEFAULT_LAUNCH_RUNLEVEL);
+    }
+
+    private static class ErrorSensingJobConsoleLoggers extends JobConsoleLoggers
+    {
+        private final AtomicBoolean errorLogged;
+
+        public ErrorSensingJobConsoleLoggers(UserCredentialsFactory.UserCredentials userCredentials,
+            AtomicBoolean errorLogged)
+        {
+            super(userCredentials);
+            this.errorLogged = errorLogged;
+        }
+
+        @Override
+        public Logger create(String name, Path ignored)
+        {
+            final var logger = (ch.qos.logback.classic.Logger) super.create(name, ignored);
+
+            final var loggerContext = logger.getLoggerContext();
+
+            final var appender = new AppenderBase<ILoggingEvent>() {
+                @Override
+                protected void append(ILoggingEvent event)
+                {
+                    if (event.getLevel() == Level.ERROR)
+                    {
+                        errorLogged.set(true);
+                    }
+                }
+            };
+            appender.setContext(loggerContext);
+            appender.start();
+
+            logger.addAppender(appender);
+            return logger;
+        }
+    }
+
+    @Test
+    public void unavailable_resources_during_setup_will_not_log_an_error()
+    {
+        final var errorLogged = new AtomicBoolean(false);
+        final var activeTestRun = createActiveTestRunWithLoggers(
+            nodeGroupBuilderWithCreateResult(CheckResourcesResult.UNAVAILABLE),
+            userCredentials -> new ErrorSensingJobConsoleLoggers(userCredentials, errorLogged));
+
+        assertThat(activeTestRun.setup()).isEqualTo(CheckResourcesResult.UNAVAILABLE);
+        assertThat(errorLogged).isFalse();
+    }
+
+    @Test
+    public void failure_during_setup_will_log_an_error()
+    {
+        final var errorLogged = new AtomicBoolean(false);
+        final var activeTestRun = createActiveTestRunWithLoggers(
+            nodeGroupBuilderWithCreateResult(CheckResourcesResult.FAILED),
+            userCredentials -> new ErrorSensingJobConsoleLoggers(userCredentials, errorLogged));
+
+        assertThat(activeTestRun.setup()).isEqualTo(CheckResourcesResult.FAILED);
+        assertThat(errorLogged).isTrue();
     }
 }

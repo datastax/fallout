@@ -36,6 +36,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -282,11 +283,12 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         return getAvailableProviders().stream().anyMatch(reqProvider::isAssignableFrom);
     }
 
-    /**
-     * Changes the node group state.  Not to be called directly see @NodeStateManager
-     * @param newState the new state
-     */
-    void setState(State newState)
+    enum SetStateLoggerMode
+    {
+        FAIL_IS_INFO, FAIL_IS_ERROR
+    }
+
+    private void setState(State newState, SetStateLoggerMode setStateLoggerMode)
     {
         String logMsg = "Setting node group {} state {} -> {}";
         boolean toUnknown = this.state != UNKNOWN && newState == UNKNOWN;
@@ -295,7 +297,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         {
             logger.warn(logMsg, getId(), this.state, newState);
         }
-        else if (toFailed)
+        else if (toFailed && setStateLoggerMode == SetStateLoggerMode.FAIL_IS_ERROR)
         {
             logger.error(logMsg, getId(), this.state, newState);
         }
@@ -308,6 +310,12 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
             hasStarted = true;
         }
         this.state = newState;
+    }
+
+    @VisibleForTesting
+    void setState(State newState)
+    {
+        setState(newState, SetStateLoggerMode.FAIL_IS_ERROR);
     }
 
     /**
@@ -431,7 +439,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         return actionSupplier.apply(state, endState)
             .map(transitionAction ->
             // perform NodeGroup action
-            transitionAction.applyAndUpdateState(this, success, failure)
+            transitionAction.applyAndUpdateState(this, failure)
                 .thenComposeAsync(actionResult -> wasSuccessful.apply(actionResult) ?
                     // previous action was successful, continue transition to endState.
                     applyTransitionActions(actionSupplier, success, failure, wasSuccessful, endState) :
@@ -548,36 +556,28 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
             });
     }
 
-    /** Encapsulates an {@link #action} for a {@link #transition} that, if successful,
-     *  will place the {@link NodeGroup} in the {@link #runLevel} {@link State} */
-    private static class TransitionAction<Result>
+    /** Encapsulates an {@link #action} for a {@link #transition} */
+    private abstract static class TransitionAction<Result>
     {
         private final Function<NodeGroup, Result> action;
         private final State transition;
-        private final State runLevel;
+        protected final State runLevel;
 
         TransitionAction(Function<NodeGroup, Result> action, State transition, State runLevel)
         {
-            this.action = action;
             this.transition = transition;
             this.runLevel = runLevel;
+            this.action = action;
         }
 
-        private CompletableFuture<Result> applyAndUpdateState(NodeGroup nodeGroup,
-            Result success, Result failure)
+        private CompletableFuture<Result> applyAndUpdateState(NodeGroup nodeGroup, Result failure)
         {
             return CompletableFuture.supplyAsync(() -> {
                 nodeGroup.setState(transition);
 
                 Result result = action.apply(nodeGroup);
 
-                if (result != success)
-                {
-                    nodeGroup.setState(FAILED);
-                    return result;
-                }
-
-                nodeGroup.setState(runLevel);
+                setStateFromResult(nodeGroup, result);
 
                 return result;
             })
@@ -586,6 +586,54 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
                     nodeGroup.setState(FAILED);
                     return failure;
                 });
+        }
+
+        abstract void setStateFromResult(NodeGroup nodeGroup, Result result);
+    }
+
+    private static class ResourceTransitionAction extends TransitionAction<CheckResourcesResult>
+    {
+        ResourceTransitionAction(Function<NodeGroup, CheckResourcesResult> action, State transition, State runLevel)
+        {
+            super(action, transition, runLevel);
+        }
+
+        @Override
+        void setStateFromResult(NodeGroup nodeGroup, CheckResourcesResult result)
+        {
+            switch (result)
+            {
+                case AVAILABLE:
+                    nodeGroup.setState(runLevel);
+                    break;
+                case UNAVAILABLE:
+                    nodeGroup.setState(FAILED, SetStateLoggerMode.FAIL_IS_INFO);
+                    break;
+                default:
+                    nodeGroup.setState(FAILED);
+                    break;
+            }
+        }
+    }
+
+    private static class BooleanTransitionAction extends TransitionAction<Boolean>
+    {
+        BooleanTransitionAction(Function<NodeGroup, Boolean> action, State transition, State runLevel)
+        {
+            super(action, transition, runLevel);
+        }
+
+        @Override
+        void setStateFromResult(NodeGroup nodeGroup, Boolean result)
+        {
+            if (result)
+            {
+                nodeGroup.setState(runLevel);
+            }
+            else
+            {
+                nodeGroup.setState(FAILED);
+            }
         }
     }
 
@@ -1326,14 +1374,16 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
         {
             return nextTransitionState(endState)
                 .flatMap(transitionState -> transitionState.transition.resourceAction
-                    .map(action -> new TransitionAction<>(action, transitionState, transitionState.transition.next)));
+                    .map(action -> new ResourceTransitionAction(
+                        action, transitionState, transitionState.transition.next)));
         }
 
         public Optional<TransitionAction<Boolean>> nextBooleanTransitionAction(State endState)
         {
             return nextTransitionState(endState)
                 .flatMap(transitionState -> transitionState.transition.booleanAction
-                    .map(action -> new TransitionAction<>(action, transitionState, transitionState.transition.next)));
+                    .map(action -> new BooleanTransitionAction(
+                        action, transitionState, transitionState.transition.next)));
         }
     }
 
