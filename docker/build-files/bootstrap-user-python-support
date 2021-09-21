@@ -14,8 +14,8 @@ function installed()
     which "$1" >/dev/null 2>&1
 }
 
-export PIPX_VERSION=${PIPX_VERSION:-0.16.1.0}
-export POETRY_VERSION=${POETRY_VERSION:-1.1.5}
+export PIPX_VERSION=${PIPX_VERSION:-0.16.4.0}
+export POETRY_VERSION=${POETRY_VERSION:-1.1.9}
 export PIPX_DEFAULT_PYTHON=${PIPX_DEFAULT_PYTHON:-python3.7}
 
 # Ensure ~/.local/bin is in the path; some OS's don't do this
