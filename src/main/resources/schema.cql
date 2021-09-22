@@ -3,7 +3,9 @@
 CREATE TYPE IF NOT EXISTS nebulaAppCred (
     project text,
     id text,
-    secret text
+    secret text,
+    s3_access text,
+    s3_secret text
 );
 
 CREATE TYPE IF NOT EXISTS resourceType (

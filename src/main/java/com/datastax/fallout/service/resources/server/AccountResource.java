@@ -288,11 +288,14 @@ public class AccountResource
     @Produces(MediaType.APPLICATION_JSON)
     public Response addNebulaAppCred(@Auth User user, @FormParam("projectName") @NotEmpty String projectName,
         @FormParam("appCredsId") @NotEmpty String appCredsId,
-        @FormParam("appCredsSecret") @NotEmpty String appCredsSecret)
+        @FormParam("appCredsSecret") @NotEmpty String appCredsSecret,
+        @FormParam("appCredsS3Access") String appCredsS3Access,
+        @FormParam("appCredsS3Secret") String appCredsS3Secret)
     {
         try
         {
-            User.NebulaAppCred appCred = new User.NebulaAppCred(projectName, appCredsId, appCredsSecret);
+            User.NebulaAppCred appCred =
+                new User.NebulaAppCred(projectName, appCredsId, appCredsSecret, appCredsS3Access, appCredsS3Secret);
             user.addNebulaAppCred(appCred);
             userDAO.updateUserCredentials(user);
 

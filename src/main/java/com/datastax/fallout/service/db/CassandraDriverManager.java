@@ -316,6 +316,12 @@ public class CassandraDriverManager implements Managed
             session.execute(String.format("ALTER TYPE %s.resourceType ADD uniqueName text;", keyspace));
         }
 
+        if (!keyspaceMeta.getUserType("nebulaAppCred").getFieldNames().contains("s3_access"))
+        {
+            session.execute(String.format("ALTER TYPE %s.nebulaAppCred ADD s3_access text;", keyspace));
+            session.execute(String.format("ALTER TYPE %s.nebulaAppCred ADD s3_secret text;", keyspace));
+        }
+
         Map<String, String> dropUsersColumns = new HashMap<>();
         dropUsersColumns.put("defaultCaasUsername", "text");
         dropUsersColumns.put("caasCreds", "set<frozen<caasCred>>");

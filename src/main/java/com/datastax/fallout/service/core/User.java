@@ -695,11 +695,19 @@ public class User implements Principal
         @Field(name = "secret")
         public String secret;
 
-        public NebulaAppCred(String project, String id, String secret)
+        @Field(name = "s3_access")
+        public String s3AccessKey;
+
+        @Field(name = "s3_secret")
+        public String s3SecretKey;
+
+        public NebulaAppCred(String project, String id, String secret, String s3AccessKey, String s3SecretKey)
         {
             this.project = project;
             this.id = id;
             this.secret = secret;
+            this.s3AccessKey = s3AccessKey;
+            this.s3SecretKey = s3SecretKey;
         }
 
         public NebulaAppCred()

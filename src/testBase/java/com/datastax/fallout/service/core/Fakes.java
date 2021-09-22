@@ -43,11 +43,14 @@ public class Fakes
         user.setName(TEST_USER_NAME);
         user.setEmail(TEST_USER_EMAIL);
         user.setGroup(UserGroupMapper.UserGroup.OTHER);
-        user.addNebulaAppCred(new User.NebulaAppCred("bogus", "bogus", "bogus"));
+        user.addNebulaAppCred(new User.NebulaAppCred("bogus", "bogus", "bogus", "bogus", "bogus"));
         // the following creds are needed for examples + ATRB-Test
-        user.addNebulaAppCred(new User.NebulaAppCred("moonshot-v1", "moon_v1", "fake-secret"));
-        user.addNebulaAppCred(new User.NebulaAppCred("moonshot-v2", "moon_v2", "fake-secret"));
-        user.addNebulaAppCred(new User.NebulaAppCred("dse-automation", "dse", "fake-secret"));
+        user.addNebulaAppCred(
+            new User.NebulaAppCred("moonshot-v1", "moon_v1", "fake-secret", "fake-access", "fake-secret"));
+        user.addNebulaAppCred(
+            new User.NebulaAppCred("moonshot-v2", "moon_v2", "fake-secret", "fake-access", "fake-secret"));
+        user.addNebulaAppCred(
+            new User.NebulaAppCred("dse-automation", "dse", "fake-secret", "fake-access", "fake-secret"));
         user.addGoogleCloudServiceAccount(createGCloudServiceAccount());
         user.addAstraCred(new User.AstraServiceAccount(
             "fake-client-id",
