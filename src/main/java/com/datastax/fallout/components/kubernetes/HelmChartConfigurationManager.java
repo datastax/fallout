@@ -193,7 +193,9 @@ public class HelmChartConfigurationManager extends ConfigurationManager
 
     Path cloneDir()
     {
-        return getNodeGroup().getLocalArtifactPath().resolve(name);
+        return getNodeGroup().getLocalScratchSpace()
+            .makeScratchSpaceFor(this)
+            .resolve(helmInstalledNameSpec.value(getNodeGroup()));
     }
 
     protected boolean inNamespace(Function<KubeControlProvider.NamespacedKubeCtl, Boolean> function)
