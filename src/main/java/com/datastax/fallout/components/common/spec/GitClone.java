@@ -155,7 +155,7 @@ public class GitClone
         {
             // Since we are checking out a SHA, we cannot do a shallow clone.
             // Also, we have to perform a separate checkout command.
-            String command = String.format("git clone %s %s; cd %s; git checkout %s",
+            String command = String.format("git clone %s %s && cd %s && git checkout %s && git rev-parse HEAD",
                 repository, cloneDirectory, cloneDirectory, optionalBranch.get());
 
             return command;
@@ -165,7 +165,8 @@ public class GitClone
         String branchArg = optionalBranch.isPresent() ? String.format("--branch %s", optionalBranch.get()) : "";
 
         return String
-            .format("git clone %s %s %s %s; cd %s", depth, repository, branchArg, cloneDirectory, cloneDirectory);
+            .format("git clone %s %s %s %s && cd %s && git rev-parse HEAD",
+                depth, repository, branchArg, cloneDirectory, cloneDirectory);
     }
 
     public String getRepo(HasProperties properties)
