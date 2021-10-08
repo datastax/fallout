@@ -350,23 +350,25 @@
                                                                 <th>Actions</th>
                                                             </tr>
                                                             </thead>
-                                                            {{#nebulaAppCreds}}
                                                             <tbody>
-                                                            <td>{{project}}</td>
-                                                            <td>{{id}}</td>
-                                                            <td>{{s3AccessKey}}</td>
-                                                            <td>
-                                                                <a title="Set as Default" class="btn btn-success btn-xs"
-                                                                       onclick="setDefaultNebulaAppCreds('{{project}}')">
-                                                                    <i class="fa fa-flag"></i>
-                                                                </a>
-                                                                <a title="Delete Credentials" class="btn btn-danger btn-xs"
-                                                                       onclick="deleteNebulaAppCreds('{{project}}', '{{id}}')">
-                                                                    <i class="fa fa-trash-o"></i>
-                                                                </a>
-                                                            </td>
-                                                            </tbody>
+                                                            {{#nebulaAppCreds}}
+                                                                <tr>
+                                                                <td>{{project}}</td>
+                                                                <td>{{id}}</td>
+                                                                <td>{{s3AccessKey}}</td>
+                                                                <td>
+                                                                    <a title="Set as Default" class="btn btn-success btn-xs"
+                                                                           onclick="setDefaultNebulaAppCreds('{{project}}')">
+                                                                        <i class="fa fa-flag"></i>
+                                                                    </a>
+                                                                    <a title="Delete Credentials" class="btn btn-danger btn-xs"
+                                                                           onclick="deleteNebulaAppCreds('{{project}}', '{{id}}')">
+                                                                        <i class="fa fa-trash-o"></i>
+                                                                    </a>
+                                                                </td>
+                                                                </tr>
                                                             {{/nebulaAppCreds}}
+                                                            </tbody>
                                                         </table>
                                                 {{/user}}
                                             </div>
@@ -401,23 +403,25 @@
                                                         <th>Actions</th>
                                                     </tr>
                                                     </thead>
-                                                    {{#googleCloudServiceAccounts}}
                                                     <tbody>
-                                                    <td>{{email}}</td>
-                                                    <td>{{project}}</td>
-                                                    <td>{{privateKeyId}}</td>
-                                                    <td>
-                                                        <a title="Set as Default" class="btn btn-success btn-xs"
-                                                               onclick="setDefaultServiceAccount('{{email}}')">
-                                                            <i class="fa fa-flag"></i>
-                                                        </a>
-                                                        <a title="Delete Credentials" class="btn btn-danger btn-xs"
-                                                               onclick="deleteServiceAccount('{{email}}')">
-                                                            <i class="fa fa-trash-o"></i>
-                                                        </a>
-                                                    </td>
-                                                    </tbody>
+                                                    {{#googleCloudServiceAccounts}}
+                                                        <tr>
+                                                        <td>{{email}}</td>
+                                                        <td>{{project}}</td>
+                                                        <td>{{privateKeyId}}</td>
+                                                        <td>
+                                                            <a title="Set as Default" class="btn btn-success btn-xs"
+                                                                   onclick="setDefaultServiceAccount('{{email}}')">
+                                                                <i class="fa fa-flag"></i>
+                                                            </a>
+                                                            <a title="Delete Credentials" class="btn btn-danger btn-xs"
+                                                                   onclick="deleteServiceAccount('{{email}}')">
+                                                                <i class="fa fa-trash-o"></i>
+                                                            </a>
+                                                        </td>
+                                                        </tr>
                                                     {{/googleCloudServiceAccounts}}
+                                                </tbody>
                                                 </table>
                                                 {{/user}}
                                             </div>
@@ -488,8 +492,9 @@
                                                             <th>Actions</th>
                                                         </tr>
                                                         </thead>
+                                                        <tbody>
                                                         {{#astraServiceAccounts}}
-                                                            <tbody>
+                                                            <tr>
                                                             <td>{{clientName}}</td>
                                                             <td>{{clientId}}</td>
                                                             <td>
@@ -502,8 +507,9 @@
                                                                     <i class="fa fa-trash-o"></i>
                                                                 </a>
                                                             </td>
-                                                            </tbody>
+                                                            </tr>
                                                         {{/astraServiceAccounts}}
+                                                        </tbody>
                                                     </table>
                                                 {{/user}}
                                             </div>
@@ -546,8 +552,9 @@
                                                             <th>Actions</th>
                                                         </tr>
                                                         </thead>
+                                                        <tbody>
                                                         {{#backupServiceCreds}}
-                                                            <tbody>
+                                                            <tr>
                                                             <td>{{name}}</td>
                                                             <td>{{s3AccessKey}}</td>
                                                             <td>
@@ -561,8 +568,9 @@
                                                                     <i class="fa fa-trash-o"></i>
                                                                 </a>
                                                             </td>
-                                                            </tbody>
+                                                            </tr>
                                                         {{/backupServiceCreds}}
+                                                        </tbody>
                                                     </table>
                                                 {{/user}}
                                             </div>
@@ -625,8 +633,9 @@
                                                             <th>Actions</th>
                                                         </tr>
                                                         </thead>
+                                                        <tbody>
                                                         {{#dockerRegistryCredentials}}
-                                                            <tbody>
+                                                        <tr>
                                                             <td>{{dockerRegistry}}</td>
                                                             <td>{{username}}</td>
                                                             <td>
@@ -636,8 +645,9 @@
                                                                     <i class="fa fa-trash-o"></i>
                                                                 </a>
                                                             </td>
-                                                            </tbody>
+                                                        </tr>
                                                         {{/dockerRegistryCredentials}}
+                                                        </tbody>
                                                     </table>
                                                 {{/user}}
                                             </div>
@@ -669,8 +679,9 @@
                                                         <th>Actions</th>
                                                     </tr>
                                                     </thead>
+                                                    <tbody>
                                                     {{#genericSecrets}}
-                                                        <tbody>
+                                                        <tr>
                                                         <td>{{.}}</td>
                                                         <td>
                                                             <a title="Delete Secret"
@@ -679,8 +690,9 @@
                                                                 <i class="fa fa-trash-o"></i>
                                                             </a>
                                                         </td>
-                                                        </tbody>
+                                                        </tr>
                                                     {{/genericSecrets}}
+                                                    </tbody>
                                                 </table>
                                             </div>
                                         </form>
