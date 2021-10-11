@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -44,6 +45,7 @@ public abstract class FileSpec
 {
     private static final Map<String, Class<? extends FileSpec>> keyToType = Map.of(
         "data", DataFileSpec.class,
+        "base64", Base64DataFileSpec.class,
         "yaml", YamlFileSpec.class,
         "json", JsonFileSpec.class,
         "url", UrlFileSpec.class,
@@ -148,9 +150,9 @@ public abstract class FileSpec
         }
     }
 
-    public static abstract class ContentBasedFile extends FileSpec
+    private static abstract class BytesBasedFile extends FileSpec
     {
-        ContentBasedFile(String path)
+        BytesBasedFile(String path)
         {
             super(path);
         }
@@ -160,7 +162,7 @@ public abstract class FileSpec
             throws IOException
         {
             maybeCreateParentDir(fullFilePath);
-            Files.writeString(fullFilePath, getFileContent());
+            Files.write(fullFilePath, getFileContent());
             return true;
         }
 
@@ -170,10 +172,65 @@ public abstract class FileSpec
             return true; // no-op so tests have a full copy of the file content as an artifact
         }
 
-        protected abstract String getFileContent();
+        protected abstract byte[] getFileContent();
     }
 
-    public static class DataFileSpec extends ContentBasedFile
+    private static class Base64DataFileSpec extends BytesBasedFile
+    {
+        private final byte[] decodedData;
+
+        public Base64DataFileSpec(String path, Object val)
+        {
+            super(path);
+            String base64data;
+            try
+            {
+                base64data = (String) val;
+            }
+            catch (ClassCastException e)
+            {
+                throw new InvalidConfigurationException(
+                    String.format("Base64Data file '%s' expects value to be a string, not '%s'", path, val), e);
+            }
+            try
+            {
+                base64data = base64data.strip();
+                // replacements below allow us to avoid using getMimeDecoder() when we are given a multi line string
+                base64data = base64data.replaceAll("\n", "");
+                base64data = base64data.replaceAll("\r", "");
+                decodedData = Base64.getDecoder().decode(base64data);
+            }
+            catch (IllegalArgumentException e)
+            {
+                throw new InvalidConfigurationException(
+                    String.format("Unable to decode base64 data for managed file '%s':\n%s", path, base64data), e);
+            }
+        }
+
+        @Override
+        protected byte[] getFileContent()
+        {
+            return decodedData;
+        }
+    }
+
+    private static abstract class StringBasedFile extends BytesBasedFile
+    {
+        StringBasedFile(String path)
+        {
+            super(path);
+        }
+
+        @Override
+        protected byte[] getFileContent()
+        {
+            return getFileContentString().getBytes(StandardCharsets.UTF_8);
+        }
+
+        protected abstract String getFileContentString();
+    }
+
+    private static class DataFileSpec extends StringBasedFile
     {
         private final String data;
 
@@ -192,13 +249,13 @@ public abstract class FileSpec
         }
 
         @Override
-        protected String getFileContent()
+        protected String getFileContentString()
         {
             return data;
         }
     }
 
-    public static class YamlFileSpec extends ContentBasedFile
+    private static class YamlFileSpec extends StringBasedFile
     {
         Object yaml;
 
@@ -209,13 +266,13 @@ public abstract class FileSpec
         }
 
         @Override
-        protected String getFileContent()
+        protected String getFileContentString()
         {
             return YamlUtils.dumpYaml(yaml);
         }
     }
 
-    public static class JsonFileSpec extends ContentBasedFile
+    private static class JsonFileSpec extends StringBasedFile
     {
         Object json;
 
@@ -226,13 +283,13 @@ public abstract class FileSpec
         }
 
         @Override
-        protected String getFileContent()
+        protected String getFileContentString()
         {
             return JsonUtils.toJson(json);
         }
     }
 
-    public static class UrlFileSpec extends ContentBasedFile
+    public static class UrlFileSpec extends BytesBasedFile
     {
         public static final int DOWNLOAD_FROM_URL_TIMEOUT_MILLIS = 60000;
 
@@ -252,7 +309,7 @@ public abstract class FileSpec
             }
         }
 
-        public static String getFileContent(URL url)
+        private static byte[] fetchBytesFromUrl(URL url)
         {
             return Exceptions.getUncheckedIO(() -> {
                 URLConnection urlConnection = url.openConnection();
@@ -261,15 +318,20 @@ public abstract class FileSpec
 
                 try (InputStream inputStream = urlConnection.getInputStream())
                 {
-                    return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+                    return inputStream.readAllBytes();
                 }
             });
         }
 
-        @Override
-        protected String getFileContent()
+        public static String fetchUtf8StringFromUrl(URL url)
         {
-            return getFileContent(url);
+            return new String(fetchBytesFromUrl(url), StandardCharsets.UTF_8);
+        }
+
+        @Override
+        protected byte[] getFileContent()
+        {
+            return fetchBytesFromUrl(url);
         }
     }
 

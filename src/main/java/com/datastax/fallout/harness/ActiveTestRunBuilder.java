@@ -1212,7 +1212,8 @@ public class ActiveTestRunBuilder
             }
             else
             {
-                logger.warn("Test Run not passed to ActiveTestRun, no attempt to parse logs will be made.");
+                logger.warn("Test Run {} not passed to ActiveTestRun, no attempt to parse logs will be made.",
+                    testRunIdentifier.getTestRunId());
             }
 
             workload.setLoggers(loggers);
