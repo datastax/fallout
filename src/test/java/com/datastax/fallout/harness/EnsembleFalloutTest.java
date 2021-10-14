@@ -126,6 +126,10 @@ public abstract class EnsembleFalloutTest<FC extends FalloutConfiguration> exten
     {
         User testUser = getTestUser();
         UserCredentials userCredentials = new UserCredentials(testUser, Optional.empty());
+
+        // secret is needed for example yamls to be valid
+        testUser.addGenericSecret("MY_ASTRA_TOKEN", "dummy_astra_token");
+
         JobFileLoggers loggers = new JobFileLoggers(testRunArtifactPath(), true, userCredentials);
         return ActiveTestRunBuilder.create()
             .withTestRunScratchSpace(persistentTestScratchSpace())
