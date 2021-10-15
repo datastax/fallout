@@ -24,7 +24,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import com.google.auto.service.AutoService;
 
@@ -109,8 +108,10 @@ public class RemoteFilesConfigurationManager extends ConfigurationManager
     @Override
     public void validateProperties(PropertyGroup properties) throws PropertySpec.ValidationException
     {
-        List<FileSpec> fileSpecs = remoteFileSpecStream(properties)
-            .peek(rfs -> handler().validate(rfs))
+        List<RemoteFileSpec> remoteFileSpecs = parseRemoteFileSpecs(properties);
+        RemoteFileHandler remoteFileHandler = buildRemoteFileHandler(remoteFileSpecs);
+        List<FileSpec> fileSpecs = remoteFileSpecs.stream()
+            .peek(rfs -> remoteFileHandler.validate(rfs))
             .map(rfs -> rfs.fileSpec)
             .collect(Collectors.toList());
 
@@ -140,14 +141,15 @@ public class RemoteFilesConfigurationManager extends ConfigurationManager
     @Override
     public boolean registerProviders(Node node)
     {
-        new FileProvider.RemoteFileProvider(node, handler());
+        new FileProvider.RemoteFileProvider(node, buildRemoteFileHandler(node.getNodeGroup()));
         return true;
     }
 
     @Override
     public boolean configureImpl(NodeGroup nodeGroup)
     {
-        List<CompletableFuture<Boolean>> futures = remoteFileSpecStream(nodeGroup)
+        List<RemoteFileSpec> remoteFileSpecs = parseRemoteFileSpecs(nodeGroup);
+        List<CompletableFuture<Boolean>> futures = remoteFileSpecs.stream()
             .map(rfs -> CompletableFuture.supplyAsync(() -> this.createFile(nodeGroup, rfs)))
             .collect(Collectors.toList());
         return Utils.waitForAll(futures, nodeGroup.logger(), "Creating files");
@@ -156,8 +158,10 @@ public class RemoteFilesConfigurationManager extends ConfigurationManager
     @Override
     public boolean unconfigureImpl(NodeGroup nodeGroup)
     {
-        return remoteFileSpecStream(nodeGroup)
-            .map(rfs -> handler().deleteRemoteFile(rfs))
+        List<RemoteFileSpec> remoteFileSpecs = parseRemoteFileSpecs(nodeGroup);
+        RemoteFileHandler remoteFileHandler = buildRemoteFileHandler(remoteFileSpecs);
+        return remoteFileSpecs.stream()
+            .map(rfs -> remoteFileHandler.deleteRemoteFile(rfs))
             .reduce(Boolean::logicalAnd)
             .orElse(false);
     }
@@ -165,8 +169,10 @@ public class RemoteFilesConfigurationManager extends ConfigurationManager
     @Override
     public NodeGroup.State checkStateImpl(NodeGroup nodeGroup)
     {
-        boolean filesExistWithLocalCopy = remoteFileSpecStream(nodeGroup)
-            .map(rfs -> handler().remoteFileExists(rfs) && saveShadedCopy(nodeGroup, rfs.fileSpec))
+        List<RemoteFileSpec> remoteFileSpecs = parseRemoteFileSpecs(nodeGroup);
+        RemoteFileHandler remoteFileHandler = buildRemoteFileHandler(remoteFileSpecs);
+        boolean filesExistWithLocalCopy = remoteFileSpecs.stream()
+            .map(rfs -> remoteFileHandler.remoteFileExists(rfs) && saveShadedCopy(nodeGroup, rfs.fileSpec))
             .reduce(Boolean::logicalAnd)
             .orElse(false);
 
@@ -176,14 +182,14 @@ public class RemoteFilesConfigurationManager extends ConfigurationManager
             NodeGroup.State.STARTED_SERVICES_UNCONFIGURED;
     }
 
-    private Stream<RemoteFileSpec> remoteFileSpecStream(NodeGroup nodeGroup)
+    private List<RemoteFileSpec> parseRemoteFileSpecs(NodeGroup nodeGroup)
     {
-        return remoteFileSpecStream(nodeGroup.getProperties());
+        return parseRemoteFileSpecs(nodeGroup.getProperties());
     }
 
-    private Stream<RemoteFileSpec> remoteFileSpecStream(PropertyGroup properties)
+    private List<RemoteFileSpec> parseRemoteFileSpecs(PropertyGroup properties)
     {
-        return filesSpec.value(properties).stream();
+        return filesSpec.value(properties);
     }
 
     @SuppressWarnings("unchecked")
@@ -216,7 +222,7 @@ public class RemoteFilesConfigurationManager extends ConfigurationManager
             nodeGroup.logger().error("Failed to create local copy of remote file: {}", path);
             return false;
         }
-        if (!handler().createRemoteFile(remoteFileSpec))
+        if (!buildRemoteFileHandler(nodeGroup).createRemoteFile(remoteFileSpec))
         {
             nodeGroup.logger().error("Failed to upload remote file: {}", path);
         }
@@ -240,9 +246,14 @@ public class RemoteFilesConfigurationManager extends ConfigurationManager
         return createLocalCopy(nodeGroup, fileSpec, localFilePath) && fileSpec.shadeLocalFile(nodeGroup, localFilePath);
     }
 
-    private RemoteFileHandler handler()
+    private RemoteFileHandler buildRemoteFileHandler(NodeGroup nodeGroup)
     {
-        List<RemoteFileSpec> remoteFileSpecs = remoteFileSpecStream(getNodeGroup()).collect(Collectors.toList());
+        List<RemoteFileSpec> remoteFileSpecs = parseRemoteFileSpecs(nodeGroup.getProperties());
+        return buildRemoteFileHandler(remoteFileSpecs);
+    }
+
+    private RemoteFileHandler buildRemoteFileHandler(List<RemoteFileSpec> remoteFileSpecs)
+    {
         return getNodeGroup().willHaveProvider(KubeControlProvider.class) ?
             new KubernetesRemoteFileHandler(remoteFileSpecs) :
             new SshRemoteFileHandler(remoteFileSpecs);
