@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.fallout.ops.utils;
+package com.datastax.fallout.util;
 
 import java.io.IOException;
 import java.io.InputStream;
