@@ -18,11 +18,9 @@ package com.datastax.fallout.util;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.Map;
 import java.util.Optional;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.CharStreams;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -40,12 +38,6 @@ import org.slf4j.LoggerFactory;
 public class HttpUtils
 {
     private static final Logger log = LoggerFactory.getLogger(HttpUtils.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    public static String toJson(Map<String, Object> entries) throws IOException
-    {
-        return OBJECT_MAPPER.writeValueAsString(entries);
-    }
 
     public static boolean httpPostJson(String uri, String jsonPayload)
     {
@@ -77,12 +69,12 @@ public class HttpUtils
             return Optional.empty();
         }
 
+        logger.info("Parsing response: " + jsonStr);
         try
         {
-            logger.info("Parsing response: " + jsonStr);
-            return Optional.of(OBJECT_MAPPER.readTree(jsonStr));
+            return Optional.of(JsonUtils.getJsonNode(jsonStr));
         }
-        catch (IOException e)
+        catch (Exception e)
         {
             logger.error("Failed to parse json response: " + jsonStr, e);
             return Optional.empty();
