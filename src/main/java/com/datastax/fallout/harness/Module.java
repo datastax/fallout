@@ -37,20 +37,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
 import io.netty.util.HashedWheelTimer;
 import jepsen.client.Client;
-import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.components.common.provider.FileProvider;
 import com.datastax.fallout.components.common.provider.ModuleEventRecorderProvider;
 import com.datastax.fallout.ops.Ensemble;
-import com.datastax.fallout.ops.FileSpec;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.PropertySpecBuilder;
 import com.datastax.fallout.ops.WritablePropertyGroup;
 import com.datastax.fallout.util.NamedThreadFactory;
+import com.datastax.fallout.util.NetworkUtils;
 
 import static com.datastax.fallout.harness.ClojureApi.conj;
 import static com.datastax.fallout.harness.ClojureApi.deref;
@@ -686,9 +685,7 @@ public abstract class Module implements Client, WorkloadComponent
         try
         {
             URL url = new URL(yamlUrl);
-            FileUtils.copyURLToFile(url, localTargetFile.toFile(),
-                FileSpec.UrlFileSpec.DOWNLOAD_FROM_URL_TIMEOUT_MILLIS,
-                FileSpec.UrlFileSpec.DOWNLOAD_FROM_URL_TIMEOUT_MILLIS);
+            NetworkUtils.downloadUrlToPath(url, localTargetFile);
         }
         catch (MalformedURLException mue)
         {

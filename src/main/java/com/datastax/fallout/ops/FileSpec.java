@@ -16,11 +16,9 @@
 package com.datastax.fallout.ops;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,6 +37,7 @@ import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
 import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.JsonUtils;
+import com.datastax.fallout.util.NetworkUtils;
 import com.datastax.fallout.util.YamlUtils;
 
 public abstract class FileSpec
@@ -291,8 +290,6 @@ public abstract class FileSpec
 
     public static class UrlFileSpec extends BytesBasedFile
     {
-        public static final int DOWNLOAD_FROM_URL_TIMEOUT_MILLIS = 60000;
-
         URL url;
 
         public UrlFileSpec(String path, Object val)
@@ -311,21 +308,7 @@ public abstract class FileSpec
 
         private static byte[] fetchBytesFromUrl(URL url)
         {
-            return Exceptions.getUncheckedIO(() -> {
-                URLConnection urlConnection = url.openConnection();
-                urlConnection.setConnectTimeout(DOWNLOAD_FROM_URL_TIMEOUT_MILLIS);
-                urlConnection.setReadTimeout(DOWNLOAD_FROM_URL_TIMEOUT_MILLIS);
-
-                try (InputStream inputStream = urlConnection.getInputStream())
-                {
-                    return inputStream.readAllBytes();
-                }
-            });
-        }
-
-        public static String fetchUtf8StringFromUrl(URL url)
-        {
-            return new String(fetchBytesFromUrl(url), StandardCharsets.UTF_8);
+            return Exceptions.getUncheckedIO(() -> NetworkUtils.downloadUrlAsBytes(url));
         }
 
         @Override
