@@ -31,7 +31,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Range;
 import io.netty.util.HashedWheelTimer;
 
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.runner.Artifacts;
 import com.datastax.fallout.service.core.PeriodicTask;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
@@ -40,6 +39,7 @@ import com.datastax.fallout.service.db.TestDAO;
 import com.datastax.fallout.service.db.TestRunDAO;
 import com.datastax.fallout.util.DateUtils;
 import com.datastax.fallout.util.Duration;
+import com.datastax.fallout.util.FileUtils;
 import com.datastax.fallout.util.ScopedLogger;
 
 public class ArtifactCompressor extends PeriodicTask

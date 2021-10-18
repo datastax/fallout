@@ -30,10 +30,10 @@ import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.PropertySpecBuilder;
 import com.datastax.fallout.ops.Provisioner;
 import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.runner.CheckResourcesResult;
 import com.datastax.fallout.service.core.TestRunIdentifier;
 import com.datastax.fallout.service.core.User;
+import com.datastax.fallout.util.FileUtils;
 import com.datastax.fallout.util.YamlUtils;
 
 @AutoService(Provisioner.class)

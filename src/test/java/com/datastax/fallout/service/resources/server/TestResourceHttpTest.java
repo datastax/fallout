@@ -35,7 +35,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import com.datastax.fallout.harness.EnsembleFalloutTest;
 import com.datastax.fallout.harness.TestDefinition;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.runner.Artifacts;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.core.Test;
@@ -43,6 +42,7 @@ import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.resources.FalloutAppExtension;
 import com.datastax.fallout.service.resources.RestApiBuilder;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.FileUtils;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.core.Fakes.TEST_NAME;

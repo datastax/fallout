@@ -34,8 +34,8 @@ import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.PropertySpecBuilder;
 import com.datastax.fallout.ops.Provider;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.service.FalloutClientBuilder;
+import com.datastax.fallout.util.FileUtils;
 
 @AutoService(ConfigurationManager.class)
 public class MetricsCollectionConfigurationManager extends ConfigurationManager

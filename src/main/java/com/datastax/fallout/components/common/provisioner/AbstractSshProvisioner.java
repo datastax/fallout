@@ -39,7 +39,7 @@ import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.Provider;
 import com.datastax.fallout.ops.Provisioner;
 import com.datastax.fallout.ops.commands.NodeResponse;
-import com.datastax.fallout.ops.utils.FileUtils;
+import com.datastax.fallout.util.FileUtils;
 
 import static com.datastax.fallout.components.common.provider.SshProvider.SSH_CONNECT_TIMEOUT;
 import static com.jcraft.jsch.ChannelSftp.SSH_FX_PERMISSION_DENIED;

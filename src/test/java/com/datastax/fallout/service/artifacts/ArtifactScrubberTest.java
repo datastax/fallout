@@ -28,7 +28,6 @@ import org.junit.jupiter.api.Test;
 
 import com.datastax.driver.core.Session;
 import com.datastax.fallout.TestHelpers;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.service.auth.SecurityUtil;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.db.CassandraDriverManager;
@@ -36,6 +35,7 @@ import com.datastax.fallout.service.db.TestRunDAO;
 import com.datastax.fallout.service.db.UserDAO;
 import com.datastax.fallout.service.db.UserGroupMapper;
 import com.datastax.fallout.util.Duration;
+import com.datastax.fallout.util.FileUtils;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.core.Fakes.TEST_NAME;

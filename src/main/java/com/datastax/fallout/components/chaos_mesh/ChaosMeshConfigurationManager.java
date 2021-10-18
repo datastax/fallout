@@ -35,9 +35,9 @@ import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.Provider;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.FileUtils;
 import com.datastax.fallout.util.ResourceUtils;
 
 import static com.datastax.fallout.components.kubernetes.HelmChartConfigurationManager.buildHelmInstallDebugSpec;

@@ -21,9 +21,9 @@ import java.util.UUID;
 
 import org.apache.commons.io.FilenameUtils;
 
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.service.db.UserGroupMapper;
 import com.datastax.fallout.test.utils.WithTestResources;
+import com.datastax.fallout.util.FileUtils;
 
 public class Fakes
 {

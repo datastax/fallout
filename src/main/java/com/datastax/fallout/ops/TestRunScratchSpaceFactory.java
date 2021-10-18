@@ -26,9 +26,9 @@ import com.google.common.io.MoreFiles;
 import com.google.common.io.RecursiveDeleteOption;
 
 import com.datastax.fallout.harness.ActiveTestRun;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.service.core.TestRunIdentifier;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.FileUtils;
 
 public class TestRunScratchSpaceFactory
 {

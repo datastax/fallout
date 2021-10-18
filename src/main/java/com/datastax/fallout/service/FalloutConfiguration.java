@@ -54,11 +54,11 @@ import io.dropwizard.server.DefaultServerFactory;
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
 import com.datastax.fallout.ops.JobFileLoggers;
 import com.datastax.fallout.ops.PropertyBasedComponent;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.runner.ResourceLimit;
 import com.datastax.fallout.service.auth.SecurityUtil;
 import com.datastax.fallout.service.core.GrafanaTenantUsageData;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.FileUtils;
 
 /**
  * Fallout configuration file

@@ -23,7 +23,7 @@ import java.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datastax.fallout.ops.utils.FileUtils;
+import com.datastax.fallout.util.FileUtils;
 
 public class TestOutputDir
 {

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.fallout.ops.utils;
+package com.datastax.fallout.util;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -39,8 +39,6 @@ import java.util.zip.ZipInputStream;
 
 import com.google.common.base.Verify;
 import org.slf4j.Logger;
-
-import com.datastax.fallout.util.Exceptions;
 
 public class FileUtils
 {

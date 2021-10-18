@@ -40,9 +40,9 @@ import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
 import com.datastax.fallout.ops.commands.NodeResponse;
 import com.datastax.fallout.ops.provisioner.NoRemoteAccessProvisioner;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.runner.CheckResourcesResult;
 import com.datastax.fallout.util.Duration;
+import com.datastax.fallout.util.FileUtils;
 import com.datastax.fallout.util.JsonUtils;
 import com.datastax.fallout.util.ResourceUtils;
 

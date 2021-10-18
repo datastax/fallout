@@ -46,7 +46,6 @@ import com.datastax.driver.core.Session;
 import com.datastax.fallout.LogbackConfigurator;
 import com.datastax.fallout.TestHelpers;
 import com.datastax.fallout.harness.TestRunStatusUpdatePublisher;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.FalloutServiceBase;
 import com.datastax.fallout.service.cli.FalloutQueueCommand;
@@ -59,6 +58,7 @@ import com.datastax.fallout.service.db.CassandraDriverManagerHelpers;
 import com.datastax.fallout.service.db.TestRunDAO;
 import com.datastax.fallout.test.utils.WithPersistentTestOutputDir;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.FileUtils;
 import com.datastax.fallout.util.component_discovery.MockingComponentFactory;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;

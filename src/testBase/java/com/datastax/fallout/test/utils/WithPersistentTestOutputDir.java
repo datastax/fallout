@@ -22,7 +22,7 @@ import java.util.Optional;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeAll;
 
-import com.datastax.fallout.ops.utils.FileUtils;
+import com.datastax.fallout.util.FileUtils;
 
 public abstract class WithPersistentTestOutputDir extends WithTestResources
 {

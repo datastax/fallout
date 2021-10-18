@@ -26,7 +26,7 @@ import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.PropertySpecBuilder;
-import com.datastax.fallout.ops.utils.FileUtils;
+import com.datastax.fallout.util.FileUtils;
 
 @AutoService(ConfigurationManager.class)
 public class KubernetesLogsConfigurationManager extends ConfigurationManager

@@ -28,7 +28,6 @@ import org.junit.jupiter.api.Tag;
 
 import com.datastax.driver.core.Session;
 import com.datastax.fallout.TestHelpers;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.runner.Artifacts;
 import com.datastax.fallout.service.core.Test;
 import com.datastax.fallout.service.core.TestRun;
@@ -36,6 +35,7 @@ import com.datastax.fallout.service.db.CassandraDriverManager;
 import com.datastax.fallout.service.db.TestDAO;
 import com.datastax.fallout.service.db.TestRunDAO;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.FileUtils;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.core.Fakes.TEST_NAME;

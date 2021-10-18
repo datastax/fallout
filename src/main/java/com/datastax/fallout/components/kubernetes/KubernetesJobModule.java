@@ -32,8 +32,8 @@ import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.PropertySpecBuilder;
 import com.datastax.fallout.ops.Utils;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.util.Duration;
+import com.datastax.fallout.util.FileUtils;
 import com.datastax.fallout.util.YamlUtils;
 
 import static com.datastax.fallout.components.common.spec.KubernetesDeploymentManifestSpec.buildNameSpaceSpec;

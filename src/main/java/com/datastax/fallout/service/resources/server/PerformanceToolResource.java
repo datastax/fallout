@@ -46,7 +46,6 @@ import java.util.stream.Collectors;
 import io.dropwizard.auth.Auth;
 
 import com.datastax.fallout.components.file_artifact_checkers.HdrHistogramChecker;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.service.core.PerformanceReport;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
@@ -59,6 +58,7 @@ import com.datastax.fallout.service.db.UserGroupMapper;
 import com.datastax.fallout.service.views.FalloutView;
 import com.datastax.fallout.service.views.LinkedTestRuns;
 import com.datastax.fallout.service.views.MainView;
+import com.datastax.fallout.util.FileUtils;
 
 import static com.datastax.fallout.service.resources.server.AccountResource.EMAIL_PATTERN;
 import static com.datastax.fallout.service.views.LinkedTestRuns.TableDisplayOption;

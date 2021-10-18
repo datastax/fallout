@@ -35,9 +35,9 @@ import com.datastax.fallout.components.common.provider.NodeInfoProvider;
 import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
 import com.datastax.fallout.ops.commands.NodeCommandExecutor;
 import com.datastax.fallout.ops.commands.NodeResponse;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.FileUtils;
 
 /**
  * Represents a machine/container

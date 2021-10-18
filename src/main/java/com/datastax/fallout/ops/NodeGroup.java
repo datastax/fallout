@@ -49,9 +49,9 @@ import com.datastax.fallout.ops.TestRunScratchSpaceFactory.LocalScratchSpace;
 import com.datastax.fallout.ops.commands.NodeCommandExecutor;
 import com.datastax.fallout.ops.commands.NodeResponse;
 import com.datastax.fallout.ops.provisioner.NoRemoteAccessProvisioner;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.runner.CheckResourcesResult;
 import com.datastax.fallout.util.Duration;
+import com.datastax.fallout.util.FileUtils;
 
 import static com.datastax.fallout.ops.NodeGroup.State.*;
 import static com.datastax.fallout.ops.NodeGroup.State.TransitionDirection.DOWN;

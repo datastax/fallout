@@ -45,7 +45,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import com.datastax.fallout.TestHelpers;
-import com.datastax.fallout.ops.utils.FileUtils;
 import com.datastax.fallout.runner.Artifacts;
 import com.datastax.fallout.service.cli.GenerateNginxConf.NginxConfParams;
 import com.datastax.fallout.service.core.TestRun;
@@ -54,6 +53,7 @@ import com.datastax.fallout.service.resources.RestApiBuilder;
 import com.datastax.fallout.service.views.FalloutView;
 import com.datastax.fallout.test.utils.WithPersistentTestOutputDir;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.FileUtils;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.artifacts.ArtifactServlet.COMPRESSED_RANGE_REQUEST_ERROR_MESSAGE;
