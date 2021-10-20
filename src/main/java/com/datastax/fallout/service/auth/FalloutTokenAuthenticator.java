@@ -54,7 +54,7 @@ public class FalloutTokenAuthenticator implements Authenticator<String, User>
             {
                 String userId = session.getUserId();
                 User user = userDao.getUser(userId);
-                logger.info("Logged in user: " + userId + " (" + user + ")");
+                logger.info("Logged in user: " + userId + " (" + user.getEmail() + ")");
                 return Optional.of(user);
             }
 
