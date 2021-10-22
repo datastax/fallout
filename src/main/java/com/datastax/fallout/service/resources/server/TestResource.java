@@ -181,7 +181,6 @@ public class TestResource
     @Consumes("application/yaml")
     public Response createTestApi(@Auth User user, @PathParam("name") String name, String yaml)
     {
-        UUID testId = UUID.randomUUID();
         String userEmail = user.getEmail();
 
         //Not sure we need LWT here so keeping it simple
@@ -1209,10 +1208,8 @@ public class TestResource
     private void writeArtifactsAsZipToStream(OutputStream outputStream, String email, String name, String testRunId)
     {
         TestRun testRun = testRunDAO.getEvenIfDeleted(email, name, UUID.fromString(testRunId));
-        ZipOutputStream zipOutputStream = null;
-        try
+        try (ZipOutputStream zipOutputStream = new ZipOutputStream(outputStream))
         {
-            zipOutputStream = new ZipOutputStream(outputStream);
             String artifactPath = configuration.getArtifactPath();
             for (String artifact : Artifacts.findTestRunArtifacts(configuration, testRun).keySet())
             {
@@ -1229,10 +1226,6 @@ public class TestResource
         {
             logger.error("Could not create zip file", e);
             throw new WebApplicationException("Could not create zip file", Response.Status.INTERNAL_SERVER_ERROR);
-        }
-        finally
-        {
-            IOUtils.closeQuietly(zipOutputStream);
         }
     }
 

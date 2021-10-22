@@ -61,29 +61,30 @@ public class ArtifactUsageAdminTask extends Task
 
         headers.add("size");
 
-        final var csvOutput = new CSVPrinter(output,
-            CSVFormat.DEFAULT.withHeader(headers.toArray(new String[] {})));
-
-        testRuns.forEach(testRun -> {
-            if (includeFiles)
-            {
-                testRun.getArtifacts().forEach((artifact, size) -> {
-                    final var path = Paths.get(artifact);
+        try (CSVPrinter csvOutput =
+            new CSVPrinter(output, CSVFormat.DEFAULT.withHeader(headers.toArray(new String[] {}))))
+        {
+            testRuns.forEach(testRun -> {
+                if (includeFiles)
+                {
+                    testRun.getArtifacts().forEach((artifact, size) -> {
+                        final var path = Paths.get(artifact);
+                        Exceptions.runUncheckedIO(() -> csvOutput
+                            .printRecord(testRun instanceof DeletedTestRun,
+                                testRun.getOwner(), testRun.getTestName(), testRun.getTestRunId(),
+                                Optional.ofNullable(testRun.getFinishedAt()).map(Date::toInstant).orElse(null),
+                                path.getParent(), path.getFileName(), size));
+                    });
+                }
+                else
+                {
                     Exceptions.runUncheckedIO(() -> csvOutput
                         .printRecord(testRun instanceof DeletedTestRun,
                             testRun.getOwner(), testRun.getTestName(), testRun.getTestRunId(),
                             Optional.ofNullable(testRun.getFinishedAt()).map(Date::toInstant).orElse(null),
-                            path.getParent(), path.getFileName(), size));
-                });
-            }
-            else
-            {
-                Exceptions.runUncheckedIO(() -> csvOutput
-                    .printRecord(testRun instanceof DeletedTestRun,
-                        testRun.getOwner(), testRun.getTestName(), testRun.getTestRunId(),
-                        Optional.ofNullable(testRun.getFinishedAt()).map(Date::toInstant).orElse(null),
-                        testRun.getArtifactsSizeBytes().orElse(0L)));
-            }
-        });
+                            testRun.getArtifactsSizeBytes().orElse(0L)));
+                }
+            });
+        }
     }
 }

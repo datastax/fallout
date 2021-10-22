@@ -15,9 +15,7 @@
  */
 package com.datastax.fallout.util;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
@@ -34,31 +32,24 @@ public class ResourceUtils
         // utility class
     }
 
+    public static byte[] readBytesFromResourceUrl(URL resourceUrl)
+    {
+        return Exceptions.getUncheckedIO(() -> Resources.toByteArray(resourceUrl));
+    }
+
     public static Optional<byte[]> loadResource(Object context, String resourceName)
     {
         Class clazz = context.getClass();
-        InputStream maybeInputStream = clazz.getClassLoader().getResourceAsStream(resourceName);
+        URL maybeResourceUrl = clazz.getClassLoader().getResource(resourceName);
         //Try with package namespace
-        if (maybeInputStream == null)
+        if (maybeResourceUrl == null)
         {
             String p = clazz.getPackage().getName();
             String prefix = String.join(File.separator, p.split("\\."));
-            maybeInputStream = clazz.getClassLoader()
-                .getResourceAsStream(String.format("%s%s%s", prefix, File.separator, resourceName));
+            maybeResourceUrl = clazz.getClassLoader()
+                .getResource(String.format("%s%s%s", prefix, File.separator, resourceName));
         }
-        if (maybeInputStream == null)
-        {
-            return Optional.empty();
-        }
-        InputStream inputStream = maybeInputStream;
-        return Exceptions.getUncheckedIO(() -> {
-            ByteArrayOutputStream bao = new ByteArrayOutputStream();
-            while (inputStream.available() > 0)
-            {
-                bao.write(inputStream.read());
-            }
-            return Optional.of(bao.toByteArray());
-        });
+        return Optional.ofNullable(maybeResourceUrl).map(ResourceUtils::readBytesFromResourceUrl);
     }
 
     public static Optional<String> loadResourceAsString(Object context, String resourceName)
@@ -86,7 +77,7 @@ public class ResourceUtils
                 pathConsumer.accept(entryPath);
             }
         }
-
+        Exceptions.runUncheckedIO(jarFile::close);
     }
 
     private static void walkFileResourceTree(String path, File resourceFile, Consumer<String> pathConsumer)
@@ -107,10 +98,9 @@ public class ResourceUtils
     public static void walkResourceTree(Class<?> clazz, String path, BiConsumer<String, byte[]> pathAndContentConsumer)
     {
         final Consumer<String> pathConsumer = path_ -> pathAndContentConsumer.accept(path_,
-            Exceptions.getUncheckedIO(() -> Resources.toByteArray(clazz.getResource(path_))));
+            readBytesFromResourceUrl(clazz.getResource(path_)));
 
         final var resourceUrl = clazz.getResource(path);
-
         if (resourceUrl.getProtocol().equals("jar"))
         {
             walkJarResourceTree(path, resourceUrl, pathConsumer);

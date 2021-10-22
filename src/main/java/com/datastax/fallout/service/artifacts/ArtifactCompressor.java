@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Range;
@@ -137,12 +138,14 @@ public class ArtifactCompressor extends PeriodicTask
                 logger.warn("Artifact path {} for {} does not exist; skipping", artifactPath, testRunInfo(testRun));
                 return;
             }
-            List<Path> uncompressedArtifacts = Files
-                .find(artifactPath, 10,
-                    (path, attr) -> !attr.isDirectory() &&
-                        !INCOMPRESSIBLE_FILE_EXTENSIONS
-                            .contains(com.google.common.io.Files.getFileExtension(path.toString())))
-                .collect(Collectors.toList());
+            List<Path> uncompressedArtifacts;
+            try (Stream<Path> pathStream = Files.find(artifactPath, 10,
+                (path, attr) -> !attr.isDirectory() &&
+                    !INCOMPRESSIBLE_FILE_EXTENSIONS
+                        .contains(com.google.common.io.Files.getFileExtension(path.toString()))))
+            {
+                uncompressedArtifacts = pathStream.collect(Collectors.toList());
+            }
 
             if (uncompressedArtifacts.isEmpty())
             {

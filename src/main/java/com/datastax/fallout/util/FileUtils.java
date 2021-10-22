@@ -68,9 +68,9 @@ public class FileUtils
     public static List<Path> getSortedLogList(Path logPath, String fileName, Logger logger, Path outputDir)
     {
         List<Path> logsInPath = null;
-        try
+        try (Stream<Path> pathStream = Files.walk(logPath))
         {
-            logsInPath = Files.walk(logPath).filter(f -> f.endsWith(fileName)).collect(Collectors.toList());
+            logsInPath = pathStream.filter(f -> f.endsWith(fileName)).collect(Collectors.toList());
         }
         catch (IOException e)
         {
@@ -89,9 +89,9 @@ public class FileUtils
     {
         List<Path> zippedLogsInPath = null;
         List<Path> unzippedLogs = new ArrayList<>();
-        try
+        try (Stream<Path> pathStream = Files.walk(logPath))
         {
-            zippedLogsInPath = Files.walk(logPath)
+            zippedLogsInPath = pathStream
                 .filter(f -> f.toString().toLowerCase().contains(fileName))
                 .filter(f -> f.toString().toLowerCase().contains(".zip"))
                 .collect(Collectors.toList());
@@ -104,9 +104,8 @@ public class FileUtils
         Verify.verifyNotNull(zippedLogsInPath);
         for (Path filePath : zippedLogsInPath)
         {
-            try
+            try (ZipFile zipFile = new ZipFile(filePath.toString()))
             {
-                ZipFile zipFile = new ZipFile(filePath.toString());
                 if (zipFile.size() > 1)
                 {
                     throw new IOException(
@@ -137,9 +136,8 @@ public class FileUtils
     public static void unzipArchive(Path archive, Path output, Logger logger)
     {
         // taken largely from https://www.baeldung.com/java-compress-and-uncompress
-        try
+        try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(archive.toFile())))
         {
-            ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(archive.toFile()));
             ZipEntry zipEntry = zipInputStream.getNextEntry();
             byte[] buffer = new byte[1024];
             while (zipEntry != null)

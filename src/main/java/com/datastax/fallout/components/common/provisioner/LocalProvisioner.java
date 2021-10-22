@@ -338,10 +338,8 @@ public class LocalProvisioner extends Provisioner implements Provisioner.SingleN
     public CompletableFuture<Boolean> put(Node node, InputStream inputStream, String remotePath, int permissions)
     {
         return CompletableFuture.supplyAsync(() -> {
-            try
+            try (OutputStream outputStream = new FileOutputStream(remotePath))
             {
-                OutputStream outputStream = new FileOutputStream(new File(remotePath));
-
                 byte[] buffer = new byte[1024]; // Adjust if you want
                 int bytesRead;
 

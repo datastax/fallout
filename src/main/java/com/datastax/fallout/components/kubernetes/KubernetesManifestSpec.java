@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.datastax.fallout.components.common.provider.FileProvider;
 import com.datastax.fallout.components.common.spec.SpecUtils;
@@ -125,12 +126,17 @@ public class KubernetesManifestSpec
             .orElse(managedSourceFile);
     }
 
-    private String joinYamlFilesInDirectory(Path parentDirectory)
+    private static String joinYamlFilesInDirectory(Path parentDirectory)
     {
-        List<Path> yamlsInDir = Exceptions.getUncheckedIO(() -> Files.walk(parentDirectory, 1)
-            .filter(p -> !p.equals(parentDirectory))
-            .filter(p -> p.toString().endsWith(".yaml"))
-            .collect(Collectors.toList()));
+        List<Path> yamlsInDir = Exceptions.getUncheckedIO(() -> {
+            try (Stream<Path> pathStream = Files.walk(parentDirectory, 1))
+            {
+                return pathStream
+                    .filter(p -> !p.equals(parentDirectory))
+                    .filter(p -> p.toString().endsWith(".yaml"))
+                    .collect(Collectors.toList());
+            }
+        });
 
         return yamlsInDir.stream()
             .map(FileUtils::readString)

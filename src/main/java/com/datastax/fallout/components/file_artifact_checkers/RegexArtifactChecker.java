@@ -142,10 +142,9 @@ public class RegexArtifactChecker extends ArtifactChecker
         Path nodeGroupArtifactsRoot)
     {
         final var matches = fileRegex.value(getProperties()).asMatchPredicate();
-
-        try
+        try (Stream<Path> pathStream = Files.walk(nodeGroupArtifactsRoot, FileVisitOption.FOLLOW_LINKS))
         {
-            return Files.walk(nodeGroupArtifactsRoot, FileVisitOption.FOLLOW_LINKS)
+            return pathStream
                 .map(nodeGroupArtifactsRoot::relativize)
                 .filter(path -> matches.test(path.toString()))
                 .map(path -> rootArtifactLocation.relativize(nodeGroupArtifactsRoot.resolve(path)))

@@ -196,4 +196,11 @@ public class MetricsCollectionConfigurationManager extends ConfigurationManager
         Path metricsArtifactsPath = StableMetricsThresholdArtifactChecker.getMetricsArtifactsPath(getNodeGroup());
         FileUtils.createDirs(metricsArtifactsPath);
     }
+
+    @Override
+    public void close()
+    {
+        super.close();
+        httpClient.close();
+    }
 }

@@ -21,6 +21,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Stream;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -85,10 +86,14 @@ public class CsvArtifactChecker extends ArtifactChecker
         logger().info("Validating CSV files in {}", rootArtifactLocation);
         try
         {
-            List<Pair<String, File>> matchingFiles = Files.walk(rootArtifactLocation)
-                .filter(this::fileNameMatchesFilter)
-                .map(this::toPair)
-                .collect(toList());
+            List<Pair<String, File>> matchingFiles;
+            try (Stream<Path> pathStream = Files.walk(rootArtifactLocation))
+            {
+                matchingFiles = pathStream
+                    .filter(this::fileNameMatchesFilter)
+                    .map(this::toPair)
+                    .collect(toList());
+            }
             return csvCheck.checkQueryAgainst(matchingFiles, getProperties());
         }
         catch (IOException e)
