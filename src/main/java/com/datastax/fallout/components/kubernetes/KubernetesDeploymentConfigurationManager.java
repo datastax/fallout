@@ -15,7 +15,6 @@
  */
 package com.datastax.fallout.components.kubernetes;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
@@ -28,7 +27,6 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import com.google.common.base.Preconditions;
-import com.google.common.io.Resources;
 
 import com.datastax.fallout.components.common.spec.KubernetesDeploymentManifestSpec;
 import com.datastax.fallout.ops.ConfigurationManager;
@@ -40,8 +38,8 @@ import com.datastax.fallout.ops.PropertySpecBuilder;
 import com.datastax.fallout.ops.Provider;
 import com.datastax.fallout.ops.Utils;
 import com.datastax.fallout.util.Duration;
-import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.FileUtils;
+import com.datastax.fallout.util.ResourceUtils;
 
 import static com.datastax.fallout.components.kubernetes.AbstractKubernetesProvisioner.DNS1123;
 import static com.datastax.fallout.components.kubernetes.KubernetesManifestConfigurationManager.applyAndWaitForManifest;
@@ -178,9 +176,7 @@ public abstract class KubernetesDeploymentConfigurationManager extends Configura
 
     private String getDeploymentTemplate()
     {
-        return Exceptions.getUncheckedIO(() -> Resources.toString(
-            Resources.getResource(KubernetesDeploymentConfigurationManager.class, template),
-            StandardCharsets.UTF_8));
+        return ResourceUtils.readResourceAsString(KubernetesDeploymentConfigurationManager.class, template);
     }
 
     private Path getDeploymentArtifact()

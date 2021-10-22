@@ -58,6 +58,12 @@ public class ResourceUtils
             .map(byteArray -> new String(byteArray, StandardCharsets.UTF_8));
     }
 
+    public static String readResourceAsString(Class<?> contextClass, String resourceName)
+    {
+        return Exceptions.getUncheckedIO(
+            () -> Resources.toString(Resources.getResource(contextClass, resourceName), StandardCharsets.UTF_8));
+    }
+
     private static void walkJarResourceTree(String path, URL resourceUrl, Consumer<String> pathConsumer)
     {
         final var jarAndResourcePath = resourceUrl.getPath().split("!", 2);

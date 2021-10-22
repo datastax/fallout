@@ -15,9 +15,6 @@
  */
 package com.datastax.fallout.harness;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -33,8 +30,6 @@ import java.util.stream.Stream;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Charsets;
-import com.google.common.io.Resources;
 import org.apache.commons.io.FilenameUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.Logger;
@@ -52,6 +47,7 @@ import com.datastax.fallout.service.core.Fakes;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.ResourceUtils;
 import com.datastax.fallout.util.component_discovery.MockingComponentFactory;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
@@ -93,16 +89,8 @@ public abstract class EnsembleFalloutTest<FC extends FalloutConfiguration> exten
         {
             path = "/" + path;
         }
-        try
-        {
-            logger.info("Loading YAML from " + path);
-            URL url = EnsembleFalloutTest.class.getResource(path);
-            return Resources.toString(url, Charsets.UTF_8);
-        }
-        catch (IOException e)
-        {
-            throw new UncheckedIOException(e);
-        }
+        logger.info("Loading YAML from " + path);
+        return ResourceUtils.readResourceAsString(EnsembleFalloutTest.class, path);
     }
 
     public String readYamlFile(String path)

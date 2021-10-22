@@ -15,13 +15,10 @@
  */
 package com.datastax.fallout.test.utils;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 
-import com.google.common.io.Resources;
-
-import com.datastax.fallout.util.Exceptions;
+import com.datastax.fallout.util.ResourceUtils;
 
 public abstract class WithTestResources extends WithTestNames
 {
@@ -49,9 +46,6 @@ public abstract class WithTestResources extends WithTestNames
         Collections.reverse(enclosingClasses);
 
         final String classBasedResourcePath = String.join("/", enclosingClasses) + "/" + path;
-
-        return Exceptions.getUncheckedIO(() -> Resources.toString(
-            Resources.getResource(testClass, classBasedResourcePath),
-            StandardCharsets.UTF_8));
+        return ResourceUtils.readResourceAsString(testClass, classBasedResourcePath);
     }
 }
