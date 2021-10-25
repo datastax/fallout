@@ -17,6 +17,7 @@ package com.datastax.fallout.util;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
@@ -50,5 +51,17 @@ public class NetworkUtils
     public static String downloadUrlAsString(URL url) throws IOException
     {
         return new String(downloadUrlAsBytes(url), StandardCharsets.UTF_8);
+    }
+
+    public static URL parseUrl(String url)
+    {
+        try
+        {
+            return new URL(url);
+        }
+        catch (MalformedURLException e)
+        {
+            throw new IllegalArgumentException("Not a valid url: " + url, e);
+        }
     }
 }
