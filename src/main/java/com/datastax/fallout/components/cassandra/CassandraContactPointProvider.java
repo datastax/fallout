@@ -20,20 +20,14 @@ import com.datastax.fallout.ops.Node;
 
 public class CassandraContactPointProvider extends ServiceContactPointProvider
 {
-
     public CassandraContactPointProvider(Node node, String contactPoint)
     {
-        super(node, contactPoint, "cassandra");
+        this(node, contactPoint, "cassandra");
     }
 
     protected CassandraContactPointProvider(Node node, String contactPoint, String serviceName)
     {
         super(node, contactPoint, serviceName);
-    }
-
-    protected CassandraContactPointProvider(Node node, String contactPoint, String serviceName, boolean autoRegister)
-    {
-        super(node, contactPoint, serviceName, autoRegister);
     }
 
     @Override

@@ -30,13 +30,6 @@ public class ServiceContactPointProvider extends Provider
         this.serviceName = serviceName;
     }
 
-    protected ServiceContactPointProvider(Node node, String contactPoint, String serviceName, boolean autoRegister)
-    {
-        super(node, autoRegister);
-        this.contactPoint = contactPoint;
-        this.serviceName = serviceName;
-    }
-
     @Override
     public String name()
     {

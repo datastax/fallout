@@ -36,6 +36,7 @@ import io.netty.util.HashedWheelTimer;
 import org.apache.commons.io.FilenameUtils;
 
 import com.datastax.fallout.components.common.spec.KubernetesDeploymentManifestSpec;
+import com.datastax.fallout.exceptions.InvalidConfigurationException;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.Provider;
 import com.datastax.fallout.ops.Utils;
@@ -48,6 +49,7 @@ import com.datastax.fallout.util.JsonUtils;
 import com.datastax.fallout.util.NamedThreadFactory;
 import com.datastax.fallout.util.ScopedLogger;
 
+import static com.datastax.fallout.components.kubernetes.AbstractKubernetesProvisioner.DNS1123;
 import static com.datastax.fallout.service.core.User.DockerRegistryCredential;
 
 public class KubeControlProvider extends Provider
@@ -571,14 +573,24 @@ public class KubeControlProvider extends Provider
             return kubernetesProvisioner.executeInKubernetesEnv(addRepoCommand).waitForSuccess();
         }
 
+        private void validateConfigMapName(String name)
+        {
+            if (!DNS1123.matcher(name).matches())
+            {
+                throw new InvalidConfigurationException("Unsupported kubernetes config map name:" + name);
+            }
+        }
+
         public boolean createConfigMap(String name, Path sourceFile)
         {
+            validateConfigMapName(name);
             return execute(String.format("create configmap %s --from-file=%s", name, sourceFile.toAbsolutePath()))
                 .waitForSuccess();
         }
 
         public boolean createConfigMap(String name, Map<String, String> data)
         {
+            validateConfigMapName(name);
             String literals = data.entrySet().stream()
                 .map(e -> String.format("--from-literal=%s=%s", e.getKey(), e.getValue()))
                 .collect(Collectors.joining(" "));
