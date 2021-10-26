@@ -17,6 +17,7 @@ package com.datastax.fallout.components.flamegraph;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -129,7 +130,7 @@ public class FlamegraphModule extends Module
             List<FlamegraphProvider> providerList = ensemble.getUniqueNodeGroupInstances().stream()
                 .flatMap(g -> g.getNodes().stream())
                 .map(n -> n.maybeGetProvider(FlamegraphProvider.class))
-                .filter(o -> o.isPresent()).map(o -> o.get())
+                .flatMap(Optional::stream)
                 .collect(Collectors.toList());
             if (providerList.isEmpty())
             {

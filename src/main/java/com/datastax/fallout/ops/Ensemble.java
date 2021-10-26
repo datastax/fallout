@@ -343,8 +343,7 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
     {
         return ResourceRequirement.reducedResourceRequirements(getUniqueNodeGroupInstances().stream()
             .map(NodeGroup::getResourceRequirements)
-            .filter(Optional::isPresent)
-            .map(Optional::get));
+            .flatMap(Optional::stream));
     }
 
     public void summarizeInfo(InfoConsumer infoConsumer)

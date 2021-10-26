@@ -225,8 +225,7 @@ public abstract class RepeatableNodeCommandModule<CP extends Provider> extends M
     {
         List<CP> providers = targetNodes.stream()
             .map(n -> n.maybeGetProvider(commandProviderClass))
-            .filter(Optional::isPresent)
-            .map(Optional::get)
+            .flatMap(Optional::stream)
             .collect(Collectors.toList());
 
         if (providers.size() != targetNodes.size())
