@@ -149,13 +149,12 @@ public class NoSqlBenchModule extends Module
     @Override
     public void validateEnsemble(EnsembleValidator validator)
     {
-        clientPods =
-            validator.nodeGroupWillHaveProvider(clientGroupSpec.getNodeGroupSpec(), NoSqlBenchPodProvider.class);
+        clientPods = validator.nodeGroupWillHaveProvider(clientGroupSpec, NoSqlBenchPodProvider.class);
         if (clientPods)
         {
             // client pods and server pods have to run on the same k8s cluster nodegroup
-            Optional<NodeGroup> clientGroup = validator.getNodeGroup(clientGroupSpec.getNodeGroupSpec());
-            Optional<NodeGroup> serverGroup = validator.getNodeGroup(serverGroupSpec.getNodeGroupSpec());
+            Optional<NodeGroup> clientGroup = validator.getNodeGroup(clientGroupSpec);
+            Optional<NodeGroup> serverGroup = validator.getNodeGroup(serverGroupSpec);
             if (clientGroup.isEmpty() || serverGroup.isEmpty() || !clientGroup.get().equals(serverGroup.get()))
             {
                 validator.addValidationError("client and server groups must be the same nodegroup");
