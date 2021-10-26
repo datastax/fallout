@@ -54,6 +54,11 @@ public class EnsembleValidator
         return ensemble;
     }
 
+    public Optional<NodeGroup> getNodeGroup(NodeSelectionSpec nodeSelection)
+    {
+        return getNodeGroup(nodeSelection.getNodeGroupSpec());
+    }
+
     public Optional<NodeGroup> getNodeGroup(PropertySpec<String> nodeGroupSpec)
     {
         String nodeGroupAlias = nodeGroupSpec.value(properties);
@@ -139,6 +144,12 @@ public class EnsembleValidator
                     nodeGroup.getId(), selectingProp, Arrays.toString(providerClasses), satisfiedProviders));
             }
         });
+    }
+
+    public boolean nodeGroupWillHaveProvider(NodeSelectionSpec nodeSelection,
+        Class<? extends Provider> providerClass)
+    {
+        return nodeGroupWillHaveProvider(nodeSelection.getNodeGroupSpec(), providerClass);
     }
 
     public boolean nodeGroupWillHaveProvider(PropertySpec<String> nodeGroupSpec,

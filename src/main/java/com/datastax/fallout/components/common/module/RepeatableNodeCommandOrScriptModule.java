@@ -53,7 +53,7 @@ public abstract class RepeatableNodeCommandOrScriptModule<CP extends Provider> e
         else if (downloadPrefixes.stream().anyMatch(command::startsWith))
         {
             executeScript = true;
-            NodeGroup nodeGroup = ensemble.getServerGroup(super.getNodesSpec().getNodeGroupSpec(), properties);
+            NodeGroup nodeGroup = ensemble.getServerGroup(getNodesSpec().getNodeGroupSpec(), properties);
             scriptDestination =
                 nodeGroup.findFirstNodeWithRequiredProvider(getCommandProviderClass()).getRemoteScratchPath() +
                     "/" +
