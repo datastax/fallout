@@ -153,9 +153,10 @@ public class GitClone
         // Check if branch is actually a SHA
         if (optionalBranch.isPresent() && GIT_SHA_PATTERN.matcher(optionalBranch.get()).matches())
         {
+            // NB: this command _must_ be powershell compatibly: `&&` is not allowed!
             // Since we are checking out a SHA, we cannot do a shallow clone.
             // Also, we have to perform a separate checkout command.
-            String command = String.format("git clone %s %s && cd %s && git checkout %s && git rev-parse HEAD",
+            String command = String.format("git clone %s %s; cd %s; git checkout %s; git rev-parse HEAD",
                 repository, cloneDirectory, cloneDirectory, optionalBranch.get());
 
             return command;
@@ -164,8 +165,9 @@ public class GitClone
         String depth = shallow ? " --depth=1" : "";
         String branchArg = optionalBranch.isPresent() ? String.format("--branch %s", optionalBranch.get()) : "";
 
+        // NB: this command _must_ be powershell compatibly: `&&` is not allowed!
         return String
-            .format("git clone %s %s %s %s && cd %s && git rev-parse HEAD",
+            .format("git clone %s %s %s %s; cd %s; git rev-parse HEAD",
                 depth, repository, branchArg, cloneDirectory, cloneDirectory);
     }
 
