@@ -17,11 +17,9 @@ package com.datastax.fallout.util;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.Optional;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.io.CharStreams;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -93,8 +91,10 @@ public class HttpUtils
                 throw new IOException(
                     "HTTP Get request failed with " + code + ":  " + rawResponse.getStatusLine().getReasonPhrase());
             }
-            InputStream is = rawResponse.getEntity().getContent();
-            return CharStreams.toString(new InputStreamReader(is));
+            try (var inputStream = rawResponse.getEntity().getContent())
+            {
+                return FileUtils.readString(inputStream);
+            }
         }
     }
 }

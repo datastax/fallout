@@ -22,6 +22,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -38,6 +39,7 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
 import com.google.common.base.Verify;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 
 public class FileUtils
@@ -133,13 +135,12 @@ public class FileUtils
         return unzippedLogs;
     }
 
-    public static void unzipArchive(Path archive, Path output, Logger logger)
+    public static boolean unzipArchive(Path archive, Path output, Logger logger)
     {
         // taken largely from https://www.baeldung.com/java-compress-and-uncompress
         try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(archive.toFile())))
         {
             ZipEntry zipEntry = zipInputStream.getNextEntry();
-            byte[] buffer = new byte[1024];
             while (zipEntry != null)
             {
                 File newFile = new File(output.toFile(), zipEntry.getName());
@@ -160,13 +161,10 @@ public class FileUtils
                     }
 
                     // write file content
-                    FileOutputStream fos = new FileOutputStream(newFile);
-                    int len;
-                    while ((len = zipInputStream.read(buffer)) > 0)
+                    try (var fos = new FileOutputStream(newFile))
                     {
-                        fos.write(buffer, 0, len);
+                        IOUtils.copy(zipInputStream, fos);
                     }
-                    fos.close();
                 }
                 zipEntry = zipInputStream.getNextEntry();
             }
@@ -174,7 +172,31 @@ public class FileUtils
         catch (IOException e)
         {
             logger.error(String.format("Failed to unzip archive %s.", archive), e);
+            return false;
         }
+        return true;
+    }
+
+    public static String readFileFromZipAsString(Path zipFilePath, String fileName) throws IOException
+    {
+        ZipFile zipFile = new ZipFile(zipFilePath.toFile());
+        Enumeration<? extends ZipEntry> entries = zipFile.entries();
+        List<String> seenEntries = new ArrayList<>();
+        while (entries.hasMoreElements())
+        {
+            ZipEntry entry = entries.nextElement();
+            if (entry.getName().equals(fileName))
+            {
+                try (InputStream stream = zipFile.getInputStream(entry))
+                {
+                    return readString(stream);
+                }
+            }
+            seenEntries.add(entry.getName());
+        }
+        throw new IOException(
+            fileName + " was not found in zip file " + zipFilePath + " with contents:\n" + String.join("\n",
+                seenEntries));
     }
 
     public static List<String> concatenateBigLog(List<Path> logList, Logger logger)
@@ -223,5 +245,10 @@ public class FileUtils
     public static String readString(Path file)
     {
         return Exceptions.getUncheckedIO(() -> Files.readString(file));
+    }
+
+    public static String readString(InputStream inputStream)
+    {
+        return Exceptions.getUncheckedIO(() -> new String(inputStream.readAllBytes(), StandardCharsets.UTF_8));
     }
 }
