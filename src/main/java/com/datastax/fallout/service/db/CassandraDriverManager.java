@@ -19,6 +19,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -198,13 +200,16 @@ public class CassandraDriverManager implements Managed
     {
         try
         {
-            InputStream cql = CassandraDriverManager.class.getClassLoader().getResourceAsStream("schema.cql");
-            if (cql == null)
+            URL cqlSchema = CassandraDriverManager.class.getClassLoader().getResource("schema.cql");
+            if (cqlSchema == null)
             {
                 throw new RuntimeException("Missing schema cql file.");
             }
 
-            executeCqlFile(new InputStreamReader(cql));
+            try (InputStream schemaStream = cqlSchema.openStream())
+            {
+                executeCqlFile(new InputStreamReader(schemaStream, StandardCharsets.UTF_8));
+            }
         }
         catch (Exception e)
         {

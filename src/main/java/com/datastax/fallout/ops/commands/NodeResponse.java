@@ -20,6 +20,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -490,9 +491,13 @@ public abstract class NodeResponse
         try
         {
             streams = new Context[] {
-                new Context(new BufferedReader(new InputStreamReader(getOutputStream())), waitOptions.stdoutConsumer,
+                new Context(
+                    new BufferedReader(new InputStreamReader(getOutputStream(), StandardCharsets.UTF_8)),
+                    waitOptions.stdoutConsumer,
                     "STDOUT"),
-                new Context(new BufferedReader(new InputStreamReader(getErrorStream())), waitOptions.stderrConsumer,
+                new Context(
+                    new BufferedReader(new InputStreamReader(getErrorStream(), StandardCharsets.UTF_8)),
+                    waitOptions.stderrConsumer,
                     "STDERR")
             };
         }

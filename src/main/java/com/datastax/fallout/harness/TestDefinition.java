@@ -15,21 +15,18 @@
  */
 package com.datastax.fallout.harness;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.Pair;
 
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
 import com.datastax.fallout.util.MustacheFactoryWithoutHTMLEscaping;
+import com.datastax.fallout.util.NetworkUtils;
 import com.datastax.fallout.util.YamlUtils;
 
 import static com.datastax.fallout.util.YamlUtils.loadYaml;
@@ -100,15 +97,14 @@ public class TestDefinition
         String result;
         try
         {
-            result = new BufferedReader(new InputStreamReader(yaml_url.openStream(), StandardCharsets.UTF_8))
-                .lines().collect(Collectors.joining("\n"));
+            result = NetworkUtils.downloadUrlAsString(yaml_url);
         }
         catch (IOException e)
         {
             throw new InvalidConfigurationException("Could not read a valid test yaml from the provided yaml_url.", e);
         }
 
-        result = String.format("# Imported from yaml_url: %s\n", yaml_url.toString()) + result;
+        result = String.format("# Imported from yaml_url: %s\n", yaml_url) + result;
         return result;
     }
 }

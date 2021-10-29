@@ -15,8 +15,6 @@
  */
 package com.datastax.fallout.ops;
 
-import java.io.BufferedReader;
-import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -128,22 +126,15 @@ public class ProvisionerTest extends TestHelpers.FalloutTest<FalloutConfiguratio
             for (FullyBufferedNodeResponse response : execResponses)
             {
                 assertThat(response.waitForSuccess()).isTrue();
-
-                BufferedReader output = new BufferedReader(new StringReader(response.getStdout()));
-                BufferedReader error = new BufferedReader(new StringReader(response.getStderr()));
-
-                String line;
-                while ((line = output.readLine()) != null)
+                assertThat(response.getExitCode()).isEqualTo(0);
+                for (String line : response.getStdout().split("\\n"))
                 {
                     assertThat(line).startsWith("STDOUT");
                 }
-
-                while ((line = error.readLine()) != null)
+                for (String line : response.getStderr().split("\\n"))
                 {
                     assertThat(line).startsWith("STDERR");
                 }
-
-                assertThat(response.getExitCode()).isEqualTo(0);
             }
 
             //Test a bad result

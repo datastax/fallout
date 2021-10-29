@@ -47,7 +47,7 @@ public class NetworkUtils
         }
     }
 
-    public static String downloadUrlAsUtf8String(URL url) throws IOException
+    public static String downloadUrlAsString(URL url) throws IOException
     {
         return new String(downloadUrlAsBytes(url), StandardCharsets.UTF_8);
     }

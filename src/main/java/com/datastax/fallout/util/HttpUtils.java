@@ -16,7 +16,6 @@
 package com.datastax.fallout.util;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Optional;
 
 import com.fasterxml.jackson.databind.JsonNode;

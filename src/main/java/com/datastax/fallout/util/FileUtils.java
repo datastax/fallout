@@ -15,13 +15,11 @@
  */
 package com.datastax.fallout.util;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -119,11 +117,11 @@ public class FileUtils
                     ZipEntry zipEntry = entries.nextElement();
                     Path zipEntryPath = Paths.get(outputDir.toString(), zipEntry.getName());
 
-                    InputStream inputStream = zipFile.getInputStream(zipEntry);
-                    String result = new BufferedReader(new InputStreamReader(inputStream)).lines()
-                        .collect(Collectors.joining("\n"));
-                    writeString(zipEntryPath, result);
-
+                    try (var inputStream = zipFile.getInputStream(zipEntry);
+                        var outputStream = Files.newOutputStream(zipEntryPath))
+                    {
+                        IOUtils.copy(inputStream, outputStream);
+                    }
                     unzippedLogs.add(zipEntryPath);
                 }
             }
