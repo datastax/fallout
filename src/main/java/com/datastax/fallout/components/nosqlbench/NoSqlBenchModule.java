@@ -149,8 +149,8 @@ public class NoSqlBenchModule extends Module
     @Override
     public void validateEnsemble(EnsembleValidator validator)
     {
-        clientPods = validator.nodeGroupWillHaveProvider(clientGroupSpec, NoSqlBenchPodProvider.class);
-        if (clientPods)
+        clientsRunInKubernetes = validator.nodeGroupWillHaveProvider(clientGroupSpec, NoSqlBenchPodProvider.class);
+        if (clientsRunInKubernetes)
         {
             // client pods and server pods have to run on the same k8s cluster nodegroup
             Optional<NodeGroup> clientGroup = validator.getNodeGroup(clientGroupSpec);
@@ -166,10 +166,10 @@ public class NoSqlBenchModule extends Module
             validator.nodeGroupRequiresProvider(clientGroupSpec, NoSqlBenchProvider.class);
         }
 
-        if (hostParamSpec.optionalValue(getProperties()).isEmpty())
+        boolean targetsServerGroup = hostParamSpec.optionalValue(getProperties()).isEmpty();
+        if (targetsServerGroup)
         {
-            validator.nodeGroupRequiresProvider(clientPods ? clientGroupSpec : serverGroupSpec,
-                ServiceContactPointProvider.class);
+            validator.nodeGroupRequiresProvider(serverGroupSpec, ServiceContactPointProvider.class);
         }
     }
 
@@ -204,8 +204,9 @@ public class NoSqlBenchModule extends Module
     private List<String> args = new ArrayList<>();
     private List<String> options = new ArrayList<>();
     private String alias;
+    private NodeGroup serverGroup;
     private NodeGroup clientGroup;
-    private boolean clientPods;
+    private boolean clientsRunInKubernetes;
 
     @Override
     public void setup(Ensemble ensemble, PropertyGroup properties)
@@ -214,6 +215,7 @@ public class NoSqlBenchModule extends Module
         alias = aliasSpec.optionalValue(properties).orElseGet(this::getInstanceName);
         args.add(String.format("alias=%s", alias));
 
+        serverGroup = ensemble.getNodeGroupByAlias(serverGroupSpec.getNodeGroupSpec().value(properties));
         clientGroup = ensemble.getNodeGroupByAlias(clientGroupSpec.getNodeGroupSpec().value(properties));
         Optional<FileProvider.RemoteFileProvider> remoteFileProvider = clientGroup.findFirstProvider(
             FileProvider.RemoteFileProvider.class);
@@ -239,7 +241,7 @@ public class NoSqlBenchModule extends Module
         List<NoSqlBenchProvider> nosqlBenchProviders = null;
         int numClients = -1;
         String clientPrepareScript = "";
-        if (clientPods)
+        if (clientsRunInKubernetes)
         {
             nosqlBenchProviders = clientGroup.getNodes().stream()
                 .map(n -> n.maybeGetProvider(NoSqlBenchPodProvider.class))
@@ -360,9 +362,9 @@ public class NoSqlBenchModule extends Module
     {
         String serviceType = serviceTypeSpec.value(properties);
         List<ServiceContactPointProvider> contactPointProviders;
-        if (clientPods)
+        if (clientsRunInKubernetes)
         {
-            contactPointProviders = clientGroup.findAllProviders(ServiceContactPointProvider.class,
+            contactPointProviders = serverGroup.findAllProviders(ServiceContactPointProvider.class,
                 provider -> provider.getServiceName().equals(serviceType))
                 .stream()
                 .findFirst()
@@ -371,14 +373,13 @@ public class NoSqlBenchModule extends Module
         }
         else
         {
-            NodeGroup serverGroup = ensemble.getNodeGroupByAlias(serverGroupSpec.getNodeGroupSpec().value(properties));
-            List<Node> serverNodes = serverGroupSpec.selectNodes(ensemble, properties);
-            // findAllProviders will return all the providers for the given nodegroup. Since serverNodes may be a subset
-            // of those nodes, we need to filter out all the providers outside that set.
-            contactPointProviders = serverGroup.findAllProviders(ServiceContactPointProvider.class,
-                provider -> provider.getServiceName().equals(serviceType) && serverNodes.contains(provider.node()));
+            contactPointProviders = serverGroupSpec.selectNodes(ensemble, properties)
+                .stream()
+                .map(p -> p.maybeGetProvider(ServiceContactPointProvider.class))
+                .flatMap(Optional::stream)
+                .filter(p -> serviceType.equals(p.getServiceName()))
+                .collect(Collectors.toList());
         }
-
         return contactPointProviders;
     }
 
