@@ -53,4 +53,4 @@ org.ow2.asm:asm-util:5.0.3=compileClasspath,default,runtimeClasspath,testCompile
 org.ow2.asm:asm:5.0.3=compileClasspath,default,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.xerial.snappy:snappy-java:1.0.5=compileClasspath,default,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.yaml:snakeyaml:1.12=compileClasspath,default,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-empty=annotationProcessor,archives,compile,compileOnly,runtime,shadow,testAnnotationProcessor,testCompile,testCompileOnly,testRuntime
+empty=annotationProcessor,archives,shadow,testAnnotationProcessor

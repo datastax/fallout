@@ -35,4 +35,4 @@ org.clojure:tools.logging:0.3.1=compileClasspath,default,devCompileClasspath,dev
 org.fressian:fressian:0.6.3=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 potemkin:potemkin:0.4.3=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 riddley:riddley:0.1.12=compileClasspath,default,devCompileClasspath,devRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-empty=annotationProcessor,archives,compile,compileOnly,devAnnotationProcessor,devCompile,devCompileOnly,devRuntime,runtime,shadow,testAnnotationProcessor,testCompile,testCompileOnly,testRuntime
+empty=annotationProcessor,archives,devAnnotationProcessor,shadow,testAnnotationProcessor

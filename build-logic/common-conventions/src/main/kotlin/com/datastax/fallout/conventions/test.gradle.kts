@@ -47,7 +47,7 @@ project.afterEvaluate {
 
         // Calling useJUnitPlatform overwrites any existing options, so only do it
         // if we're not already using it
-        if (testFramework !is JUnitPlatformTestFramework) {
+        if (testFrameworkProperty.get() !is JUnitPlatformTestFramework) {
             useJUnitPlatform()
         }
 
