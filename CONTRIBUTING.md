@@ -131,3 +131,7 @@ To ensure `./gradlew spotlessCheck` passes without having to run `./gradlew spot
     * `UNIT_TEST_GOOGLE_SERVICE_ACCOUNT_JSON_FILE`: (path to your Google Cloud service account json key file)
 
 * To run the fallout server, open the Gradle panel, navigate to `fallout > Tasks > application` and double-click `runServer`.
+
+### Known issues
+
+Until [KTIJ-19483](https://youtrack.jetbrains.com/issue/KTIJ-19483) is fixed, IDEA will show incorrect syntax errors in the [build-logic](build-logic) code.  A (not very satisfactory) workaround is to edit each build-logic sub-project in its own IDEA project.
