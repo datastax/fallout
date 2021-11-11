@@ -104,8 +104,6 @@ def defaultPropertyValue(String name, Object value) {
 }
 
 allprojects {
-    sourceCompatibility = 11.0
-    targetCompatibility = 11.0
     tasks.withType(JavaCompile) {
         options.encoding = 'UTF-8'
         if (rootProject.hasProperty('showJavaCompilerWarnings')) {
@@ -163,6 +161,8 @@ configurations {
 // for consumption as feature variants; see
 // https://docs.gradle.org/current/userguide/cross_project_publications.html#sec:variant-aware-sharing
 java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(11))
+
     registerFeature("testBase") {
         usingSourceSet(sourceSets.testBase)
     }
