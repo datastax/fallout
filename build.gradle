@@ -4,8 +4,8 @@ buildscript {
     }
 
     dependencies {
-        classpath 'guru.nidi:graphviz-java:0.8.3'
-        classpath 'net.sourceforge.plantuml:plantuml:1.2019.7'
+        classpath 'guru.nidi:graphviz-java:0.18.1'
+        classpath 'net.sourceforge.plantuml:plantuml:1.2021.4'
     }
 }
 
