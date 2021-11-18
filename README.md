@@ -4,7 +4,10 @@ Fallout is a tool for running local or large scale remote based distributed corr
 
 This repository contains the core framework and components of fallout: you can use it to run performance tests on Google Kubernetes Engine.  At DataStax, we have an internal version that builds on this code and integrates with our internal infrastructure.
 
-There is a [recorded workshop](https://www.youtube.com/watch?v=45iTmTBjU0M) which covers the project's intent, architecture, and simple examples.
+Below are some resources covering Fallout's architecture and design (best consumed in order, shortest to longest):
+- [Overview Video](https://www.youtube.com/watch?v=eSz8ypKQWp8) - Covers Fallout's history, architecture, CI usage, & learnings. This video is a summary of;
+- [Fallout: Distributed Systems Testing as a Service](https://arxiv.org/abs/2110.05543) - Paper submitted to 2021 BenchCouncil International Symposium on Benchmarking, Measuring and Optimizing (Bench'21).
+- [Recorded Workshop](https://www.youtube.com/watch?v=45iTmTBjU0M) - Covers the project's intent, architecture, and simple examples.
 
 ## Getting Started
 
