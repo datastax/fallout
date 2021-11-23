@@ -146,11 +146,16 @@ defaultTasks ':shadowJar'
 
 sourceSets {
     testBase
+    integrationTest
     cassandraAllShaded
 }
 
 configurations {
     testBaseImplementation.extendsFrom(implementation, testConventionsImplementationDeps)
+
+    integrationTestImplementation.extendsFrom(testBaseImplementation)
+    integrationTestRuntimeOnly.extendsFrom(testBaseRuntimeOnly, testConventionsRuntimeOnlyDeps)
+    integrationTestCompileOnly.extendsFrom(testBaseCompileOnly)
 
     testImplementation.extendsFrom(testBaseImplementation)
     testRuntimeOnly.extendsFrom(testBaseRuntimeOnly, testConventionsImplementationDeps)
@@ -171,6 +176,9 @@ java {
     }
     registerFeature("cassandraAllShaded") {
         usingSourceSet(sourceSets.cassandraAllShaded)
+    }
+    registerFeature("integrationTest") {
+        usingSourceSet(sourceSets.integrationTest)
     }
 }
 
@@ -273,6 +281,9 @@ dependencies {
     implementation('com.google.cloud:google-cloud-logging:2.2.0') {
         exclude group: 'com.google.guava', module: 'guava'
     }
+
+    integrationTestImplementation sourceSets.testBase.output
+    integrationTestRuntimeOnly tasks.jar.outputs.files
 }
 
 // ----------------------------------------------------------------------------
