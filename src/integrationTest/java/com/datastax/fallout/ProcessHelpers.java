@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -27,6 +28,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import com.google.auto.value.AutoValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +44,7 @@ public class ProcessHelpers
     private static final Executor outputExecutor = Executors.newCachedThreadPool();
 
     private static void assertCompleted(java.lang.Process process, Duration timeout,
-        List<CompletableFuture<Void>> outputLoggers)
+        List<CompletableFuture<List<String>>> outputLoggers)
     {
         boolean completed = Exceptions
             .getUninterruptibly(() -> process.waitFor(timeout.getSeconds(), TimeUnit.SECONDS));
@@ -57,19 +59,38 @@ public class ProcessHelpers
         assertThat(completed).isTrue();
     }
 
-    private static CompletableFuture<Void> logCommandOutput(InputStream inputStream, String streamName)
+    private static CompletableFuture<List<String>> logCommandOutput(InputStream inputStream, String streamName)
     {
-        return CompletableFuture.runAsync(() -> {
+        return CompletableFuture.supplyAsync(() -> {
             final var stream = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+            final var lines = new ArrayList<String>();
             String line;
             while ((line = Exceptions.getUncheckedIO(stream::readLine)) != null)
             {
-                logger.info("{}: {}", streamName, line.trim());
+                line = line.trim();
+                lines.add(line);
+                logger.info("{}: {}", streamName, line);
             }
+            return lines;
         }, outputExecutor);
     }
 
-    public static int run(List<String> command, Map<String, String> extraEnv, Duration timeout)
+    @AutoValue
+    public static abstract class ProcessResult
+    {
+        public abstract int getExitCode();
+
+        public abstract List<String> getStdout();
+
+        public abstract List<String> getStderr();
+
+        public static ProcessResult of(int exitCode, List<String> stdout, List<String> stderr)
+        {
+            return new AutoValue_ProcessHelpers_ProcessResult(exitCode, stdout, stderr);
+        }
+    }
+
+    public static ProcessResult run(List<String> command, Map<String, String> extraEnv, Duration timeout)
     {
         ProcessBuilder processBuilder = new ProcessBuilder();
 
@@ -87,6 +108,7 @@ public class ProcessHelpers
         assertCompleted(process, timeout, outputLoggers);
         int exitCode = process.exitValue();
         logger.info("proc exit: {} {}", exitCode, command);
-        return exitCode;
+        return Exceptions
+            .getUnchecked(() -> ProcessResult.of(exitCode, outputLoggers.get(0).join(), outputLoggers.get(1).join()));
     }
 }

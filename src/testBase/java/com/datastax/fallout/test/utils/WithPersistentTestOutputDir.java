@@ -58,4 +58,24 @@ public abstract class WithPersistentTestOutputDir extends WithTestResources
     {
         return persistentTestOutputDir(currentTestClassName(), Optional.empty());
     }
+
+    /** Calls {@link WithTestResources#getTestClassResource} on (testClass, resourcePath), writes the
+     *  result to a file in {@link #persistentTestOutputDir()} with the same name as resourcePath, and returns the full path written.
+     *
+     *  <p>This is useful for copying resource data into a specific place for use by a test that
+     *  needs to access the resource data as a file; in particular, integration tests that don't
+     *  or can't poke around in the test resource file hierarchy (like the docker tests). */
+    public Path writeTestClassResourceToFile(Class<?> testClass, String resourcePath)
+    {
+        final var path = persistentTestOutputDir().resolve(resourcePath);
+        FileUtils.writeString(path, getTestClassResource(testClass, resourcePath));
+        return path;
+    }
+
+    /** Calls {@link #writeTestClassResourceToFile(Class, String)} with
+     *  {@link WithTestNames#currentTestClass()} as the first argument. */
+    protected Path writeTestClassResourceToFile(String resourcePath)
+    {
+        return writeTestClassResourceToFile(currentTestClass(), resourcePath);
+    }
 }

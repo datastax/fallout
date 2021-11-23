@@ -256,6 +256,9 @@ dependencies {
     annotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
     implementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
 
+    integrationTestAnnotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
+    integrationTestImplementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
+
     // Compile against the main classes, but leave it up to the
     // test configuration to specify where the runtime is (test
     // will already use sourceSets.main.output by default).
@@ -1276,6 +1279,25 @@ task deploymentTestJar(type: Jar) {
     }
     from(sourceSets.deploymentTest.output)
     archiveFileName = "fallout-deploymentTest.jar"
+}
+
+// ----------------------------------------------------------------------------
+// Integration tests
+
+task integrationTest(type: Test, dependsOn: [dockerBuild]) {
+    description = 'Runs integration tests.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    systemProperties([
+        dockerLatestTag: dockerBuild.latestTag,
+        falloutVersion: gitDescribe
+    ])
+
+    mustRunAfter(test, dbTest, stopCassandra)
+    finalizedBy allTestsFinished
 }
 
 // ----------------------------------------------------------------------------

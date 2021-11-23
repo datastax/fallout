@@ -68,6 +68,7 @@ import com.codahale.metrics.annotation.Timed;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.dropwizard.auth.Auth;
 import io.swagger.annotations.Api;
@@ -967,13 +968,19 @@ public class TestResource
         return new TestBuilderView(user, assertExists(test), true);
     }
 
+    @VisibleForTesting
+    public static String defaultTestDefinition()
+    {
+        return ResourceUtils.maybeGetResourceAsString(TestResource.class, "default-test-definition.yaml")
+            .orElse("");
+    }
+
     public class TestBuilderView extends FalloutView
     {
         final Test test;
         final boolean edit;
-        final String defaultTestDefinition =
-            ResourceUtils.maybeGetResourceAsString(this, "default-test-definition.yaml")
-                .orElse("");
+        @SuppressWarnings("unused")
+        final String defaultTestDefinition = defaultTestDefinition();
 
         public TestBuilderView(User user, Test test)
         {
