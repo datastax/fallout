@@ -25,7 +25,8 @@ import com.google.common.base.Preconditions;
 
 public class Duration
 {
-    public static final Pattern DURATION_RE =
+    private static final Duration ZERO_DURATION = new Duration(0L, TimeUnit.SECONDS);
+    private static final Pattern DURATION_RE =
         Pattern.compile(
             "^(\\d+)\\s*(ns|ms|s|m|h|d|" +
                 Joiner.on("|").join(TimeUnit.values()) +
@@ -37,7 +38,12 @@ public class Duration
         if (value == null)
             return null;
 
-        Matcher match = DURATION_RE.matcher(value.trim());
+        String trimValue = value.trim();
+        if (trimValue.equals("0"))
+        {
+            return ZERO_DURATION;
+        }
+        Matcher match = DURATION_RE.matcher(trimValue);
         if (!match.matches())
         {
             throw new IllegalArgumentException(value);

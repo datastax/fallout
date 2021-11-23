@@ -25,6 +25,8 @@ public class DurationTest
     public static Object[][] params()
     {
         return new Object[][] {
+            {"0", Duration.seconds(0)},
+            {"  0   ", Duration.seconds(0)},
             {"3061ns", Duration.nanoseconds(3061)},
             {"3061 nanoseconds", Duration.nanoseconds(3061)},
             {"401ms", Duration.milliseconds(401)},
