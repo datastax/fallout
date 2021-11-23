@@ -4,7 +4,7 @@
 # project root directory.  This Dockerfile won't do anything useful with a
 # direct `docker build` invocation.
 
-FROM openjdk:11-buster
+FROM openjdk:17-buster
 
 # Make apt and debconf be quiet
 RUN --mount=type=bind,source=build-files,target=build-files \
