@@ -62,6 +62,7 @@ ENV PATH="${user_home}/.local/bin:${PATH}"
 
 # Install python support
 RUN --mount=type=cache,target=${user_home}/.cache/pip,uid=${uid},gid=${gid} \
+    --mount=type=bind,source=pip-conf,target=${user_home}/.config/pip \
     --mount=type=bind,source=build-files,target=build-files \
     build-files/bootstrap-user-python-support
 
@@ -71,6 +72,7 @@ RUN mkdir -p tests run
 
 RUN --mount=type=cache,target=${user_home}/.cache/pip,uid=${uid},gid=${gid} \
     --mount=type=cache,target=${user_home}/.cache/pypoetry,uid=${uid},gid=${gid} \
+    --mount=type=bind,source=pip-conf,target=${user_home}/.config/pip \
     "${FALLOUT_HOME}/lib/tools/support/install-python-tools" run
 
 # Switch to root so that gosu-with-access-to-ssh-auth-sock can do the

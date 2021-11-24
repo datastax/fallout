@@ -10,6 +10,10 @@ abstract class DockerExtension(project: Project) {
     /** [org.gradle.api.file.CopySpec] specifying extra files to be included in `$contextDir/build-files` */
     val buildFiles = project.copySpec()
 
+    /** The path of a pip.conf file to be copied by `dockerPreparePipConf`;
+     *  defaults to the gradle property `dockerPipConfiPath` */
+    val pipConfPath = project.objects.fileProperty()
+
     val dockerSourceDir = project.layout.projectDirectory.dir("docker")
     val contextDir = project.layout.buildDirectory.dir("docker-context")
 
@@ -30,6 +34,10 @@ abstract class DockerExtension(project: Project) {
     val composeEnvironment = mutableMapOf<String, Any>()
 
     init {
+        (project.findProperty("dockerPipConfPath") as String?)?.let { pipConfPath ->
+            // Note that this correctly handles an absolute pipConfPath
+            this.pipConfPath.convention(project.layout.projectDirectory.file(pipConfPath))
+        }
         registry.convention(project.findProperty("dockerRegistry") as String? ?: "docker.io")
     }
 }
