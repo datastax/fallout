@@ -50,10 +50,10 @@ jobs:
         with:
           python-version: 3.7.x
 
-      - name: Bootstrap python environment
+      - name: Install poetry
         run: |
-          pip install --user virtualenv
-          docker/build-files/bootstrap-user-python-support
+          python3 -m pip install --upgrade pip
+          python3 -m pip install poetry
 
       - name: Create gradle.properties
         run: |

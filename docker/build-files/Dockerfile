@@ -64,7 +64,8 @@ ENV PATH="${user_home}/.local/bin:${PATH}"
 RUN --mount=type=cache,target=${user_home}/.cache/pip,uid=${uid},gid=${gid} \
     --mount=type=bind,source=pip-conf,target=${user_home}/.config/pip \
     --mount=type=bind,source=build-files,target=build-files \
-    build-files/bootstrap-user-python-support
+    python3 -m pip install --user --upgrade pip && \
+    python3 -m pip install --user poetry
 
 COPY --chown=fallout:fallout image-files .
 
