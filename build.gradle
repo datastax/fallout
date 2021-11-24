@@ -877,13 +877,9 @@ subprojects { subproject ->
 shadowJar {
     mergeServiceFiles()
 
-    outputs.cacheIf { true }
-}
-
-// Ensure shadowJar correctly merges all the service files and also
-// caches the output (it doesn't by default)
-shadowJar {
-    mergeServiceFiles()
+    manifest {
+        attributes('Implementation-Version': gitDescribe)
+    }
 
     outputs.cacheIf { true }
 }
