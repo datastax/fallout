@@ -5,5 +5,7 @@ workload:
     artifact_checkers:
         my_artifact_checker:
           artifact_checker: systemlog
+          properties:
+            fail_on_missing: true
           artifact_checker_with_wrong_indent:
                     artifact_checker: systemlog

@@ -15,30 +15,26 @@
  */
 package com.datastax.fallout.util;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
 
-import com.google.common.base.Verify;
-import org.apache.commons.io.IOUtils;
-import org.slf4j.Logger;
+import static com.google.common.io.Files.getFileExtension;
+import static com.google.common.io.Files.getNameWithoutExtension;
 
 public class FileUtils
 {
@@ -56,123 +52,6 @@ public class FileUtils
         {
             Files.copy(in, output);
         }
-    }
-
-    /**
-     * @param logPath - directory to begin looking for fileName
-     * @param fileName - name of the log being searched for IE: "system.log"
-     * @param logger
-     * @param outputDir - directory where unzipped log files should be written
-     * @return a list of logs matching the fileName, sorted by age
-     */
-    public static List<Path> getSortedLogList(Path logPath, String fileName, Logger logger, Path outputDir)
-    {
-        List<Path> logsInPath = null;
-        try (Stream<Path> pathStream = Files.walk(logPath))
-        {
-            logsInPath = pathStream.filter(f -> f.endsWith(fileName)).collect(Collectors.toList());
-        }
-        catch (IOException e)
-        {
-            logger.error("No files found", e);
-        }
-        Verify.verifyNotNull(logsInPath);
-
-        List<Path> unzippedLogs = unzipLogs(logPath, fileName, logger, outputDir);
-        Collections.sort(unzippedLogs);
-        unzippedLogs.addAll(logsInPath);
-
-        return unzippedLogs;
-    }
-
-    private static List<Path> unzipLogs(Path logPath, String fileName, Logger logger, Path outputDir)
-    {
-        List<Path> zippedLogsInPath = null;
-        List<Path> unzippedLogs = new ArrayList<>();
-        try (Stream<Path> pathStream = Files.walk(logPath))
-        {
-            zippedLogsInPath = pathStream
-                .filter(f -> f.toString().toLowerCase().contains(fileName))
-                .filter(f -> f.toString().toLowerCase().contains(".zip"))
-                .collect(Collectors.toList());
-        }
-        catch (IOException e)
-        {
-            logger.error("No files found");
-        }
-
-        Verify.verifyNotNull(zippedLogsInPath);
-        for (Path filePath : zippedLogsInPath)
-        {
-            try (ZipFile zipFile = new ZipFile(filePath.toString()))
-            {
-                if (zipFile.size() > 1)
-                {
-                    throw new IOException(
-                        "Only one file is expected from an unzipped log. More than one file was found.");
-                }
-                else
-                {
-                    Enumeration<? extends ZipEntry> entries = zipFile.entries();
-                    ZipEntry zipEntry = entries.nextElement();
-                    Path zipEntryPath = Paths.get(outputDir.toString(), zipEntry.getName());
-
-                    try (var inputStream = zipFile.getInputStream(zipEntry);
-                        var outputStream = Files.newOutputStream(zipEntryPath))
-                    {
-                        IOUtils.copy(inputStream, outputStream);
-                    }
-                    unzippedLogs.add(zipEntryPath);
-                }
-            }
-            catch (IOException e)
-            {
-                logger.error("There was a problem opening the zip file", e);
-            }
-        }
-        return unzippedLogs;
-    }
-
-    public static boolean unzipArchive(Path archive, Path output, Logger logger)
-    {
-        // taken largely from https://www.baeldung.com/java-compress-and-uncompress
-        try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(archive.toFile())))
-        {
-            ZipEntry zipEntry = zipInputStream.getNextEntry();
-            while (zipEntry != null)
-            {
-                File newFile = new File(output.toFile(), zipEntry.getName());
-                if (zipEntry.isDirectory())
-                {
-                    if (!newFile.isDirectory() && !newFile.mkdirs())
-                    {
-                        throw new IOException("Failed to create directory " + newFile);
-                    }
-                }
-                else
-                {
-                    // fix for Windows-created archives
-                    File parent = newFile.getParentFile();
-                    if (!parent.isDirectory() && !parent.mkdirs())
-                    {
-                        throw new IOException("Failed to create directory " + parent);
-                    }
-
-                    // write file content
-                    try (var fos = new FileOutputStream(newFile))
-                    {
-                        IOUtils.copy(zipInputStream, fos);
-                    }
-                }
-                zipEntry = zipInputStream.getNextEntry();
-            }
-        }
-        catch (IOException e)
-        {
-            logger.error(String.format("Failed to unzip archive %s.", archive), e);
-            return false;
-        }
-        return true;
     }
 
     public static String readFileFromZipAsString(Path zipFilePath, String fileName) throws IOException
@@ -195,23 +74,6 @@ public class FileUtils
         throw new IOException(
             fileName + " was not found in zip file " + zipFilePath + " with contents:\n" + String.join("\n",
                 seenEntries));
-    }
-
-    public static List<String> concatenateBigLog(List<Path> logList, Logger logger)
-    {
-        List<String> myBigLog = new ArrayList<>();
-        for (Path log : logList)
-        {
-            try
-            {
-                myBigLog.addAll(Files.readAllLines(log));
-            }
-            catch (IOException e)
-            {
-                logger.error("There was a problem reading the log file", e);
-            }
-        }
-        return myBigLog;
     }
 
     public static Path createDirs(Path dir)
@@ -248,5 +110,100 @@ public class FileUtils
     public static String readString(InputStream inputStream)
     {
         return Exceptions.getUncheckedIO(() -> new String(inputStream.readAllBytes(), StandardCharsets.UTF_8));
+    }
+
+    public interface FileContentsConsumer<R>
+    {
+        /** Process the contents of a file at filePath, optionally with an archivePath if the filePath
+         *  is an archive */
+        R apply(Path filePath, Optional<String> archivePath, InputStream contents);
+
+        default R apply(Path filePath, InputStream contents)
+        {
+            return apply(filePath, Optional.empty(), contents);
+        }
+    }
+
+    public static <R> List<R> withZippedFileContents(Path zipFilePath, FileContentsConsumer<R> consumer)
+    {
+        return Exceptions.getUncheckedIO(() -> {
+            try (var zipFile = new ZipFile(zipFilePath.toFile(), StandardCharsets.UTF_8))
+            {
+                return zipFile.stream()
+                    .filter(entry -> !entry.isDirectory())
+                    .map(entry -> Exceptions.getUncheckedIO(() -> {
+                        try (var inputStream = zipFile.getInputStream(entry))
+                        {
+                            return consumer.apply(zipFilePath, Optional.of(entry.getName()), inputStream);
+                        }
+                    }))
+                    .collect(Collectors.toList());
+            }
+        });
+    }
+
+    public static <R> R withFileContent(Path filePath, FileContentsConsumer<R> consumer)
+    {
+        return Exceptions.getUncheckedIO(() -> {
+            try (var inputStream = Files.newInputStream(filePath))
+            {
+                return consumer.apply(filePath, inputStream);
+            }
+        });
+    }
+
+    public static <R> R withGzippedFileContent(Path gzipFilePath, FileContentsConsumer<R> consumer)
+    {
+        return withFileContent(gzipFilePath, (fileName, archivePath, inputStream) -> {
+            return Exceptions.getUncheckedIO(() -> {
+                try (var gzipInputStream = new GZIPInputStream(inputStream))
+                {
+                    return consumer.apply(gzipFilePath, gzipInputStream);
+                }
+            });
+        });
+    }
+
+    /** Return whether path has the extension _and_ if the path without that extension is accepted
+     *  by matches */
+    private static boolean matchesPathWithoutExtension(Predicate<Path> matches, Path path, String extension)
+    {
+        final var pathExtension = getFileExtension(path.toString()).toLowerCase(Locale.ROOT);
+
+        return pathExtension.equals(extension) &&
+            matches.test(
+                path.getParent().resolve(getNameWithoutExtension(path.getFileName().toString())));
+    }
+
+    /** Recurse rootPath.  If a path (with zip and gz extensions removed) satisfies consume, then the path
+     *  (with no extensions removed) is passed to consumer with a stream of its uncompressed contents.   Returns
+     *  whether any files were found. */
+    public static <R> List<R> withMaybeCompressedFileContentsInPath(Path rootPath,
+        Predicate<Path> consume,
+        FileContentsConsumer<R> consumer)
+    {
+        return Exceptions.getUncheckedIO(() -> {
+            try (Stream<Path> pathStream = Files.walk(rootPath))
+            {
+                return pathStream
+                    .filter(path -> !Files.isDirectory(path))
+                    .flatMap(path -> {
+                        if (matchesPathWithoutExtension(consume, path, "zip"))
+                        {
+                            return withZippedFileContents(path, consumer).stream();
+                        }
+                        else if (matchesPathWithoutExtension(consume, path, "gz"))
+                        {
+                            return Stream.of(withGzippedFileContent(path, consumer));
+                        }
+                        else if (consume.test(path))
+                        {
+                            return Stream.of(withFileContent(path, consumer));
+                        }
+                        return Stream.empty();
+                    })
+                    .collect(Collectors.toList());
+            }
+        });
     }
 }
