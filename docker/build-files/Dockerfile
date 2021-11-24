@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 # To build a docker image for fallout, use './gradlew dockerBuild` in the
 # project root directory.  This Dockerfile won't do anything useful with a
 # direct `docker build` invocation.
@@ -39,30 +41,37 @@ RUN if [ "$(ssh-keyscan -H -t rsa github.com 2>/dev/null | \
         exit 1; \
     fi
 
-RUN useradd --create-home fallout
+ARG uid=1000
+ARG gid=1000
+ARG user_home="/home/fallout"
+RUN groupadd --gid ${gid} fallout && \
+    useradd --create-home fallout --uid ${uid} --gid ${gid}
 
 # Make sure the fallout user also has the github key
 RUN cp -a ~/.ssh ~fallout/.ssh && \
     chown fallout:fallout ~fallout/.ssh
 
-ENV FALLOUT_HOME="/home/fallout"
+ENV FALLOUT_HOME="${user_home}"
 
 WORKDIR ${FALLOUT_HOME}
 
 USER fallout
 
 # Ensure ~/.local/bin is in the path; some OS's don't do this
-ENV PATH="/home/fallout/.local/bin:${PATH}"
+ENV PATH="${user_home}/.local/bin:${PATH}"
 
 # Install python support
-RUN --mount=type=bind,source=build-files,target=build-files \
+RUN --mount=type=cache,target=${user_home}/.cache/pip,uid=${uid},gid=${gid} \
+    --mount=type=bind,source=build-files,target=build-files \
     build-files/bootstrap-user-python-support
 
 COPY --chown=fallout:fallout image-files .
 
 RUN mkdir -p tests run
 
-RUN "${FALLOUT_HOME}/lib/tools/support/install-python-tools" run
+RUN --mount=type=cache,target=${user_home}/.cache/pip,uid=${uid},gid=${gid} \
+    --mount=type=cache,target=${user_home}/.cache/pypoetry,uid=${uid},gid=${gid} \
+    "${FALLOUT_HOME}/lib/tools/support/install-python-tools" run
 
 # Switch to root so that gosu-with-access-to-ssh-auth-sock can do the
 # things it needs to do; it will switch back to fallout to run commands
