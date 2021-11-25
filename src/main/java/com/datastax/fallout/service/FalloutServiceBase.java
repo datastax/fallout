@@ -108,6 +108,7 @@ import com.datastax.fallout.service.cli.FalloutExecCommand;
 import com.datastax.fallout.service.cli.FalloutQueueCommand;
 import com.datastax.fallout.service.cli.FalloutRunnerCommand;
 import com.datastax.fallout.service.cli.FalloutStandaloneCommand;
+import com.datastax.fallout.service.cli.FalloutValidateCommand;
 import com.datastax.fallout.service.cli.GenerateNginxConf;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
@@ -230,6 +231,7 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
         bootstrap.addBundle(new AssetsBundle("/assets", ASSETS_ROOT_PATH));
 
         bootstrap.addCommand(new FalloutExecCommand<>(this));
+        bootstrap.addCommand(new FalloutValidateCommand<>(this));
         bootstrap.addCommand(new FalloutStandaloneCommand<>(this));
         bootstrap.addCommand(new FalloutRunnerCommand<>(this));
         bootstrap.addCommand(new FalloutQueueCommand<>(this));

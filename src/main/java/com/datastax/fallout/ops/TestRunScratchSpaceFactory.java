@@ -48,7 +48,8 @@ public class TestRunScratchSpaceFactory
     }
 
     /** Create a scratch space in <code>tmp</code> under the localScratchSpaceRoot directory; this allows us to
-     *  create a single-use scratch space for {@link com.datastax.fallout.service.cli.FalloutExecCommand}. */
+     *  create a single-use scratch space for {@link com.datastax.fallout.service.cli.FalloutServerlessCommand}
+     *  implementations. */
     public TestRunScratchSpace createGlobal()
     {
         return new TestRunScratchSpace();
