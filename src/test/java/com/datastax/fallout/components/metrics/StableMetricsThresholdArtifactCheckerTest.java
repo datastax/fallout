@@ -15,11 +15,8 @@
  */
 package com.datastax.fallout.components.metrics;
 
-import java.nio.file.Paths;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -32,6 +29,8 @@ import com.datastax.fallout.components.metrics.json.RangeQueryResult.Metric;
 import com.datastax.fallout.components.metrics.json.RangeQueryResult.Result;
 import com.datastax.fallout.components.metrics.json.RangeQueryResult.Value;
 import com.datastax.fallout.util.Duration;
+import com.datastax.fallout.util.JsonUtils;
+import com.datastax.fallout.util.ResourceUtils;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 
@@ -40,14 +39,8 @@ class StableMetricsThresholdArtifactCheckerTest
     @Test
     public void shouldLoadMetricsFromFile()
     {
-        StableMetricsThresholdArtifactChecker stableMetricsThresholdArtifactChecker =
-            new StableMetricsThresholdArtifactChecker();
-
-        ClassLoader classLoader = getClass().getClassLoader();
-        String path = Objects
-            .requireNonNull(classLoader.getResource("com/datastax/fallout/components/metrics/metric_a.json")).getPath();
-        RangeQueryResult rangeQueryResult =
-            stableMetricsThresholdArtifactChecker.loadMetricValuesFromPath(Paths.get(path));
+        String json = ResourceUtils.readResourceAsString(getClass(), "metric_a.json");
+        RangeQueryResult rangeQueryResult = JsonUtils.fromJson(json, RangeQueryResult.class);
 
         List<Result> result = rangeQueryResult.getData().getResult();
         assertThat(result).containsExactly(
@@ -79,7 +72,7 @@ class StableMetricsThresholdArtifactCheckerTest
                 Result.of(Metric.of("metric_a", "123.123.123.134:8080", "some_job"),
                     List.of(Value.of(Instant.ofEpochSecond(1612169192), 0L), inRangeValue)),
                 Result.of(Metric.of("metric_a", "123.123.123.135:8084", "some_job"),
-                    Collections.singletonList(Value.of(Instant.ofEpochSecond(1612169140), 15L))));
+                    List.of(Value.of(Instant.ofEpochSecond(1612169140), 15L))));
 
         RangeQueryResult rangeQueryResult = RangeQueryResult.of(Data.of(metricResults));
 
@@ -106,7 +99,7 @@ class StableMetricsThresholdArtifactCheckerTest
                 Instant.ofEpochSecond(1612169170), 5L
             ))),
             (Result.of(Metric.of("metric_a", "123.123.123.135:8084", "some_job"),
-                Collections.singletonList(outOfRangeValue))));
+                List.of(outOfRangeValue))));
 
         RangeQueryResult rangeQueryResult = RangeQueryResult.of(Data.of(metricResults));
 
@@ -127,7 +120,7 @@ class StableMetricsThresholdArtifactCheckerTest
                 now.plusSeconds(60), 5L
             ))),
             Result.of(Metric.of("metric_a", "123.123.123.135:8084", "some_job"),
-                Collections.singletonList(Value.of(now, 15L))));
+                List.of(Value.of(now, 15L))));
 
         RangeQueryResult rangeQueryResult = RangeQueryResult.of(Data.of(metricResults));
 
@@ -148,7 +141,7 @@ class StableMetricsThresholdArtifactCheckerTest
                 now.plusSeconds(60), 33L
             ))),
             Result.of(Metric.of("metric_a", "123.123.123.135:8084", "some_job"),
-                Collections.singletonList(Value.of(now, 100L))));
+                List.of(Value.of(now, 100L))));
 
         RangeQueryResult rangeQueryResult = RangeQueryResult.of(Data.of(metricResults));
 
@@ -156,5 +149,4 @@ class StableMetricsThresholdArtifactCheckerTest
             .validateIfMetricValuesAreWithinRange(rangeQueryResult, warmupOffset, 0L, 15L);
         assertThat(result).isFalse();
     }
-
 }
