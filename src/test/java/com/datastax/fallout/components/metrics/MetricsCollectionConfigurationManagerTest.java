@@ -17,13 +17,9 @@ package com.datastax.fallout.components.metrics;
 
 import javax.ws.rs.NotFoundException;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -33,6 +29,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.ops.NodeGroup;
+import com.datastax.fallout.util.ResourceUtils;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.assertj.Assertions.assertThatThrownBy;
@@ -51,11 +48,15 @@ class MetricsCollectionConfigurationManagerTest
     private static final String metricName = "metric_a";
     private static final Instant instant = Instant.now();
     private static final Supplier<Instant> instantSupplier = () -> instant;
-    private static final String nonExistingMetricName = "non-existing";;
+    private static final String nonExistingMetricName = "non-existing";
+    private static String jsonFileContent;
 
     @BeforeAll
     public static void setup() throws IOException
     {
+        jsonFileContent = ResourceUtils.readResourceAsString(MetricsCollectionConfigurationManagerTest.class,
+            "metric_a.json");
+
         wireMockServer = new WireMockServer(options().port(PORT));
         wireMockServer.start();
         wireMockServer.stubFor(
@@ -65,7 +66,7 @@ class MetricsCollectionConfigurationManagerTest
                         .willReturn(
                             aResponse()
                                 .withStatus(200)
-                                .withBody(loadFileFromResources("metric_a.json"))
+                                .withBody(jsonFileContent)
                                 .withHeader("Content-Type", "application/json")));
         wireMockServer.stubFor(
             get(urlEqualTo(
@@ -75,15 +76,6 @@ class MetricsCollectionConfigurationManagerTest
                             aResponse()
                                 .withStatus(404))
         );
-    }
-
-    private static String loadFileFromResources(String fileName) throws IOException
-    {
-        ClassLoader classLoader = MetricsCollectionConfigurationManagerTest.class.getClassLoader();
-        File file = new File(
-            Objects.requireNonNull(classLoader.getResource("com/datastax/fallout/components/metrics/" + fileName))
-                .getFile());
-        return Files.readString(file.toPath(), Charset.defaultCharset());
     }
 
     @AfterAll
@@ -105,8 +97,7 @@ class MetricsCollectionConfigurationManagerTest
         String jsonResponse =
             metricsCollectionConfigurationManager.executeGetRequestForJsonContent(metricName, prometheusUrl());
 
-        String expected = loadFileFromResources("metric_a.json");
-        assertThat(jsonResponse).isEqualTo(expected);
+        assertThat(jsonResponse).isEqualTo(jsonFileContent);
     }
 
     private String prometheusUrl()
@@ -126,7 +117,6 @@ class MetricsCollectionConfigurationManagerTest
                 prometheusUrl()))
                     .isInstanceOf(NotFoundException.class)
                     .hasMessageContaining("404");
-
     }
 
     @Test

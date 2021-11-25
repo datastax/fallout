@@ -31,7 +31,6 @@ import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.PropertySpecBuilder;
 import com.datastax.fallout.util.Duration;
-import com.datastax.fallout.util.FileUtils;
 import com.datastax.fallout.util.JsonUtils;
 
 import static com.datastax.fallout.components.metrics.json.RangeQueryResult.Metric;
@@ -94,7 +93,7 @@ public class StableMetricsThresholdArtifactChecker extends ArtifactChecker
                 .findFirst()
                 .get();
             Path specificMetricPath = metricsRootPath.resolve(metricName.value(getProperties()) + ".json");
-            RangeQueryResult rangeQueryResult = loadMetricValuesFromPath(specificMetricPath);
+            RangeQueryResult rangeQueryResult = JsonUtils.fromJsonAtPath(specificMetricPath, RangeQueryResult.class);
             logger().info("Validating metric file in {}", specificMetricPath);
 
             return validateIfMetricValuesAreWithinRange(rangeQueryResult,
@@ -151,13 +150,6 @@ public class StableMetricsThresholdArtifactChecker extends ArtifactChecker
     {
         Instant startTimePlusOffset = metricStartTime.plusSeconds(warmupOffset.toSeconds());
         return currentValueTime.isAfter(startTimePlusOffset) || currentValueTime.equals(startTimePlusOffset);
-    }
-
-    @VisibleForTesting
-    RangeQueryResult loadMetricValuesFromPath(Path path)
-    {
-        String json = FileUtils.readString(path);
-        return JsonUtils.fromJson(json, RangeQueryResult.class);
     }
 
     @Override

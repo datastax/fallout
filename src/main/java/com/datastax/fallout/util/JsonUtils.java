@@ -15,6 +15,7 @@
  */
 package com.datastax.fallout.util;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +30,12 @@ public class JsonUtils
     public static <T> T fromJson(String json, Class<T> clazz)
     {
         return Exceptions.getUncheckedIO(() -> OBJECT_MAPPER.readValue(json, clazz));
+    }
+
+    public static <T> T fromJsonAtPath(Path path, Class<T> clazz)
+    {
+        String jsonContent = FileUtils.readString(path);
+        return fromJson(jsonContent, clazz);
     }
 
     public static <T> T fromJson(String json, TypeReference<T> typeReference)
