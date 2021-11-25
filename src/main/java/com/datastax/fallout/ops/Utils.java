@@ -367,25 +367,6 @@ public class Utils
         return Long.parseLong(value) * multiplier;
     }
 
-    public static long parseMemory(String value)
-    {
-        long multiplier = 1;
-        value = value.trim().toLowerCase();
-        switch (value.charAt(value.length() - 1))
-        {
-            case 'g':
-                multiplier *= 1000;
-            case 'm':
-                multiplier *= 1000;
-            case 'k':
-                multiplier *= 1000;
-            case 'b':
-                value = value.substring(0, value.length() - 1);
-        }
-
-        return Long.parseLong(value) * multiplier;
-    }
-
     /**
      * Takes an input stream consisting of String representations of paths separated by newlines
      * and returns a collection of String representations of those paths prepended with the provided prefix
