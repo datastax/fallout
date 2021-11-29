@@ -88,7 +88,6 @@ public class NoSqlBenchModule extends Module
     private static final PropertySpec<List<String>> argsListSpec = PropertySpecBuilder.createStrList(prefix)
         .name("args")
         .description("List of arguments to pass into nosqlbench command.")
-        .required()
         .disableRefExpansion()
         .build();
 
@@ -106,7 +105,13 @@ public class NoSqlBenchModule extends Module
     private static final PropertySpec<String> hostParamSpec = PropertySpecBuilder.createStr(prefix)
         .name("host")
         .description(
-            "Host argument in its entirety, e.g. host=10.0.0.1 or secureconnectbundle=path/to/bundle.zip Note: environment variables are not available.")
+            "Host argument in its entirety, e.g. host=10.0.0.1 or secureconnectbundle=path/to/bundle.zip Note: environment variables are not available. Optional when running named scenario.")
+        .build();
+
+    private static final PropertySpec<String> scenarioParamSpec = PropertySpecBuilder.createStr(prefix)
+        .name("scenario")
+        .description(
+            "Name or URL of a scenario you wish to run. Note: This cannot be set with duration or alias. See: http://docs.nosqlbench.io/#/docs/designing_workloads/10_named_scenarios.md ")
         .build();
 
     private static final TimeoutSpec timeoutSpec = new TimeoutSpec(prefix, Duration.hours(10));
@@ -178,7 +183,7 @@ public class NoSqlBenchModule extends Module
     {
         return ImmutableList.<PropertySpec<?>>builder()
             .add(numClientsSpecs, totalCyclesSpec, cycleOffsetSpec, argsListSpec, histogramFrequencySpec,
-                syncStartSpec, workloadDurationSpec, aliasSpec, hostParamSpec, serviceTypeSpec)
+                syncStartSpec, workloadDurationSpec, aliasSpec, hostParamSpec, serviceTypeSpec, scenarioParamSpec)
             .addAll(serverGroupSpec.getSpecs())
             .addAll(clientGroupSpec.getSpecs())
             .addAll(timeoutSpec.getSpecs())
@@ -188,6 +193,19 @@ public class NoSqlBenchModule extends Module
     @Override
     public void validateProperties(PropertyGroup properties) throws PropertySpec.ValidationException
     {
+        if (scenarioParamSpec.optionalValue(properties).isPresent() &&
+            (aliasSpec.optionalValue(properties).isPresent() ||
+                workloadDurationSpec.optionalValue(properties).isPresent()))
+        {
+            throw new PropertySpec.ValidationException(
+                String.format("Cannot set %s at the same time as either of (%s, %s)",
+                    scenarioParamSpec.name(), aliasSpec.name(), workloadDurationSpec.name()));
+        }
+        if (scenarioParamSpec.optionalValue(properties).isEmpty() && argsListSpec.optionalValue(properties).isEmpty())
+        {
+            throw new PropertySpec.ValidationException(
+                String.format("%s property spec is required when not running a named scenario", argsListSpec.name()));
+        }
         for (String arg : argsListSpec.value(properties))
         {
             for (String managedArg : FALLOUT_MANAGED_ARGS)
@@ -211,14 +229,16 @@ public class NoSqlBenchModule extends Module
     @Override
     public void setup(Ensemble ensemble, PropertyGroup properties)
     {
-        args.add(workloadDurationSpec.optionalValue(properties).isPresent() ? "start" : "run");
-        alias = aliasSpec.optionalValue(properties).orElseGet(this::getInstanceName);
-        args.add(String.format("alias=%s", alias));
-
         serverGroup = ensemble.getNodeGroupByAlias(serverGroupSpec.getNodeGroupSpec().value(properties));
         clientGroup = ensemble.getNodeGroupByAlias(clientGroupSpec.getNodeGroupSpec().value(properties));
         Optional<FileProvider.RemoteFileProvider> remoteFileProvider = clientGroup.findFirstProvider(
             FileProvider.RemoteFileProvider.class);
+
+        scenarioParamSpec.optionalValue(properties).ifPresentOrElse(scenario -> args.add(scenario), () -> {
+            args.add(workloadDurationSpec.optionalValue(properties).isPresent() ? "start" : "run");
+            alias = aliasSpec.optionalValue(properties).orElseGet(this::getInstanceName);
+            args.add(String.format("alias=%s", alias));
+        });
 
         // separate arguments from options so we can enforce correct order of each
         argsListSpec.optionalValue(properties).ifPresent(argsList -> argsList.stream()
@@ -294,14 +314,21 @@ public class NoSqlBenchModule extends Module
             }
 
             Optional<String> hostParam = hostParamSpec.optionalValue(properties);
+            // When scenario is set, host is optional and must be explicit to be set at all.
+            // Otherwise host param takes precedence over service contact points.
             if (hostParam.isPresent())
             {
                 clientSpecificArgs.add(hostParam.get().strip());
+            }
+            else if (scenarioParamSpec.optionalValue(properties).isPresent())
+            {
+                // Do nothing, allow the scenario to define the host parameters
             }
             else
             {
                 List<ServiceContactPointProvider> contactPointProviders = getServiceContactPointProviders(ensemble,
                     properties);
+
                 if (contactPointProviders.isEmpty())
                 {
                     String error =
@@ -319,8 +346,10 @@ public class NoSqlBenchModule extends Module
                 clientSpecificArgs.add(String.format("host=%s", String.join(",", contactPoints)));
             }
 
+            // Property validation prevents this from being set when running named scenario
             workloadDurationSpec.optionalValue(properties).ifPresent(
                 duration -> clientSpecificArgs.add(String.format("waitmillis %s stop %s", duration.toMillis(), alias)));
+
             List<String> orderedCommandParameters =
                 Stream.concat(clientSpecificArgs.stream(), options.stream()).collect(Collectors.toList());
             NoSqlBenchProvider nbProvider = nosqlBenchProviders.get(i);
