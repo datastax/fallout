@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 
@@ -90,9 +91,20 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
 
     public Map<String, String> getKubernetesEnv()
     {
-        return getOptionalKubeConfigPath()
-            .map(path -> Map.of(KUBECONFIG_ENV_VAR, path.toString()))
-            .orElse(Map.of());
+        final var env = ImmutableMap.<String, String>builder();
+
+        getOptionalKubeConfigPath().ifPresent(path -> {
+            env.put(KUBECONFIG_ENV_VAR, path.toString());
+        });
+
+        final var helmScratch =
+            getNodeGroup().getLocalScratchSpace().makeScratchSpaceFor(this).makeScratchSpaceFor("helm");
+
+        env.put("HELM_CACHE_HOME", helmScratch.makeScratchSpaceFor("cache").getPath().toString());
+        env.put("HELM_CONFIG_HOME", helmScratch.makeScratchSpaceFor("config").getPath().toString());
+        env.put("HELM_DATA_HOME", helmScratch.makeScratchSpaceFor("data").getPath().toString());
+
+        return env.build();
     }
 
     @Override
