@@ -11,10 +11,10 @@ plugins {
     id("com.datastax.fallout.conventions.dependency-locking")
 }
 
-group = "com.datastax"
+group = "com.datastax.fallout"
 
 dependencies {
-    implementation("com.datastax:build-logic-common-conventions")
+    implementation("com.datastax.fallout:build-logic-common-conventions")
 }
 
 // Resources for use by PluginInfo

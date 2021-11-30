@@ -12,7 +12,7 @@ plugins {
     id("com.datastax.fallout.conventions.dependency-locking")
 }
 
-group = "com.datastax"
+group = "com.datastax.fallout"
 
 dependencies {
     implementation("de.undercouch:gradle-download-task:4+")

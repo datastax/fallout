@@ -10,7 +10,7 @@ plugins {
     id("org.jlleitschuh.gradle.ktlint") version "10.1.0"
 }
 
-group = "com.datastax"
+group = "com.datastax.fallout"
 
 // We can't define a variable, ktlintVersion, and use it in the plugins
 // block, so instead we extract the version used in the plugins block.
