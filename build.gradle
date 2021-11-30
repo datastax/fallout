@@ -39,6 +39,7 @@ plugins {
     id "com.datastax.fallout.symlinks"
     id "com.datastax.fallout.externaltools"
     id "com.datastax.fallout.fork"
+    id "com.datastax.fallout.git"
     id "com.datastax.fallout.conventions.test"
     id "com.datastax.fallout.conventions.lint"
     id "com.datastax.fallout.conventions.kotlin"
@@ -473,66 +474,9 @@ task stopCassandra {
 }
 
 // ----------------------------------------------------------------------------
-// General helpers
+// Git
 
-def execWithOutput(String... command) {
-    def process = command.execute();
-    if (process.waitFor() != 0) {
-        throw new RuntimeException("'" + command + "' failed:\n" +
-            "STDOUT:\n" +
-            process.in.text +
-            "\nSTDERR:\n" +
-            process.err.text)
-    }
-    return process.text.trim()
-}
-
-// ----------------------------------------------------------------------------
-// Version info
-
-// We don't use grgit to do this because it doesn't support worktrees:
-// https://github.com/ajoberstar/grgit/issues/97
-
-ext {
-    gitDir = null
-
-    try {
-        gitDir = execWithOutput("git", "rev-parse", "--git-dir")
-    }
-    catch(RuntimeException e) {
-        // ignore: leave gitDir as null, indicating we are not in a repo
-    }
-}
-
-def gitCommand(command) {
-    // We have to specify --git-dir and --work-tree because the gradle daemon
-    // doesn't unset environment variables, it just sets them to empty.  If
-    // we run gradle as part of a `git -x './gradlew compile' rebase` or a
-    // bisect, then GIT_WORK_TREE and GIT_DIR will be set; running outside of
-    // the bisect or rebase, the two env vars will be set to empty, which
-    // will cause git to fail.
-    return execWithOutput((["git", "--git-dir=${gitDir}",
-        "--work-tree=${rootProject.projectDir}"] + command) as String[])
-}
-
-/** Only set a property if it hasn't already been defined and there is
- *  a git repo */
-def maybeSetGitProperty(String name, Closure closure) {
-    defaultPropertyValue(name, {
-        gitDir != null ?
-            closure.call() :
-            "NO_GIT_REPO"
-    })
-}
-
-ext {
-    maybeSetGitProperty("gitDescribe", { gitCommand(["describe", "--tags", "--match", "fallout-*.*.*"]) })
-    maybeSetGitProperty("gitBranch", { gitCommand(["rev-parse", "--abbrev-ref", "HEAD"]) })
-    maybeSetGitProperty("gitCommit", { gitCommand(["rev-parse", "HEAD"]) })
-    maybeSetGitProperty("githubRepo", { gitCommand(["remote", "get-url", "origin"])
-        .replaceAll('^.*github.com[:/](.*?)(:?\\.git)?$', '$1')
-        .toLowerCase() })
-}
+git.describeTagPattern = "fallout-*.*.*"
 
 // ----------------------------------------------------------------------------
 // Generated resources
@@ -580,9 +524,9 @@ task generateVersionFile() {
     ext.targetContent = """
         <dl>
         <dt>branch:
-        <dd><a href="https://github.com/${githubRepo}/tree/${gitBranch}">${gitBranch}</a>
+        <dd><a href="https://github.com/${git.repo}/tree/${git.branch}">${git.branch}</a>
         <dt>commit:
-        <dd><a href="https://github.com/${githubRepo}/commit/${gitCommit}">${gitCommit}</a>
+        <dd><a href="https://github.com/${git.repo}/commit/${git.commit}">${git.commit}</a>
         </dl>
     """
 
@@ -600,7 +544,7 @@ task generateVersionFile() {
 task generateCliInstaller() {
     ext.target = file("${generatedResourcesOutputDir}/assets/installers/cli")
     ext.targetContent = """
-        pipx install --python python3 --force "git+ssh://git@github.com/${githubRepo}.git@${gitCommit}#egg=fallout-client&subdirectory=fallout-cli"
+        pipx install --python python3 --force "git+ssh://git@github.com/${git.repo}.git@${git.commit}#egg=fallout-client&subdirectory=fallout-cli"
     """
 
     inputs.property('content', targetContent)
@@ -615,7 +559,7 @@ task generateCliInstaller() {
 task generateApiInstaller() {
     ext.target = file("${generatedResourcesOutputDir}/assets/installers/api")
     ext.targetContent = """
-        python3 -m pip install --upgrade "git+ssh://git@github.com/${githubRepo}.git@${gitCommit}#egg=fallout-client&subdirectory=fallout-cli"
+        python3 -m pip install --upgrade "git+ssh://git@github.com/${git.repo}.git@${git.commit}#egg=fallout-client&subdirectory=fallout-cli"
     """
 
     inputs.property('content', targetContent)
@@ -661,8 +605,8 @@ task generateVersionJavaFile {
         package com.datastax.fallout;
 
         public class FalloutVersion {
-            public static String getVersion() { return "${gitDescribe}"; }
-            public static String getCommitHash() { return "${gitCommit}"; }
+            public static String getVersion() { return "${git.describe}"; }
+            public static String getCommitHash() { return "${git.commit}"; }
         }
     """
 
@@ -881,7 +825,7 @@ shadowJar {
     mergeServiceFiles()
 
     manifest {
-        attributes('Implementation-Version': gitDescribe)
+        attributes('Implementation-Version': git.describe)
     }
 
     outputs.cacheIf { true }
@@ -913,7 +857,7 @@ task dockerBuild(type: Exec) {
     workingDir dockerContextDir
 
     def name = "datastax/fallout"
-    def tag = gitDescribe.replace("fallout-", "")
+    def tag = git.describe.replace("fallout-", "")
     ext.latestTag = "${name}:latest"
     ext.versionTag = "${name}:${tag}"
 
@@ -1293,7 +1237,7 @@ task integrationTest(type: Test, dependsOn: [dockerBuild]) {
 
     systemProperties([
         dockerLatestTag: dockerBuild.latestTag,
-        falloutVersion: gitDescribe
+        falloutVersion: git.describe
     ])
 
     mustRunAfter(test, dbTest, stopCassandra)

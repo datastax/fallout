@@ -61,18 +61,21 @@ public class ProcessHelpers
 
     private static CompletableFuture<List<String>> logCommandOutput(InputStream inputStream, String streamName)
     {
-        return CompletableFuture.supplyAsync(() -> {
-            final var stream = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
-            final var lines = new ArrayList<String>();
-            String line;
-            while ((line = Exceptions.getUncheckedIO(stream::readLine)) != null)
+        return CompletableFuture.supplyAsync(() -> Exceptions.getUncheckedIO(() -> {
+            try (final var stream =
+                new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)))
             {
-                line = line.trim();
-                lines.add(line);
-                logger.info("{}: {}", streamName, line);
+                final var lines = new ArrayList<String>();
+                String line;
+                while ((line = Exceptions.getUncheckedIO(stream::readLine)) != null)
+                {
+                    line = line.trim();
+                    lines.add(line);
+                    logger.info("{}: {}", streamName, line);
+                }
+                return lines;
             }
-            return lines;
-        }, outputExecutor);
+        }), outputExecutor);
     }
 
     @AutoValue

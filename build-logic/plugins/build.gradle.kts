@@ -37,5 +37,10 @@ gradlePlugin {
             id = "com.datastax.fallout.fork"
             implementationClass = "com.datastax.fallout.gradle.fork.ForkPlugin"
         }
+
+        create("git") {
+            id = "com.datastax.fallout.git"
+            implementationClass = "com.datastax.fallout.gradle.git.GitPlugin"
+        }
     }
 }
