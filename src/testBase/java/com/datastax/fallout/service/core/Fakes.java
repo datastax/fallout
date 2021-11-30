@@ -68,14 +68,11 @@ public class Fakes
             return User.GoogleCloudServiceAccount.fromJson(
                 FileUtils.readString(Paths.get(existingKeyFileJsonFromEnv)));
         }
-        return new User.GoogleCloudServiceAccount() {
-            {
-                email = "fake-service-account@google-cloud.example.com";
-                project = "fake-project";
-                privateKeyId = "fake-private-key-id";
-                keyFileJson = "{\"fake\": 1}";
-            }
-        };
+        return new User.GoogleCloudServiceAccount(
+            "fake-service-account@google-cloud.example.com",
+            "fake-project",
+            "fake-private-key-id",
+            "{\"fake\": 1}");
     }
 
     public static class UUIDFactory
