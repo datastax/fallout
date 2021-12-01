@@ -42,5 +42,10 @@ gradlePlugin {
             id = "com.datastax.fallout.git"
             implementationClass = "com.datastax.fallout.gradle.git.GitPlugin"
         }
+
+        create("docker") {
+            id = "com.datastax.fallout.docker"
+            implementationClass = "com.datastax.fallout.gradle.docker.DockerPlugin"
+        }
     }
 }

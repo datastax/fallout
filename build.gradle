@@ -40,6 +40,7 @@ plugins {
     id "com.datastax.fallout.externaltools"
     id "com.datastax.fallout.fork"
     id "com.datastax.fallout.git"
+    id "com.datastax.fallout.docker"
     id "com.datastax.fallout.conventions.test"
     id "com.datastax.fallout.conventions.lint"
     id "com.datastax.fallout.conventions.kotlin"
@@ -831,113 +832,21 @@ shadowJar {
     outputs.cacheIf { true }
 }
 
+// ----------------------------------------------------------------------------
 // Docker
 
-def dockerContextDir = file("${buildDir}/docker-context")
-
-task dockerPrepareImageFiles(type: SyncSymlinks) {
-    group 'docker'
-
-    from installShadowLinuxDist
-    from file("docker/image-files")
-    ext.outputDir = file("${dockerContextDir}/image-files")
-    into outputDir
-}
-
-task dockerPrepare(type: Sync, dependsOn: [dockerPrepareImageFiles]) {
-    group 'docker'
-
-    from file("docker/build-files")
-    into file("${dockerContextDir}/build-files")
-}
-
-task dockerBuild(type: Exec) {
-    group 'docker'
-    dependsOn dockerPrepare
-    workingDir dockerContextDir
-
-    def name = "datastax/fallout"
-    def tag = git.describe.replace("fallout-", "")
-    ext.latestTag = "${name}:latest"
-    ext.versionTag = "${name}:${tag}"
-
-    commandLine "docker", "buildx", "build",
-        "--file", "build-files/Dockerfile",
-        "--tag", latestTag,
-        "--tag", versionTag,
-        "--progress", "plain",
-        "--load",
-        "."
-}
-
-defaultPropertyValue("dockerRegistry", "docker.io")
-
-import java.nio.charset.StandardCharsets
-
-task dockerLogin(type: Exec) {
-    group 'docker'
-
-    def DOCKER_USERNAME_PROPERTY = "dockerUsername"
-    def DOCKER_PASSWORD_PROPERTY = "dockerPassword"
-
-    description "If the gradle properties ${DOCKER_USERNAME_PROPERTY} and " +
-        "${DOCKER_PASSWORD_PROPERTY} are set, then use them to login to " +
-        "the docker registry"
-
-    def dockerUsername = project.findProperty(DOCKER_USERNAME_PROPERTY) ?: ""
-    def dockerPassword = project.findProperty(DOCKER_PASSWORD_PROPERTY) ?: ""
-
-    onlyIf {
-        dockerUsername && dockerPassword
-    }
-
-    standardInput = new ByteArrayInputStream(
-        dockerPassword.getBytes(StandardCharsets.UTF_8))
-
-    commandLine "docker", "login", "-u", dockerUsername, "--password-stdin", dockerRegistry
-}
-
-task dockerPush {
-    group 'docker'
-    description 'Push the docker image to the docker registry defined by ' +
-        'the dockerRegistry gradle property'
-
-    dependsOn dockerBuild, dockerLogin
-
-    doLast {
-        [dockerBuild.latestTag, dockerBuild.versionTag].each { tag ->
-            def registryTag = "${dockerRegistry}/${tag}"
-
-            exec {
-                commandLine "docker", "image", "tag", tag, registryTag
-            }
-            exec {
-                commandLine "docker", "image", "push", registryTag
-            }
-        }
+docker {
+    imageFiles.from(installShadowLinuxDist)
+    tagName = "datastax/fallout"
+    // Use the git version without the "fallout-" prefix e.g. "fallout-1.2.3" -> "1.2.3"
+    tagVersion = git.describe.replaceFirst(/^[a-z-]*/, "")
+    composeEnvironment.put("CASSANDRA_VERSION", cassandraVersion)
+    if (osdetector.os == "osx") {
+        composeEnvironment.put("SSH_AUTH_SOCK", "/run/host-services/ssh-auth.sock")
     }
 }
 
 publish.dependsOn(dockerPush)
-
-ext.dockerComposeFile = file("docker/docker-compose.yml")
-
-task dockerComposeUp(type: Exec) {
-    group 'docker'
-
-    dependsOn("dockerBuild")
-    commandLine "docker-compose", "-f", dockerComposeFile, "up", "-d"
-    environment "CASSANDRA_VERSION", cassandraVersion
-    if (osdetector.os == "osx") {
-        environment "SSH_AUTH_SOCK", "/run/host-services/ssh-auth.sock"
-    }
-}
-
-task dockerComposeDown(type: Exec) {
-    group 'docker'
-
-    commandLine "docker-compose", "-f", dockerComposeFile, "down"
-}
 
 // ----------------------------------------------------------------------------
 // Tests
@@ -1236,7 +1145,7 @@ task integrationTest(type: Test, dependsOn: [dockerBuild]) {
     classpath = sourceSets.integrationTest.runtimeClasspath
 
     systemProperties([
-        dockerLatestTag: dockerBuild.latestTag,
+        dockerLatestTag: docker.latestTag.get(),
         falloutVersion: git.describe
     ])
 
