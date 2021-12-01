@@ -248,14 +248,6 @@ public abstract class Module implements Client, WorkloadComponent
         return lifetimePropertySpec != null;
     }
 
-    /**
-     * Validates the ensemble has the proper configuration a Module requires to work.
-     * This includes things such as providers on a specific NodeGroup, or a managed file
-     */
-    public void validateEnsemble(EnsembleValidator validator)
-    {
-    }
-
     @Override
     final public List<PropertySpec<?>> getPropertySpecs()
     {

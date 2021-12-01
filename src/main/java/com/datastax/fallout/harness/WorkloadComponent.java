@@ -22,4 +22,12 @@ import com.datastax.fallout.ops.PropertyGroup;
 public interface WorkloadComponent extends PropertyBasedComponent, HasProperties
 {
     void setProperties(PropertyGroup properties);
+
+    /**
+     * Validates the ensemble has the proper configuration for the component to work.
+     * This includes things such as providers on a specific NodeGroup, or a managed file etc.
+     */
+    default void validateEnsemble(EnsembleValidator validator)
+    {
+    }
 }

@@ -1050,7 +1050,7 @@ public class ActiveTestRunBuilder
             .put(FalloutPropertySpecs.generatedClusterNamePropertySpec.name(), clusterName);
     }
 
-    private void validateWorkLoad(ValidationResult validationResult)
+    private void validateWorkLoad(Ensemble ensemble, ValidationResult validationResult)
     {
         for (Module module : workload.getAllModules())
         {
@@ -1063,6 +1063,9 @@ public class ActiveTestRunBuilder
                 validationResult.addError(String.format("Module %s had validation exception: %s",
                     module.getInstanceName(), e.getMessage()));
             }
+            EnsembleValidator ensembleValidator =
+                new EnsembleValidator(module, module.getProperties(), ensemble, validationResult);
+            module.validateEnsemble(ensembleValidator);
         }
         for (Checker checker : workload.getCheckers())
         {
@@ -1075,6 +1078,9 @@ public class ActiveTestRunBuilder
                 validationResult.addError(String.format("Checker %s had validation exception: %s",
                     checker.getInstanceName(), e.getMessage()));
             }
+            EnsembleValidator ensembleValidator =
+                new EnsembleValidator(checker, checker.getProperties(), ensemble, validationResult);
+            checker.validateEnsemble(ensembleValidator);
         }
         for (ArtifactChecker artifactChecker : workload.getArtifactCheckers())
         {
@@ -1087,16 +1093,10 @@ public class ActiveTestRunBuilder
                 validationResult.addError(String.format("ArtifactChecker %s had validation exception: %s",
                     artifactChecker.getInstanceName(), e.getMessage()));
             }
-        }
-    }
-
-    private void validateModuleEnsembleRequirements(Ensemble ensemble, ValidationResult validationResult)
-    {
-        workload.getAllModules().forEach(module -> {
             EnsembleValidator ensembleValidator =
-                new EnsembleValidator(module, module.getProperties(), ensemble, validationResult);
-            module.validateEnsemble(ensembleValidator);
-        });
+                new EnsembleValidator(artifactChecker, artifactChecker.getProperties(), ensemble, validationResult);
+            artifactChecker.validateEnsemble(ensembleValidator);
+        }
     }
 
     private Ensemble buildEnsemble(ValidationResult validationResult)
@@ -1225,8 +1225,7 @@ public class ActiveTestRunBuilder
             }
 
             ensemble.getServerGroups().forEach(ng -> validateProduct(ng, validationResult));
-            validateWorkLoad(validationResult);
-            validateModuleEnsembleRequirements(ensemble, validationResult);
+            validateWorkLoad(ensemble, validationResult);
             validateDeprecatedProperties(ensemble, validationResult);
         }
 

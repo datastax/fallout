@@ -1,8 +1,7 @@
 workload:
-
   phases:
     - my_module:
-        module: fail
+        module: fake
 
   checkers:
     nofail:

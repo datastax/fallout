@@ -31,6 +31,7 @@ import java.util.stream.Stream;
 import com.google.auto.service.AutoService;
 
 import com.datastax.fallout.harness.ArtifactChecker;
+import com.datastax.fallout.harness.EnsembleValidator;
 import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
@@ -104,6 +105,12 @@ public class RegexArtifactChecker extends ArtifactChecker
         {
             throw new PropertySpec.ValidationException("At least one of required or forbidden must be specified");
         }
+    }
+
+    @Override
+    public void validateEnsemble(EnsembleValidator validator)
+    {
+        validator.requireNodeGroup(artifactSourceGroupSpec);
     }
 
     @Override

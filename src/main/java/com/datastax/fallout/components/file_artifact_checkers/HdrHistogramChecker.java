@@ -50,6 +50,7 @@ import psy.lob.saw.OrderedHistogramLogReader;
 import psy.lob.saw.UnionHistograms;
 
 import com.datastax.fallout.harness.ArtifactChecker;
+import com.datastax.fallout.harness.EnsembleValidator;
 import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.PropertySpec;
@@ -82,6 +83,12 @@ public class HdrHistogramChecker extends ArtifactChecker
         .description("The prefix of the report output")
         .defaultOf("performance-report")
         .build();
+
+    @Override
+    public void validateEnsemble(EnsembleValidator validator)
+    {
+        validator.requireNodeGroup(clientGroupSpec);
+    }
 
     private static boolean isHdrHistogram(String pathName)
     {

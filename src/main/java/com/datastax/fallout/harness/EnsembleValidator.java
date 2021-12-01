@@ -101,6 +101,13 @@ public class EnsembleValidator
                 nodeGroupSpec.shortName()));
     }
 
+    public void requireNodeGroup(PropertySpec<String> nodeGroupSpec)
+    {
+        doWithValidNodeGroup(nodeGroupSpec, (selectingProp, nodeGroup) -> {
+            // we only call this to make sure the nodegroup exists
+        });
+    }
+
     private void nodeGroupRequiresProviders(String selectingProp, NodeGroup nodeGroup,
         Set<Class<? extends Provider>> providerClasses)
     {

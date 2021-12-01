@@ -14,4 +14,4 @@ workload:
     hdr:
       artifact_checker: hdrtool
       properties:
-          bogus: 1
+        client_group: non-existing-nodegroup
