@@ -712,6 +712,7 @@ public class User implements Principal
 
         public NebulaAppCred()
         {
+            // needed for serialization
         }
 
         @Override
@@ -765,6 +766,19 @@ public class User implements Principal
 
         @Field
         public String keyFileJson;
+
+        public GoogleCloudServiceAccount(String email, String project, String privateKeyId, String keyFileJson)
+        {
+            this.email = email;
+            this.project = project;
+            this.privateKeyId = privateKeyId;
+            this.keyFileJson = keyFileJson;
+        }
+
+        public GoogleCloudServiceAccount()
+        {
+            // needed for serialization
+        }
 
         public static GoogleCloudServiceAccount fromJson(String keyFileJson)
         {
@@ -827,6 +841,7 @@ public class User implements Principal
 
         public AstraServiceAccount()
         {
+            // needed for serialization
         }
 
         @Override
@@ -884,6 +899,7 @@ public class User implements Principal
 
         public BackupServiceCred()
         {
+            // needed for serialization
         }
 
         @Override
@@ -941,6 +957,7 @@ public class User implements Principal
 
         public DockerRegistryCredential()
         {
+            // needed for serialization
         }
     }
 }
