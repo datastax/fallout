@@ -4,8 +4,8 @@
 
 You will need:
 
-* an installation of Java 11 to build and run the server: set the environment variable `JAVA_HOME` to point at this;
-* an installation of Java 8 to run some of the tests (they currently use an older version of Cassandra that cannot run on Java 11): set `JAVA8_HOME` to point at this;
+* an installation of Java 17 to build and run the server: set the environment variable `JAVA_HOME` to point at this;
+* an installation of Java 8 to run some of the tests (they currently use an older version of Cassandra that cannot run on Java 17): set `JAVA8_HOME` to point at this;
 * an installation of Python 3.7, for some of the artifact checkers in [tools](tools), which will also need...
 * an installation of [poetry](https://python-poetry.org/); the best way to do this is to install it using [pipx](https://github.com/pypa/pipx)
 

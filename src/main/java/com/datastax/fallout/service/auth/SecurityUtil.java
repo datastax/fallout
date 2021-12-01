@@ -68,6 +68,7 @@ public class SecurityUtil
         //
         //   unreported exception InvalidKeySpecException; must be caught or declared to be thrown
         //
+        // Update, 1 Dec 2021: Still not fixed in Java 17
         return logger.withScopedDebug("getEncryptedPassword").<ByteBuffer, RuntimeException>get(() -> {
             try
             {
