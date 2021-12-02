@@ -586,7 +586,7 @@ task generateVersionFile() {
 task generateCliInstaller() {
     ext.target = file("${generatedResourcesOutputDir}/assets/installers/cli")
     ext.targetContent = """
-        pipx install --force "git+ssh://git@github.com/${githubRepo}.git@${gitCommit}#egg=fallout-client&subdirectory=fallout-cli"
+        pipx install --python python3 --force "git+ssh://git@github.com/${githubRepo}.git@${gitCommit}#egg=fallout-client&subdirectory=fallout-cli"
     """
 
     inputs.property('content', targetContent)
