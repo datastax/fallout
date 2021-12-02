@@ -972,7 +972,7 @@ public class TestResource
         final Test test;
         final boolean edit;
         final String defaultTestDefinition =
-            ResourceUtils.loadResourceAsString(this, "default-test-definition.yaml")
+            ResourceUtils.maybeGetResourceAsString(this, "default-test-definition.yaml")
                 .orElse("");
 
         public TestBuilderView(User user, Test test)

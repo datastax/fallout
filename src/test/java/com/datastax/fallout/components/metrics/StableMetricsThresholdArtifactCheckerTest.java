@@ -39,7 +39,7 @@ class StableMetricsThresholdArtifactCheckerTest
     @Test
     public void shouldLoadMetricsFromFile()
     {
-        String json = ResourceUtils.readResourceAsString(getClass(), "metric_a.json");
+        String json = ResourceUtils.getResourceAsString(this, "metric_a.json");
         RangeQueryResult rangeQueryResult = JsonUtils.fromJson(json, RangeQueryResult.class);
 
         List<Result> result = rangeQueryResult.getData().getResult();

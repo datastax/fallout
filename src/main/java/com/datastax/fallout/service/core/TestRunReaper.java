@@ -121,12 +121,10 @@ public class TestRunReaper extends PeriodicTask
         }
 
         var emailDefinition = ResourceUtils
-            .loadResourceAsString(htmlUserMessenger, "usernotifier-testruns-deleted.email.mustache").orElseThrow(
-                () -> new RuntimeException("Could not load template usernotifier-testruns-deleted.email.mustache"));
+            .getResourceAsString(TestRunReaper.class, "usernotifier-testruns-deleted.email.mustache");
 
         var slackDefinition = ResourceUtils
-            .loadResourceAsString(slackMessenger, "usernotifier-testruns-deleted.slack.mustache").orElseThrow(
-                () -> new RuntimeException("Could not load template usernotifier-testruns-deleted.slack.mustache"));
+            .getResourceAsString(TestRunReaper.class, "usernotifier-testruns-deleted.slack.mustache");
 
         notifyOwner(owner, htmlUserMessenger, "ALERT: Old fallout test runs marked for deletion",
             renderWithScopes(emailDefinition,

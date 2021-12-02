@@ -285,8 +285,7 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
     private boolean deployPersistentVolumeClaimForArtifactCollector(NodeGroup nodeGroup, Path manifestScratchSpace,
         JsonNode pv, String pvName, String pvcName, KubeControlProvider kubeCtl)
     {
-        String pvcTemplate = ResourceUtils.loadResourceAsString(this, "artifact-collector-pvc.yaml")
-            .orElseThrow(() -> new RuntimeException("Could not load artifact collector PVC template"));
+        String pvcTemplate = ResourceUtils.getResourceAsString(this, "artifact-collector-pvc.yaml");
         String pvcDefinition = renderWithScopes(pvcTemplate, List.of(Map.of(
             "pvc-name", pvcName,
             "pv-name", pvName,
@@ -397,8 +396,7 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
             return success.get();
         }
 
-        String artifactCollectorTemplate = ResourceUtils.loadResourceAsString(this, "artifact-collector-pod.yaml")
-            .orElseThrow(() -> new RuntimeException("Could not load artifact collector pod template"));
+        String artifactCollectorTemplate = ResourceUtils.getResourceAsString(this, "artifact-collector-pod.yaml");
 
         List<CompletableFuture<Boolean>> artifactCollectorDeploys = pvInfos.stream()
             .map(targetPv -> deployArtifactCollectorPod(

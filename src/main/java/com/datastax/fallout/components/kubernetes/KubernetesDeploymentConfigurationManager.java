@@ -176,7 +176,7 @@ public abstract class KubernetesDeploymentConfigurationManager extends Configura
 
     private String getDeploymentTemplate()
     {
-        return ResourceUtils.readResourceAsString(KubernetesDeploymentConfigurationManager.class, template);
+        return ResourceUtils.getResourceAsString(KubernetesDeploymentConfigurationManager.class, template);
     }
 
     private Path getDeploymentArtifact()

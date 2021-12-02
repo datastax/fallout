@@ -34,11 +34,11 @@ import com.datastax.fallout.util.ResourceUtils;
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.assertj.Assertions.assertThatThrownBy;
 import static com.datastax.fallout.components.metrics.MetricsCollectionConfigurationManager.PROMETHEUS_API_DEFAULT_QUERY_RANGE_STEP;
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
 
 class MetricsCollectionConfigurationManagerTest
 {
@@ -54,7 +54,7 @@ class MetricsCollectionConfigurationManagerTest
     @BeforeAll
     public static void setup() throws IOException
     {
-        jsonFileContent = ResourceUtils.readResourceAsString(MetricsCollectionConfigurationManagerTest.class,
+        jsonFileContent = ResourceUtils.getResourceAsString(MetricsCollectionConfigurationManagerTest.class,
             "metric_a.json");
 
         wireMockServer = new WireMockServer(options().port(PORT));

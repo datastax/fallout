@@ -19,8 +19,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 
-import com.google.common.io.Resources;
-
 import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.ResourceUtils;
 
@@ -60,13 +58,14 @@ public abstract class WithTestResources extends WithTestNames
     public static String getTestClassResource(Class<?> testClass, String path)
     {
         final String classBasedResourcePath = getClassBasedResourcePath(testClass, path);
-        return ResourceUtils.readResourceAsString(testClass, classBasedResourcePath);
+        return ResourceUtils.getResourceAsString(testClass, classBasedResourcePath);
     }
 
     /** Like {@link #getTestClassResource}, except it just returns a filesystem {@link Path} to the resource */
     public static Path getTestClassResourcePath(Class<?> testClass, String path)
     {
         final String classBasedResourcePath = getClassBasedResourcePath(testClass, path);
-        return Path.of(Exceptions.getUnchecked(() -> Resources.getResource(testClass, classBasedResourcePath).toURI()));
+        return Path.of(Exceptions.getUnchecked(() -> ResourceUtils
+            .getResource(testClass, classBasedResourcePath).toURI()));
     }
 }

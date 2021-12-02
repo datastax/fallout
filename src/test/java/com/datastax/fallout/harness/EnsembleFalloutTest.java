@@ -90,7 +90,7 @@ public abstract class EnsembleFalloutTest<FC extends FalloutConfiguration> exten
             path = "/" + path;
         }
         logger.info("Loading YAML from " + path);
-        return ResourceUtils.readResourceAsString(EnsembleFalloutTest.class, path);
+        return ResourceUtils.getResourceAsString(EnsembleFalloutTest.class, path);
     }
 
     public String readYamlFile(String path)

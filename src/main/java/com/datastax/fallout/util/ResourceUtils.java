@@ -32,36 +32,48 @@ public class ResourceUtils
         // utility class
     }
 
-    public static byte[] readBytesFromResourceUrl(URL resourceUrl)
+    private static Optional<URL> maybeGetResource(Class<?> contextClass, String resourceName)
+    {
+        return Optional.ofNullable(contextClass.getResource(resourceName));
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    public static URL getResource(Class<?> contextClass, String resourceName)
+    {
+        return Resources.getResource(contextClass, resourceName);
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    private static byte[] getResourceAsBytes(URL resourceUrl)
     {
         return Exceptions.getUncheckedIO(() -> Resources.toByteArray(resourceUrl));
     }
 
-    public static Optional<byte[]> loadResource(Object context, String resourceName)
+    @SuppressWarnings("UnstableApiUsage")
+    private static String getResourceAsString(URL resourceUrl)
     {
-        Class clazz = context.getClass();
-        URL maybeResourceUrl = clazz.getClassLoader().getResource(resourceName);
-        //Try with package namespace
-        if (maybeResourceUrl == null)
-        {
-            String p = clazz.getPackage().getName();
-            String prefix = String.join(File.separator, p.split("\\."));
-            maybeResourceUrl = clazz.getClassLoader()
-                .getResource(String.format("%s%s%s", prefix, File.separator, resourceName));
-        }
-        return Optional.ofNullable(maybeResourceUrl).map(ResourceUtils::readBytesFromResourceUrl);
+        return Exceptions.getUncheckedIO(() -> Resources.toString(resourceUrl, StandardCharsets.UTF_8));
     }
 
-    public static Optional<String> loadResourceAsString(Object context, String resourceName)
+    public static Optional<String> maybeGetResourceAsString(Class<?> contextClass, String resourceName)
     {
-        return loadResource(context, resourceName)
-            .map(byteArray -> new String(byteArray, StandardCharsets.UTF_8));
+        return maybeGetResource(contextClass, resourceName)
+            .map(ResourceUtils::getResourceAsString);
     }
 
-    public static String readResourceAsString(Class<?> contextClass, String resourceName)
+    public static Optional<String> maybeGetResourceAsString(Object context, String resourceName)
     {
-        return Exceptions.getUncheckedIO(
-            () -> Resources.toString(Resources.getResource(contextClass, resourceName), StandardCharsets.UTF_8));
+        return maybeGetResourceAsString(context.getClass(), resourceName);
+    }
+
+    public static String getResourceAsString(Class<?> contextClass, String resourceName)
+    {
+        return getResourceAsString(getResource(contextClass, resourceName));
+    }
+
+    public static String getResourceAsString(Object context, String resourceName)
+    {
+        return getResourceAsString(context.getClass(), resourceName);
     }
 
     private static void walkJarResourceTree(String path, URL resourceUrl, Consumer<String> pathConsumer)
@@ -101,10 +113,11 @@ public class ResourceUtils
         }
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     public static void walkResourceTree(Class<?> clazz, String path, BiConsumer<String, byte[]> pathAndContentConsumer)
     {
         final Consumer<String> pathConsumer = path_ -> pathAndContentConsumer.accept(path_,
-            readBytesFromResourceUrl(clazz.getResource(path_)));
+            getResourceAsBytes(Resources.getResource(clazz, path_)));
 
         final var resourceUrl = clazz.getResource(path);
         if (resourceUrl.getProtocol().equals("jar"))
