@@ -43,7 +43,8 @@ public class ProcessHelpers
     // Blocking methods should not run on the ForkJoinPool
     private static final Executor outputExecutor = Executors.newCachedThreadPool();
 
-    private static void assertCompleted(java.lang.Process process, Duration timeout,
+    private static void assertCompleted(List<String> command, Process process,
+        Duration timeout,
         List<CompletableFuture<List<String>>> outputLoggers)
     {
         boolean completed = Exceptions
@@ -56,7 +57,10 @@ public class ProcessHelpers
         outputLoggers.forEach(outputLogger -> Exceptions.getUnchecked(
             () -> outputLogger.get(5, TimeUnit.SECONDS)));
 
-        assertThat(completed).isTrue();
+        assertThat(completed)
+            .withFailMessage(String.format("%s did not complete within %ds",
+                command, timeout.getSeconds()))
+            .isTrue();
     }
 
     private static CompletableFuture<List<String>> logCommandOutput(InputStream inputStream, String streamName)
@@ -108,7 +112,7 @@ public class ProcessHelpers
             logCommandOutput(process.getInputStream(), "STDOUT"),
             logCommandOutput(process.getErrorStream(), "STDERR"));
 
-        assertCompleted(process, timeout, outputLoggers);
+        assertCompleted(command, process, timeout, outputLoggers);
         int exitCode = process.exitValue();
         logger.info("proc exit: {} {}", exitCode, command);
         return Exceptions

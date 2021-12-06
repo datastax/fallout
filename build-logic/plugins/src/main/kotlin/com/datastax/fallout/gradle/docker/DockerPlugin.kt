@@ -47,10 +47,31 @@ class DockerPlugin : Plugin<Project> {
             into(buildFilesTargetDir)
         }
 
+        val dockerPreparePipConf by project.tasks.registering {
+            group = "docker"
+
+            val pipConfDir = docker.contextDir.map { it.dir("pip-conf") }
+
+            description = "Copy docker.pipConfPath, if set, into ${pipConfDir.get()}; " +
+                "if not set, delete ${pipConfDir.get()}/pip.conf"
+
+            doLast {
+                project.mkdir(pipConfDir.get())
+                if (docker.pipConfPath.isPresent()) {
+                    project.copy {
+                        from(docker.pipConfPath.get())
+                        into(pipConfDir.get())
+                    }
+                } else {
+                    project.delete(pipConfDir.get().file("pip.conf"))
+                }
+            }
+        }
+
         val dockerPrepare by project.tasks.registering() {
             group = "docker"
 
-            dependsOn(dockerPrepareImageFiles, dockerPrepareBuildFiles)
+            dependsOn(dockerPrepareImageFiles, dockerPrepareBuildFiles, dockerPreparePipConf)
         }
 
         val dockerBuild by project.tasks.registering(Exec::class) {
