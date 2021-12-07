@@ -75,13 +75,15 @@ jobs:
         env:
           JAVA_HOME: ${{ steps.setup-java-11.outputs.path }}
           JAVA8_HOME: ${{ steps.setup-java-8.outputs.path }}
+        # For CI we generate a false gitDescribe: this is expected to be the output of `git describe --tags`,
+        # but because we're running in a shallow checkout, we synthesize a value
         run: ./gradlew
           --no-daemon
           --parallel
           --build-cache
           -PtestIgnoreFailures=true
           -PgithubRepo=$GITHUB_REPOSITORY
-          -PgitDescribe=$GITHUB_SHA
+          -PgitDescribe=fallout-0.0.0-0-g$GITHUB_SHA
           ${{ steps.getGradleArgs.outputs.args }}
 
       - name: Archive JUnit XML Artifacts
