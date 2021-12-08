@@ -217,12 +217,12 @@ public class KubeControlProvider extends Provider
                 containerName, podName, pathInContainer, localPath));
         }
 
-        public boolean createSecret(String secretName, DockerRegistryCredential cred)
+        public boolean createDockerSecret(String secretName, DockerRegistryCredential cred)
         {
-            return createSecret(secretName, cred.dockerRegistry, cred.username, cred.password);
+            return createDockerSecret(secretName, cred.dockerRegistry, cred.username, cred.password);
         }
 
-        public boolean createSecret(String secretName, String dockerServer, String username, String password)
+        public boolean createDockerSecret(String secretName, String dockerServer, String username, String password)
         {
             return execute(String.format(
                 "create secret docker-registry %s --docker-server='%s' --docker-username='%s' --docker-password='%s' --docker-email='dummy@fallout.com'",

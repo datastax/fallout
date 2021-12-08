@@ -251,6 +251,13 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
 
     protected abstract NodeGroup.State checkExistingKubernetesClusterState(NodeGroup nodeGroup);
 
+    Path writeRenderedDefinition(Path dest, String template, Map<String, Object> scope)
+    {
+        String definition = ResourceUtils.getResourceAsString(this, template);
+        FileUtils.writeString(dest, renderWithScopes(definition, List.of(scope)));
+        return dest;
+    }
+
     @Override
     protected boolean startImpl(NodeGroup nodeGroup)
     {
@@ -290,7 +297,9 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
             "pvc-name", pvcName,
             "pv-name", pvName,
             "pv-capacity", pv.at("/spec/capacity/storage").asText())));
-        Path pvcManifest = manifestScratchSpace.resolve(String.format("%s-pvc.yaml", pvName));
+        Path pvcManifest = writeRenderedDefinition(manifestScratchSpace.resolve(String.format("%s-pvc.yaml", pvName)),
+            "artifact-collector-pvc.yaml",
+            Map.of("pvc-name", pvcName, "pv-name", pvName, "pv-capacity", pv.at("/spec/capacity/storage").asText()));
         FileUtils.writeString(pvcManifest, pvcDefinition);
         boolean deployed = kubeCtl.inNamespace(Optional.empty(),
             namespacedKubectl -> namespacedKubectl.applyManifest(pvcManifest).waitForSuccess());
@@ -302,16 +311,14 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
     }
 
     private CompletableFuture<Boolean> deployArtifactCollectorPod(NodeGroup nodeGroup, Path manifestScratchSpace,
-        Map<String, String> targetPv, String artifactCollectorTemplate, KubeControlProvider kubeCtl)
+        Map<String, String> targetPv, KubeControlProvider kubeCtl)
     {
         return CompletableFuture.supplyAsync(() -> {
             String pvName = targetPv.get("pv-name");
             Map<String, Object> templateValues = new HashMap<>(targetPv);
             templateValues.put("container-name", ARTIFACT_COLLECTOR_CONTAINER_NAME);
-            String manifestContent = renderWithScopes(artifactCollectorTemplate, List.of(templateValues));
-            Path manifest = manifestScratchSpace.resolve(String.format("%s-collection.yaml", pvName));
-            FileUtils.writeString(manifest, manifestContent);
-
+            Path manifest = writeRenderedDefinition(manifestScratchSpace
+                .resolve(String.format("%s-collection.yaml", pvName)), "artifact-collector-pod.yaml", templateValues);
             boolean deployed = kubeCtl.inNamespace(Optional.empty(),
                 namespacedKubectl -> namespacedKubectl.applyManifest(manifest).waitForSuccess());
 
@@ -396,11 +403,9 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
             return success.get();
         }
 
-        String artifactCollectorTemplate = ResourceUtils.getResourceAsString(this, "artifact-collector-pod.yaml");
-
         List<CompletableFuture<Boolean>> artifactCollectorDeploys = pvInfos.stream()
             .map(targetPv -> deployArtifactCollectorPod(
-                nodeGroup, manifestScratchSpace, targetPv, artifactCollectorTemplate, kubeCtl))
+                nodeGroup, manifestScratchSpace, targetPv, kubeCtl))
             .collect(Collectors.toList());
 
         if (!Utils.waitForAll(artifactCollectorDeploys, nodeGroup.logger(), "Deploy artifact collector pods"))

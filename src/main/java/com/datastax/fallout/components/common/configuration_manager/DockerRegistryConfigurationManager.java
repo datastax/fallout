@@ -174,7 +174,7 @@ public class DockerRegistryConfigurationManager extends ConfigurationManager
 
     private boolean createKubernetesSecret(KubeControlProvider.NamespacedKubeCtl kubeCtl)
     {
-        return kubeCtl.createSecret(secretNameSpec.value(getNodeGroup()), getRegistryCredential());
+        return kubeCtl.createDockerSecret(secretNameSpec.value(getNodeGroup()), getRegistryCredential());
     }
 
     private boolean deleteKubernetesSecret(KubeControlProvider.NamespacedKubeCtl kubeCtl)
