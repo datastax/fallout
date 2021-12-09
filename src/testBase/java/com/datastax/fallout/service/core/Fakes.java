@@ -53,9 +53,9 @@ public class Fakes
             new User.NebulaAppCred("dse-automation", "dse", "fake-secret", "fake-access", "fake-secret"));
         user.addGoogleCloudServiceAccount(createGCloudServiceAccount());
         user.addAstraCred(new User.AstraServiceAccount(
-            "fake-client-id",
             "fake-client-name",
-            "fake-client-secret"));
+            "prod",
+            "fake-token"));
         user.addDockerRegistryCredential(new User.DockerRegistryCredential(TEST_REGISTRY, "user", "docker-password"));
         return user;
     }

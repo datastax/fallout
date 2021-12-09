@@ -33,6 +33,7 @@ import java.util.function.Function;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Strings;
 
 import com.datastax.driver.mapping.annotations.Column;
 import com.datastax.driver.mapping.annotations.Field;
@@ -478,6 +479,7 @@ public class User implements Principal
 
     public synchronized void addAstraCred(AstraServiceAccount astraServiceAccount)
     {
+        astraServiceAccount.validate();
         astraServiceAccounts.add(astraServiceAccount);
         ensureDefaultAstraServiceAccount();
     }
@@ -496,7 +498,10 @@ public class User implements Principal
 
     public Optional<AstraServiceAccount> getAstraServiceAccount(String clientName)
     {
-        return astraServiceAccounts.stream().filter(cred -> cred.clientName.equals(clientName)).findFirst();
+        Optional<AstraServiceAccount> account = astraServiceAccounts.stream()
+            .filter(cred -> cred.clientName.equals(clientName)).findFirst();
+        account.ifPresent(AstraServiceAccount::validate);
+        return account;
     }
 
     private void ensureDefaultAstraServiceAccount()
@@ -823,25 +828,56 @@ public class User implements Principal
     @UDT(name = "astraServiceAccount")
     public static class AstraServiceAccount
     {
-        @Field
-        public String clientId;
-
+        /**
+         Just the name the user decided to give this account.
+         It is not tied to clientId or clientSecret below in any way.
+         We keep this suboptiomal field name for legacy reasons after the astra IAM changes.
+         */
         @Field
         public String clientName;
 
         @Field
+        public String env;
+
+        @Field
+        public String token;
+
+        @Field
+        public String clientId;
+
+        @Field
         public String clientSecret;
 
-        public AstraServiceAccount(String clientId, String clientName, String clientSecret)
+        public AstraServiceAccount(String clientName, String env, String token)
         {
-            this.clientId = clientId;
+            this(clientName, env, token, "", "");
+        }
+
+        public AstraServiceAccount(String clientName, String env, String token, String clientId, String clientSecret)
+        {
             this.clientName = clientName;
+            this.env = env;
+            this.token = token;
+            this.clientId = clientId;
             this.clientSecret = clientSecret;
+            validate();
         }
 
         public AstraServiceAccount()
         {
             // needed for serialization
+        }
+
+        public final void validate()
+        {
+            if (Strings.isNullOrEmpty(token))
+            {
+                throw new InvalidConfigurationException("Astra Account is missing token: " + token);
+            }
+            if (!Set.of("dev", "test", "prod").contains(env))
+            {
+                throw new InvalidConfigurationException("Astra Account has invalid env: " + env);
+            }
         }
 
         @Override
@@ -856,25 +892,29 @@ public class User implements Principal
                 return false;
             }
             AstraServiceAccount astraServiceAccount = (AstraServiceAccount) o;
-            return Objects.equals(clientId, astraServiceAccount.clientId) &&
-                Objects.equals(clientName, astraServiceAccount.clientName) &&
+            return Objects.equals(clientName, astraServiceAccount.clientName) &&
+                Objects.equals(env, astraServiceAccount.env) &&
+                Objects.equals(token, astraServiceAccount.token) &&
+                Objects.equals(clientId, astraServiceAccount.clientId) &&
                 Objects.equals(clientSecret, astraServiceAccount.clientSecret);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(clientId, clientName, clientSecret);
+            return Objects.hash(clientName, env, token, clientId, clientSecret);
         }
 
         @Override
         public String toString()
         {
             return "AstraServiceAccount{" +
-                "clientId='" + clientId + '\'' +
-                ", clientName='" + clientName + '\'' +
-                ", clientSecret='" + clientSecret + '\'' +
-                '}';
+                ", clientName=" + clientName +
+                ", env=" + env +
+                ", token=" + token +
+                ", clientId=" + clientId +
+                ", clientSecret=" + clientSecret +
+                "}";
         }
     }
 

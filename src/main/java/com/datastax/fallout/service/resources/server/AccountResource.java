@@ -16,6 +16,7 @@
 package com.datastax.fallout.service.resources.server;
 
 import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.CookieParam;
 import javax.ws.rs.DELETE;
@@ -389,11 +390,15 @@ public class AccountResource
     @Path("/profile/astra_service_account")
     @Timed
     @Produces(MediaType.APPLICATION_JSON)
-    public Response addAstraServiceAccount(@Auth User user, @FormParam("astraClientId") @NotEmpty String clientId,
+    public Response addAstraServiceAccount(@Auth User user,
         @FormParam("astraClientName") @NotEmpty String clientName,
-        @FormParam("astraClientSecret") @NotEmpty String clientSecret)
+        @FormParam("astraEnv") @NotEmpty String env,
+        @FormParam("astraToken") @NotEmpty String token,
+        @FormParam("astraClientId") @NotNull String clientId,
+        @FormParam("astraClientSecret") @NotNull String clientSecret)
     {
-        User.AstraServiceAccount astraServiceAccount = new User.AstraServiceAccount(clientId, clientName, clientSecret);
+        User.AstraServiceAccount astraServiceAccount =
+            new User.AstraServiceAccount(clientName, env, token, clientId, clientSecret);
         user.addAstraCred(astraServiceAccount);
         userDAO.updateUserCredentials(user);
 

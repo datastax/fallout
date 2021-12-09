@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 
 /**
@@ -43,6 +44,7 @@ public abstract class Provider
 
     protected Provider(Node node, boolean autoRegister)
     {
+        Preconditions.checkArgument(!isNodeGroupProvider() || node.getNodeGroupOrdinal() == 0);
         this.node = node;
         Set<Class<? extends Provider>> missingProviders =
             this.getRequiredProviders().stream().filter(c -> !node.hasProvider(c)).collect(Collectors.toSet());
@@ -77,6 +79,14 @@ public abstract class Provider
     public Map<String, String> toInfoMap()
     {
         return Map.of();
+    }
+
+    /**
+     * return true if this provider is tracked only on node0 of the nodegroup but provides nodegroup-wide functionality
+     */
+    public boolean isNodeGroupProvider()
+    {
+        return false;
     }
 
     public Node node()

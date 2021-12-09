@@ -15,9 +15,9 @@
  */
 package com.datastax.fallout.ops;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import ch.qos.logback.classic.LoggerContext;
@@ -45,7 +45,7 @@ public class CredentialsMaskingLayoutEncoder extends LayoutWrappingEncoder<ILogg
 
     public static class CredentialsMaskingPatternLayout extends PatternLayout
     {
-        private final List<String> secrets;
+        private final Set<String> secrets;
 
         public CredentialsMaskingPatternLayout(UserCredentials userCredentials)
         {
@@ -58,10 +58,13 @@ public class CredentialsMaskingLayoutEncoder extends LayoutWrappingEncoder<ILogg
          *
          * GoogleServiceAccount has been omitted as the secret is the entire json key file and is used via a temporary file.
          */
-        private static ArrayList<String> getSecretsFromUser(User user)
+        private static Set<String> getSecretsFromUser(User user)
         {
-            ArrayList<String> secrets = new ArrayList<>();
-            user.getAstraServiceAccounts().forEach(sa -> secrets.add(sa.clientSecret));
+            Set<String> secrets = new HashSet<>();
+            user.getAstraServiceAccounts().forEach(sa -> {
+                secrets.add(sa.token);
+                secrets.add(sa.clientSecret);
+            });
             user.getBackupServiceCreds().forEach(bsc -> secrets.add(bsc.s3SecretKey));
             user.getDockerRegistryCredentials().forEach(drc -> secrets.add(drc.password));
             user.getNebulaAppCreds().forEach(nac -> secrets.add(nac.secret));
@@ -73,7 +76,7 @@ public class CredentialsMaskingLayoutEncoder extends LayoutWrappingEncoder<ILogg
             return secrets.stream()
                 .filter(Objects::nonNull)
                 .filter(s -> !s.isEmpty())
-                .collect(Collectors.toCollection(ArrayList::new));
+                .collect(Collectors.toCollection(HashSet::new));
         }
 
         @Override

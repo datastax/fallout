@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -325,6 +326,16 @@ public class CassandraDriverManager implements Managed
         {
             session.execute(String.format("ALTER TYPE %s.nebulaAppCred ADD s3_access text;", keyspace));
             session.execute(String.format("ALTER TYPE %s.nebulaAppCred ADD s3_secret text;", keyspace));
+        }
+
+        Collection<String> astraServiceAccountColumns = keyspaceMeta.getUserType("astraServiceAccount").getFieldNames();
+        if (!astraServiceAccountColumns.contains("env"))
+        {
+            session.execute(String.format("ALTER TYPE %s.astraServiceAccount ADD env text;", keyspace));
+        }
+        if (!astraServiceAccountColumns.contains("token"))
+        {
+            session.execute(String.format("ALTER TYPE %s.astraServiceAccount ADD \"token\" text;", keyspace));
         }
 
         Map<String, String> dropUsersColumns = new HashMap<>();

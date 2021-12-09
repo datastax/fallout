@@ -31,7 +31,9 @@ CREATE TYPE IF NOT EXISTS googleCloudServiceAccount (
 CREATE TYPE IF NOT EXISTS astraServiceAccount (
     clientId text,
     clientName text,
-    clientSecret text
+    clientSecret text,
+    env text,
+    "token" text,
 );
 
 CREATE TYPE IF NOT EXISTS backupServiceCred (

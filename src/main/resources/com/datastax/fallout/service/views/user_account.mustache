@@ -101,16 +101,24 @@
                     <div class="modal-body">
                         <form role="form" id="astraCredForm" onsubmit="return false;">
                             <div class="form-group">
-                                <label for="astraClientId">Client Id</label>
-                                <input type="text" class="form-control" id="astraClientId" name="astraClientId" placeholder="Enter the client Id"/>
+                                <label for="astraClientName">Name</label>
+                                <input type="text" class="form-control" id="astraClientName" name="astraClientName" placeholder="An account identifier (i.e. 'dev_myorg')"/>
                             </div>
                             <div class="form-group">
-                                <label for="astraClientName">Client Name</label>
-                                <input type="text" class="form-control" id="astraClientName" name="astraClientName" placeholder="Enter the client name"/>
+                                <label for="astraEnv">Astra Env</label>
+                                <input type="text" class="form-control" id="astraEnv" name="astraEnv" placeholder="The env where the credentials are valid (i.e. 'dev', 'test' or 'prod')"/>
+                            </div>
+                            <div class="form-group">
+                                <label for="astraToken">Astra Token</label>
+                                <input type="text" class="form-control" id="astraToken" name="astraToken" placeholder="The token (i.e. 'AstraCS:foo:bar')"/>
+                            </div>
+                            <div class="form-group">
+                                <label for="astraClientId">Client Id</label>
+                                <input type="text" class="form-control" id="astraClientId" name="astraClientId" placeholder="The client Id (can be left blank)"/>
                             </div>
                             <div class="form-group">
                                 <label for="astraClientSecret">Client Secret</label>
-                                <input type="text" class="form-control" id="astraClientSecret" name="astraClientSecret" placeholder="Enter the client secret"/>
+                                <input type="text" class="form-control" id="astraClientSecret" name="astraClientSecret" placeholder="The client secret (can be left blank)"/>
                             </div>
                         </form>
                     </div>
@@ -479,7 +487,7 @@
                                             <div class="form-group">
                                                 <label>Default Astra Service Account ID</label>
                                                 <input id="default_astra_service_account" class="form-control" name="defaultAstraServiceAccountName" {{#user}}value="{{defaultAstraServiceAccountName}}"{{/user}} readonly>
-                                                <p class="help-block">Must match the client ID of one of the Astra Service Accounts below. See your automaton.conf file. </p>
+                                                <p class="help-block">Must match the name of one of the Astra Service Accounts below. See your automaton.conf file. </p>
                                                 <button class="btn btn-primary" data-toggle="modal" data-target="#astraCredModal">
                                                     Add Astra Service Account
                                                 </button>
@@ -487,8 +495,8 @@
                                                     <table class="table table-bordered table-striped" id="astraCredTable">
                                                         <thead>
                                                         <tr>
-                                                            <th>Client Name</th>
-                                                            <th>Client Id</th>
+                                                            <th>Name</th>
+                                                            <th>Env</th>
                                                             <th>Actions</th>
                                                         </tr>
                                                         </thead>
@@ -496,7 +504,7 @@
                                                         {{#astraServiceAccounts}}
                                                             <tr>
                                                             <td>{{clientName}}</td>
-                                                            <td>{{clientId}}</td>
+                                                            <td>{{env}}</td>
                                                             <td>
                                                                 <a title="Set as Default" class="btn btn-success btn-xs"
                                                                    onclick="setDefaultAstraServiceAccount('{{clientName}}')">
