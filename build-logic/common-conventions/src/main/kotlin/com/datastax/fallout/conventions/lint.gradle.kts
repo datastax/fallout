@@ -8,8 +8,11 @@ import com.datastax.fallout.gradle.common.cascadeTask
 val lint by tasks.registering
 
 project.afterEvaluate {
+    tasks.named("check").configure {
+        dependsOn(lint)
+    }
     lint.configure {
-        dependsOn(tasks.matching { it.name.startsWith("compile") })
+        dependsOn(tasks.names.filter { it.startsWith("compile") })
     }
 }
 
