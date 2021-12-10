@@ -15,22 +15,21 @@
  */
 package com.datastax.fallout.components.file_artifact_checkers;
 
-import java.net.URISyntaxException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.ops.WritablePropertyGroup;
+import com.datastax.fallout.test.utils.WithTestResources;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 
-public class CsvArtifactCheckerTest
+public class CsvArtifactCheckerTest extends WithTestResources
 {
-    private Path testFilesDirectory() throws URISyntaxException
+    private Path testFilesDirectory()
     {
-        return Paths.get(getClass().getResource("correct.csv").toURI()).getParent();
+        return getTestClassResourceAsPath(".");
     }
 
     @Test

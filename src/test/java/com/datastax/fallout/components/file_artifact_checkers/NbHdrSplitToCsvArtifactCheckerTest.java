@@ -20,8 +20,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -29,15 +27,15 @@ import java.util.zip.GZIPInputStream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.WritablePropertyGroup;
+import com.datastax.fallout.test.utils.WithPersistentTestOutputDir;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.assertj.Assertions.assertThatThrownBy;
 
-class NbHdrSplitToCsvArtifactCheckerTest
+class NbHdrSplitToCsvArtifactCheckerTest extends WithPersistentTestOutputDir
 {
     private NbHdrSplitToCsvArtifactChecker checker;
 
@@ -90,50 +88,46 @@ class NbHdrSplitToCsvArtifactCheckerTest
     }
 
     @Test
-    void should_find_raw_input_files_in_directory(@TempDir Path tempDir) throws IOException
+    void should_find_raw_input_files_in_directory() throws IOException
     {
-        final File foo = tempDir.resolve("foo.hdr").toFile();
-        final File zippedBar = tempDir.resolve("bar.hdr").toFile();
+        final File foo = persistentTestOutputDir().resolve("foo.hdr").toFile();
+        final File zippedBar = persistentTestOutputDir().resolve("bar.hdr").toFile();
         foo.createNewFile();
         zippedBar.createNewFile();
 
-        assertThat(checker.findFilesToProcess(tempDir, List.of("foo.hdr", "bar.hdr", "qix.hdr")))
+        assertThat(checker.findFilesToProcess(persistentTestOutputDir(), List.of("foo.hdr", "bar.hdr", "qix.hdr")))
             .hasSize(2)
             .contains(foo, zippedBar);
     }
 
     @Test
-    void should_find_zipped_input_files_in_directory(@TempDir Path tempDir) throws IOException
+    void should_find_zipped_input_files_in_directory() throws IOException
     {
-        final File foo = tempDir.resolve("foo.hdr.gz").toFile();
-        final File zippedBar = tempDir.resolve("bar.hdr.gz").toFile();
+        final File foo = persistentTestOutputDir().resolve("foo.hdr.gz").toFile();
+        final File zippedBar = persistentTestOutputDir().resolve("bar.hdr.gz").toFile();
         foo.createNewFile();
         zippedBar.createNewFile();
 
-        assertThat(checker.findFilesToProcess(tempDir, List.of("foo.hdr", "bar.hdr", "qix.hdr")))
+        assertThat(checker.findFilesToProcess(persistentTestOutputDir(), List.of("foo.hdr", "bar.hdr", "qix.hdr")))
             .hasSize(2)
             .contains(foo, zippedBar);
     }
 
     @Test
-    void should_split_uncompressed_hdr(@TempDir Path tempDir) throws URISyntaxException, IOException
+    void should_split_uncompressed_hdr()
     {
-        should_split_hdr_file(tempDir, "nb-histogram-with-tags.hdr");
+        should_split_hdr_file("nb-histogram-with-tags.hdr");
     }
 
     @Test
-    void should_split_compressed_hdr(@TempDir Path tempDir) throws URISyntaxException, IOException
+    void should_split_compressed_hdr()
     {
-        should_split_hdr_file(tempDir, "nb-histogram-with-tags.hdr.gz");
+        should_split_hdr_file("nb-histogram-with-tags.hdr.gz");
     }
 
-    private void should_split_hdr_file(Path tempDir, String fileName) throws URISyntaxException, IOException
+    private void should_split_hdr_file(String fileName)
     {
-        // First, copy the reference HDR file into the test temporary directory.
-        // The code will create temporary HDR histograms in the temporary directory.
-        File referenceHistogramWithTags = new File(getClass().getResource(fileName).toURI());
-        File inputFile = tempDir.resolve(fileName).toFile();
-        Files.copy(referenceHistogramWithTags.toPath(), inputFile.toPath());
+        File inputFile = copyTestClassResourceToFile(fileName).toFile();
 
         final String tag1 = "phase1.block8--read-from-table-one--success";
         final String tag2 = "phase1.block8--read-from-table-one--error";
@@ -151,40 +145,35 @@ class NbHdrSplitToCsvArtifactCheckerTest
     }
 
     @Test
-    void should_convert_uncompressed_file_to_csv(@TempDir Path tempDir) throws URISyntaxException, IOException
+    void should_convert_uncompressed_file_to_csv()
     {
         String fileNameWithoutExt = "phase1.block8--read-from-table-one--success.nb-histogram-with-tags";
-        File referenceHistogram = new File(getClass().getResource(fileNameWithoutExt + ".hdr").toURI());
-        File tempHistogram = tempDir.resolve(fileNameWithoutExt + ".hdr").toFile();
-        Files.copy(referenceHistogram.toPath(), tempHistogram.toPath());
+        File tempHistogram = copyTestClassResourceToFile(fileNameWithoutExt + ".hdr").toFile();
 
         checker.convertToCsv(tempHistogram, false);
 
-        try (InputStream expected = getClass().getResourceAsStream(fileNameWithoutExt + ".csv");
-            FileInputStream actual = new FileInputStream(tempDir.resolve(fileNameWithoutExt + ".csv").toFile()))
-        {
-            assertThat(actual).hasSameContentAs(expected);
-        }
+        final var actual = persistentTestOutputDir().resolve(fileNameWithoutExt + ".csv");
+        final var expected = getTestClassResourceAsPath(fileNameWithoutExt + ".csv");
+
+        assertThat(actual).hasSameBinaryContentAs(expected);
     }
 
     @Test
-    void should_convert_compressed_file_to_compressed_csv(@TempDir Path tempDir) throws URISyntaxException, IOException
+    void should_convert_compressed_file_to_compressed_csv() throws URISyntaxException, IOException
     {
         String fileNameWithoutExt = "phase1.block8--read-from-table-one--success.nb-histogram-with-tags";
-        File referenceHistogram = new File(getClass().getResource(fileNameWithoutExt + ".hdr").toURI());
-        File tempHistogram = tempDir.resolve(fileNameWithoutExt + ".hdr").toFile();
-        Files.copy(referenceHistogram.toPath(), tempHistogram.toPath());
+        File tempHistogram = copyTestClassResourceToFile(fileNameWithoutExt + ".hdr").toFile();
 
         checker.convertToCsv(tempHistogram, true);
 
-        // Unfortunately, we cannot just compare the two .csz.gz files.
+        // Unfortunately, we cannot just compare the two .csv.gz files.
         // The reference one was created with `gzip --keep` and contains the name of the CSV file in its header.
         // The compressed CSV created by the JVM lacks that header, as Java does not allow that.
         // See https://stackoverflow.com/questions/3984927/how-do-i-get-a-filename-of-a-file-inside-a-gzip-in-java
         // So we must decompress the file to compare its actual content.
-        try (InputStream expected = getClass().getResourceAsStream(fileNameWithoutExt + ".csv");
-            FileInputStream actualGz = new FileInputStream(tempDir.resolve(fileNameWithoutExt + ".csv.gz").toFile());
-            GZIPInputStream actual = new GZIPInputStream(actualGz))
+        try (InputStream expected = getTestClassResourceAsStream(fileNameWithoutExt + ".csv");
+            GZIPInputStream actual = new GZIPInputStream(
+                new FileInputStream(persistentTestOutputDir().resolve(fileNameWithoutExt + ".csv.gz").toFile())))
         {
             assertThat(actual).hasSameContentAs(expected);
         }

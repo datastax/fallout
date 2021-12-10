@@ -18,7 +18,6 @@ package com.datastax.fallout.util;
 import java.io.IOException;
 import java.util.HashMap;
 
-import com.google.common.io.Resources;
 import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.components.chaos_mesh.ChaosMeshConfigurationManager;
@@ -33,12 +32,14 @@ public class ResourceUtilsTest
     @Test
     public void walkResourceTree_finds_helm_charts() throws IOException
     {
-        final var chartYamlContent = Resources.toByteArray(
-            Resources.getResource(ChaosMeshConfigurationManager.class, "helm-chart/Chart.yaml"));
+        final var chartYamlContent =
+            ResourceUtils.getResourceAsStream(ChaosMeshConfigurationManager.class, "helm-chart/Chart.yaml")
+                .readAllBytes();
 
         final var resources = new HashMap<String, byte[]>();
 
-        walkResourceTree(ChaosMeshConfigurationManager.class, "helm-chart", resources::put);
+        walkResourceTree(ChaosMeshConfigurationManager.class, "helm-chart",
+            (path, content) -> resources.put(path, Exceptions.getUncheckedIO(content::readAllBytes)));
 
         assertThat(resources).hasEntrySatisfying("helm-chart/Chart.yaml",
             content -> assertThat(content).isEqualTo(chartYamlContent));

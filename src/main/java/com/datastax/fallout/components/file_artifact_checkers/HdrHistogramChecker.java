@@ -201,7 +201,7 @@ public class HdrHistogramChecker extends ArtifactChecker
         try (PrintStream htmlOutput = new PrintStream(new FileOutputStream(reportPathWithoutExt.toString() + ".html"));
             PrintStream jsonOutput = new PrintStream(new FileOutputStream(reportPathWithoutExt.toString() + ".json")))
         {
-            htmlOutput.println(ResourceUtils.getResourceAsString(this, "graph-header.html"));
+            htmlOutput.println(ResourceUtils.getResourceAsString(getClass(), "graph-header.html"));
             // stats array open
             htmlOutput.println("stats = {\"title\": " + JsonUtils.toJson(title) + ",\"stats\":[");
             jsonOutput.println("{\"title\": " + JsonUtils.toJson(title) + ",\"stats\":[");
@@ -290,7 +290,7 @@ public class HdrHistogramChecker extends ArtifactChecker
             jsonOutput.println("]}");
 
             // print the footer template
-            htmlOutput.print(ResourceUtils.getResourceAsString(this, "graph-footer.html"));
+            htmlOutput.print(ResourceUtils.getResourceAsString(getClass(), "graph-footer.html"));
         }
         catch (IOException e)
         {

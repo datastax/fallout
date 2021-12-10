@@ -16,12 +16,14 @@
 package com.datastax.fallout.test.utils;
 
 import java.lang.reflect.Method;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeAll;
 
+import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.FileUtils;
 
 public abstract class WithPersistentTestOutputDir extends WithTestResources
@@ -59,23 +61,23 @@ public abstract class WithPersistentTestOutputDir extends WithTestResources
         return persistentTestOutputDir(currentTestClassName(), Optional.empty());
     }
 
-    /** Calls {@link WithTestResources#getTestClassResource} on (testClass, resourcePath), writes the
+    /** Calls {@link WithTestResources#getTestClassResourceAsString} on (testClass, resourcePath), writes the
      *  result to a file in {@link #persistentTestOutputDir()} with the same name as resourcePath, and returns the full path written.
      *
      *  <p>This is useful for copying resource data into a specific place for use by a test that
      *  needs to access the resource data as a file; in particular, integration tests that don't
      *  or can't poke around in the test resource file hierarchy (like the docker tests). */
-    public Path writeTestClassResourceToFile(Class<?> testClass, String resourcePath)
+    public Path copyTestClassResourceToFile(Class<?> testClass, String resourcePath)
     {
         final var path = persistentTestOutputDir().resolve(resourcePath);
-        FileUtils.writeString(path, getTestClassResource(testClass, resourcePath));
+        Exceptions.runUncheckedIO(() -> Files.copy(getTestClassResourceAsStream(testClass, resourcePath), path));
         return path;
     }
 
-    /** Calls {@link #writeTestClassResourceToFile(Class, String)} with
+    /** Calls {@link #copyTestClassResourceToFile(Class, String)} with
      *  {@link WithTestNames#currentTestClass()} as the first argument. */
-    protected Path writeTestClassResourceToFile(String resourcePath)
+    protected Path copyTestClassResourceToFile(String resourcePath)
     {
-        return writeTestClassResourceToFile(currentTestClass(), resourcePath);
+        return copyTestClassResourceToFile(currentTestClass(), resourcePath);
     }
 }

@@ -57,6 +57,7 @@ import com.datastax.driver.mapping.MappingManager;
 import com.datastax.driver.mapping.PropertyTransienceStrategy;
 import com.datastax.fallout.service.core.PerformanceReport;
 import com.datastax.fallout.service.core.TestRunIdentifier;
+import com.datastax.fallout.util.ResourceUtils;
 import com.datastax.fallout.util.ScopedLogger;
 
 public class CassandraDriverManager implements Managed
@@ -201,12 +202,7 @@ public class CassandraDriverManager implements Managed
     {
         try
         {
-            URL cqlSchema = CassandraDriverManager.class.getClassLoader().getResource("schema.cql");
-            if (cqlSchema == null)
-            {
-                throw new RuntimeException("Missing schema cql file.");
-            }
-
+            URL cqlSchema = ResourceUtils.getResource(getClass(), "schema.cql");
             try (InputStream schemaStream = cqlSchema.openStream())
             {
                 executeCqlFile(new InputStreamReader(schemaStream, StandardCharsets.UTF_8));

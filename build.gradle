@@ -258,6 +258,9 @@ dependencies {
     annotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
     implementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
 
+    testAnnotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
+    testImplementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
+
     integrationTestAnnotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
     integrationTestImplementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
 

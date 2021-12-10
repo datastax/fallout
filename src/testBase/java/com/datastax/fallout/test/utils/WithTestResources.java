@@ -15,6 +15,7 @@
  */
 package com.datastax.fallout.test.utils;
 
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,18 +25,30 @@ import com.datastax.fallout.util.ResourceUtils;
 
 public abstract class WithTestResources extends WithTestNames
 {
-    public static String getTestClassResource(String path)
+    public static String getTestClassResourceAsString(String path)
     {
-        return getTestClassResource(currentTestClass(), path);
+        return getTestClassResourceAsString(currentTestClass(), path);
     }
 
-    public static Path getTestClassResourcePath(String path)
+    public static Path getTestClassResourceAsPath(String path)
     {
-        return getTestClassResourcePath(currentTestClass(), path);
+        return getTestClassResourceAsPath(currentTestClass(), path);
     }
 
+    public static InputStream getTestClassResourceAsStream(String path)
+    {
+        return getTestClassResourceAsStream(currentTestClass(), path);
+    }
+
+    /** <code>path</code> can be relative or absolute; if it's absolute, we leave it
+     *  alone, delegating the processing behaviour to {@link ResourceUtils} methods,
+     *  which in turn will delegate the processing of <code>path</code> to the JDK. */
     private static String getClassBasedResourcePath(Class<?> testClass, String path)
     {
+        if (path.startsWith("/"))
+        {
+            return path;
+        }
         final ArrayList<String> enclosingClasses = new ArrayList<>();
         for (Class<?> enclosingClass = testClass;
             enclosingClass != null;
@@ -55,17 +68,24 @@ public abstract class WithTestResources extends WithTestNames
      * <code>foo/bar</code>, whereas this method will look in <code>foo/bar/Baz/Qux</code>.  This is
      * useful for organising test resources by class instead of having them all at the package level.
      */
-    public static String getTestClassResource(Class<?> testClass, String path)
+    public static String getTestClassResourceAsString(Class<?> testClass, String path)
     {
         final String classBasedResourcePath = getClassBasedResourcePath(testClass, path);
         return ResourceUtils.getResourceAsString(testClass, classBasedResourcePath);
     }
 
-    /** Like {@link #getTestClassResource}, except it just returns a filesystem {@link Path} to the resource */
-    public static Path getTestClassResourcePath(Class<?> testClass, String path)
+    /** Like {@link #getTestClassResourceAsString}, except it just returns a filesystem {@link Path} to the resource */
+    public static Path getTestClassResourceAsPath(Class<?> testClass, String path)
     {
         final String classBasedResourcePath = getClassBasedResourcePath(testClass, path);
         return Path.of(Exceptions.getUnchecked(() -> ResourceUtils
             .getResource(testClass, classBasedResourcePath).toURI()));
+    }
+
+    /** Like {@link #getTestClassResourceAsString}, except it returns an {@link InputStream} for the resource */
+    public static InputStream getTestClassResourceAsStream(Class<?> testClass, String path)
+    {
+        final String classBasedResourcePath = getClassBasedResourcePath(testClass, path);
+        return ResourceUtils.getResourceAsStream(testClass, classBasedResourcePath);
     }
 }

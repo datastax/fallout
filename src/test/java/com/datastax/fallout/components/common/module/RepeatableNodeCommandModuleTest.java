@@ -135,7 +135,7 @@ public class RepeatableNodeCommandModuleTest extends EnsembleFalloutTest<Fallout
         final ActiveTestRunBuilder activeTestRunBuilder = createActiveTestRunBuilder()
             .withComponentFactory(componentFactory);
 
-        final String yaml = getTestClassResource("concurrent-commands.yaml");
+        final String yaml = getTestClassResourceAsString("concurrent-commands.yaml");
         final String expandedYaml = TestDefinition.expandTemplate(yaml, templateParams);
 
         final ActiveTestRun activeTestRun = activeTestRunBuilder

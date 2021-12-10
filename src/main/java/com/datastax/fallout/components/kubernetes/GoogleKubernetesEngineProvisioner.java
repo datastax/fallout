@@ -347,7 +347,7 @@ public class GoogleKubernetesEngineProvisioner extends AbstractKubernetesProvisi
             .resolve(storageYaml);
 
         FileUtils.writeString(storageYamlPath,
-            ResourceUtils.getResourceAsString(this, storageYaml));
+            ResourceUtils.getResourceAsString(getClass(), storageYaml));
 
         return Optional.of(storageYamlPath);
     }

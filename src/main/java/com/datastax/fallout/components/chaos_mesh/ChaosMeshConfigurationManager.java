@@ -109,7 +109,7 @@ public class ChaosMeshConfigurationManager extends ConfigurationManager
     {
         ResourceUtils.walkResourceTree(this.getClass(), rootPath, (path, content) -> Exceptions.runUncheckedIO(() -> {
             Files.createDirectories(configFilePath(path).getParent());
-            Files.write(configFilePath(path), content);
+            Files.copy(content, configFilePath(path));
         }));
     }
 

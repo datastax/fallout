@@ -16,15 +16,31 @@
 package com.datastax.fallout.util;
 
 import java.io.File;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.jar.JarFile;
 
-import com.google.common.io.Resources;
-
+/** In addition to some specialized methods, provides a set of consistent
+ *  getResource methods, <code>(maybe)getResource(asType)</code>
+ *
+ *  <ul>
+ *      <li>The <code>maybe</code>-prefixed methods return an {@link Optional}, which will be empty if the resource
+ *      cannot be found; other methods throw {@link ResourceNotFoundException} if the resource cannot be found</li>
+ *      <li>The <code>asType</code>-suffixed methods return the
+ *      specified type; other methods return the {@link URL}</li>
+ *  </ul>
+ *
+ *  <p>The <code>resourceName</code> parameters are passed unmodified to the underlying JDK methods
+ *     {@link Class#getResource} and {@link Class#getResourceAsStream}; this allows using absolute paths
+ *     (i.e. prefixed with <code>/</code>) to access files from the root of the resource hierarchy.
+ *
+ *  <p>If a method you need isn't here, feel free to add it, following the naming above.
+ */
 public class ResourceUtils
 {
     private ResourceUtils()
@@ -32,48 +48,51 @@ public class ResourceUtils
         // utility class
     }
 
+    public static class ResourceNotFoundException extends IllegalArgumentException
+    {
+        ResourceNotFoundException(Class<?> contextClass, String resourceName)
+        {
+            super(String.format("Could not find resource %s relative to class %s", resourceName, contextClass));
+        }
+    }
+
     private static Optional<URL> maybeGetResource(Class<?> contextClass, String resourceName)
     {
         return Optional.ofNullable(contextClass.getResource(resourceName));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     public static URL getResource(Class<?> contextClass, String resourceName)
     {
-        return Resources.getResource(contextClass, resourceName);
+        return maybeGetResource(contextClass, resourceName)
+            .orElseThrow(() -> new ResourceNotFoundException(contextClass, resourceName));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
-    private static byte[] getResourceAsBytes(URL resourceUrl)
+    private static Optional<InputStream> maybeGetResourceAsStream(Class<?> contextClass, String resourceName)
     {
-        return Exceptions.getUncheckedIO(() -> Resources.toByteArray(resourceUrl));
+        return Optional.ofNullable(contextClass.getResourceAsStream(resourceName));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
-    private static String getResourceAsString(URL resourceUrl)
+    public static InputStream getResourceAsStream(Class<?> contextClass, String resourceName)
     {
-        return Exceptions.getUncheckedIO(() -> Resources.toString(resourceUrl, StandardCharsets.UTF_8));
+        return maybeGetResourceAsStream(contextClass, resourceName)
+            .orElseThrow(() -> new ResourceNotFoundException(contextClass, resourceName));
     }
 
     public static Optional<String> maybeGetResourceAsString(Class<?> contextClass, String resourceName)
     {
-        return maybeGetResource(contextClass, resourceName)
-            .map(ResourceUtils::getResourceAsString);
-    }
-
-    public static Optional<String> maybeGetResourceAsString(Object context, String resourceName)
-    {
-        return maybeGetResourceAsString(context.getClass(), resourceName);
+        return maybeGetResourceAsStream(contextClass, resourceName)
+            .map(stream -> Exceptions.getUncheckedIO(() -> {
+                try (var ignored = stream)
+                {
+                    return new String(Exceptions.getUncheckedIO(stream::readAllBytes), StandardCharsets.UTF_8);
+                }
+            }));
     }
 
     public static String getResourceAsString(Class<?> contextClass, String resourceName)
     {
-        return getResourceAsString(getResource(contextClass, resourceName));
-    }
-
-    public static String getResourceAsString(Object context, String resourceName)
-    {
-        return getResourceAsString(context.getClass(), resourceName);
+        return maybeGetResourceAsString(contextClass, resourceName)
+            .orElseThrow(() -> new ResourceNotFoundException(contextClass, resourceName));
     }
 
     private static void walkJarResourceTree(String path, URL resourceUrl, Consumer<String> pathConsumer)
@@ -102,7 +121,7 @@ public class ResourceUtils
     {
         if (resourceFile.isDirectory())
         {
-            for (var file : resourceFile.listFiles())
+            for (var file : Objects.requireNonNull(resourceFile.listFiles()))
             {
                 walkFileResourceTree(path + "/" + file.getName(), file, pathConsumer);
             }
@@ -113,20 +132,24 @@ public class ResourceUtils
         }
     }
 
-    @SuppressWarnings("UnstableApiUsage")
-    public static void walkResourceTree(Class<?> clazz, String path, BiConsumer<String, byte[]> pathAndContentConsumer)
+    public static void walkResourceTree(Class<?> contextClass, String path,
+        BiConsumer<String, InputStream> pathAndContentConsumer)
     {
-        final Consumer<String> pathConsumer = path_ -> pathAndContentConsumer.accept(path_,
-            getResourceAsBytes(Resources.getResource(clazz, path_)));
+        final Consumer<String> pathConsumer = path_ -> Exceptions.runUncheckedIO(() -> {
+            try (final var stream = getResourceAsStream(contextClass, path_))
+            {
+                pathAndContentConsumer.accept(path_, stream);
+            }
+        });
 
-        final var resourceUrl = clazz.getResource(path);
+        final var resourceUrl = getResource(contextClass, path);
         if (resourceUrl.getProtocol().equals("jar"))
         {
             walkJarResourceTree(path, resourceUrl, pathConsumer);
         }
         else
         {
-            walkFileResourceTree(path, new File(Exceptions.getUnchecked(() -> resourceUrl.toURI())), pathConsumer);
+            walkFileResourceTree(path, new File(Exceptions.getUnchecked(resourceUrl::toURI)), pathConsumer);
         }
     }
 }

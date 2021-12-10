@@ -142,7 +142,7 @@ public class ClusterReuseTest extends EnsembleFalloutTest<FalloutConfiguration>
     {
         final var markFailedWithReasonCalls = new AtomicInteger();
 
-        final var testDefinition = getTestClassResource("mark_for_reuse.yaml");
+        final var testDefinition = getTestClassResourceAsString("mark_for_reuse.yaml");
         final var activeTestRun = createActiveTestRunBuilder()
             .withTestDefinitionFromYaml(testDefinition)
             .withTestRunStatusUpdater(

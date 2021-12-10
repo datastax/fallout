@@ -253,7 +253,7 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
 
     Path writeRenderedDefinition(Path dest, String template, Map<String, Object> scope)
     {
-        String definition = ResourceUtils.getResourceAsString(this, template);
+        String definition = ResourceUtils.getResourceAsString(getClass(), template);
         FileUtils.writeString(dest, renderWithScopes(definition, List.of(scope)));
         return dest;
     }
@@ -292,7 +292,7 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
     private boolean deployPersistentVolumeClaimForArtifactCollector(NodeGroup nodeGroup, Path manifestScratchSpace,
         JsonNode pv, String pvName, String pvcName, KubeControlProvider kubeCtl)
     {
-        String pvcTemplate = ResourceUtils.getResourceAsString(this, "artifact-collector-pvc.yaml");
+        String pvcTemplate = ResourceUtils.getResourceAsString(getClass(), "artifact-collector-pvc.yaml");
         String pvcDefinition = renderWithScopes(pvcTemplate, List.of(Map.of(
             "pvc-name", pvcName,
             "pv-name", pvName,

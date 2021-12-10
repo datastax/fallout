@@ -127,6 +127,6 @@ public class Fakes
         return Test.createTest(
             user.getEmail(),
             FilenameUtils.getBaseName(resourcePath),
-            WithTestResources.getTestClassResource(testClass, resourcePath));
+            WithTestResources.getTestClassResourceAsString(testClass, resourcePath));
     }
 }

@@ -58,7 +58,7 @@ public abstract class EnsembleFalloutTest<FC extends FalloutConfiguration> exten
 
     protected enum YamlFileSource
     {
-        /** Read yaml files using {@link com.datastax.fallout.test.utils.WithTestResources#getTestClassResource(String)} */
+        /** Read yaml files using {@link com.datastax.fallout.test.utils.WithTestResources#getTestClassResourceAsString(String)} */
         USE_TEST_CLASS_RESOURCES,
 
         /** Read yaml files using <code>EnsembleFalloutTest.class.getResource</code> */
@@ -97,7 +97,7 @@ public abstract class EnsembleFalloutTest<FC extends FalloutConfiguration> exten
     {
         return yamlFileSource == YamlFileSource.SHARED ?
             readSharedYamlFile(path) :
-            getTestClassResource(path);
+            getTestClassResourceAsString(path);
     }
 
     public String expandYamlFile(String path, Map<String, Object> templateParams)
@@ -284,7 +284,7 @@ public abstract class EnsembleFalloutTest<FC extends FalloutConfiguration> exten
             new MockingComponentFactory();
         mockingComponentFactoryConsumer.accept(mockingComponentFactory);
 
-        final String testDefinition = getTestClassResource(testYaml);
+        final String testDefinition = getTestClassResourceAsString(testYaml);
         final ActiveTestRun activeTestRun = createActiveTestRunBuilder()
             .withTestDefinitionFromYaml(testDefinition)
             .withComponentFactory(mockingComponentFactory)
