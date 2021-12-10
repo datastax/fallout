@@ -73,7 +73,14 @@ public class DelegatingExecutor implements RunnableExecutorFactory.Executor
     @Override
     public ReadOnlyTestRun getReadOnlyTestRun()
     {
-        return getTestRun.get();
+        final var testRun = getTestRun.get();
+        // Limit FAL-1776 blast radius: log the fact that we got a null testrun
+        // here, so that we can log the identifier, but let the caller handle it.
+        if (testRun == null)
+        {
+            logger.error("getTestRun({}) unexpectedly returned null", testRunIdentifier);
+        }
+        return testRun;
     }
 
     protected class TestRunStatusUpdater extends com.datastax.fallout.harness.TestRunStatusUpdater

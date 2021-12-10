@@ -17,6 +17,7 @@ package com.datastax.fallout.runner;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -96,6 +97,9 @@ public class AbortableRunnableExecutorFactory implements RunnableExecutorFactory
     {
         return activeTestRuns.values().stream()
             .map(Executor::getReadOnlyTestRun)
+            // FAL-1776 damage limitation: Handle unexpected nulls by dropping them; otherwise the caller will NPE
+            // and bring the UI down
+            .filter(Objects::nonNull)
             .collect(Collectors.toList());
     }
 
