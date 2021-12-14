@@ -25,7 +25,7 @@ dependencies {
     implementation "gnuplot:gnuplot:0.1.0"
     implementation "hiccup:hiccup:1.0.5"
 
-    // Versions of fipp that depend on a Java 17-compatible
+    // Versions of fipp that depend on a Java 11-compatible
     // version of core.rrb-vector (>= 0.0.13) aren't any use,
     // since those versions of core.rrb-vector trigger a class
     // cast exception that is simply not worth debugging (or

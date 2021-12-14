@@ -105,7 +105,7 @@ To ensure `./gradlew spotlessCheck` passes without having to run `./gradlew spot
 
 * Import `build.gradle` as a gradle project or module.  You can safely ignore any messages about `Duplicate content roots detected`.
 
-* Open `Project Structure...`, and make sure a Java 17 Project JDK is set.
+* Open `Project Structure...`, and make sure a Java 11 Project JDK is set.
 
 * Open `Settings`, navigate to `Build, Execution, Deployment > Compiler > Annotation Processors`, and make sure the `Enable annotation processing` checkbox is checked:
 
@@ -124,7 +124,7 @@ To ensure `./gradlew spotlessCheck` passes without having to run `./gradlew spot
 
 * In the toolbar drop-down at the top of the main window, select `Edit Configurations...`, go to `Templates > Gradle`, and set the `Environment Variables` as follows (click `[=]` button):
 
-    * `JAVA_HOME`: the installation of the Java 17 JDK
+    * `JAVA_HOME`: the installation of the Java 11 JDK
     * `JAVA8_HOME`: the installation of the Java 8 JDK
 
     In order to run the full suite of unit tests, these must also be set:

@@ -4,8 +4,25 @@ buildscript {
     }
 
     dependencies {
-        classpath 'guru.nidi:graphviz-java:0.18.1'
-        classpath 'net.sourceforge.plantuml:plantuml:1.2021.4'
+        classpath 'guru.nidi:graphviz-java:0.8.3'
+        classpath 'net.sourceforge.plantuml:plantuml:1.2019.7'
+    }
+
+    dependencyLocking {
+        // The JFrog repository mirror handles the dependencies for
+        // com.github.johnrengelman.shadow incorrectly, resulting in
+        // different buildscript-gradle.lockfiles depending on whether
+        // we resolve against the mirror or maven central.  Solve the
+        // problem for now by ignoring the transitive dependencies.
+        ignoredDependencies.addAll(
+            "org.apache.ant:*",
+            "org.apache.logging.log4j:*",
+            "org.codehaus.groovy:groovy-backports-compat23",
+            "org.codehaus.plexus:plexus-utils",
+            "org.jdom:jdom2",
+            "org.ow2.asm:*",
+            "org.vafer:jdependency"
+        )
     }
 }
 
@@ -17,7 +34,7 @@ plugins {
     id 'application'
 
     id 'jacoco'
-    id "idea"
+    id "org.jetbrains.gradle.plugin.idea-ext" version "0.10"
 
     id "com.datastax.fallout.symlinks"
     id "com.datastax.fallout.externaltools"
@@ -30,9 +47,12 @@ plugins {
     id "com.datastax.fallout.conventions.dependency-locking"
     id "com.datastax.fallout.conventions.common-root-project"
 
-    id "com.github.johnrengelman.shadow" version "7.1.0"
-    id "com.github.node-gradle.node" version "3.1.1"
-    id "com.diffplug.spotless" version "6.0.0"
+    id "com.github.johnrengelman.shadow" version "6.1.0"
+    id "com.github.node-gradle.node" version "3.0.1"
+    id "com.diffplug.spotless" version "5.11.0"
+
+    id "de.undercouch.download" version "4.1.1"
+    id "com.google.osdetector" version "1.6.2"
 
     // This appears to be the only assertj plugin that:
     // - handles dependencies correctly;
@@ -148,7 +168,7 @@ configurations {
 // for consumption as feature variants; see
 // https://docs.gradle.org/current/userguide/cross_project_publications.html#sec:variant-aware-sharing
 java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+    toolchain.languageVersion.set(JavaLanguageVersion.of(11))
 
     registerFeature("testBase") {
         usingSourceSet(sourceSets.testBase)
@@ -1271,5 +1291,4 @@ wrapper {
     // https://gradle.org/release-checksums/
     gradleVersion = "7.3"
     distributionSha256Sum = "de8f52ad49bdc759164f72439a3bf56ddb1589c4cde802d3cec7d6ad0e0ee410"
-    scriptFile = file("gradle/gradlew")
 }

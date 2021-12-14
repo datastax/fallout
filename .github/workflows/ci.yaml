@@ -38,12 +38,12 @@ jobs:
           java-version: 8
           distribution: adopt
 
-      - name: Setup Java
-        id: setup-java
+      - name: Setup Java 11
+        id: setup-java-11
         uses: actions/setup-java@v2
         with:
-          java-version: 17
-          distribution: temurin
+          java-version: 11
+          distribution: adopt
 
       - name: Setup Python
         uses: actions/setup-python@v2.2.2
@@ -73,7 +73,7 @@ jobs:
 
       - name: Gradle
         env:
-          JAVA_HOME: ${{ steps.setup-java.outputs.path }}
+          JAVA_HOME: ${{ steps.setup-java-11.outputs.path }}
           JAVA8_HOME: ${{ steps.setup-java-8.outputs.path }}
         # For CI we generate a false gitDescribe: this is expected to be the output of `git describe --tags`,
         # but because we're running in a shallow checkout, we synthesize a value

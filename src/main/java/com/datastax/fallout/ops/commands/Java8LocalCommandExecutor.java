@@ -28,7 +28,7 @@ import com.datastax.fallout.ops.Node;
 /** CommandExecutor that sets <code>JAVA_HOME=$JAVA8_HOME</code>.
  *
  *  Why?  Some of the existing test tools (older versions of stress) will not work
- *  with Java 17, so this allows us to enforce the version as Java 8. */
+ *  with Java 11, so this allows us to enforce the version as Java 8. */
 public class Java8LocalCommandExecutor extends LocalCommandExecutor
 {
     private static final String JAVA8_HOME =
