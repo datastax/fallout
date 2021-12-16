@@ -54,7 +54,19 @@ public class AsyncShutdownHandler
         {
             shuttingDown = true;
             logger.info("Shutting down in {}...", SHUTDOWN_GRACE_DELAY);
-            CompletableFuture.runAsync(() -> logger.withScopedInfo("Shutting down").run(shutdownHandler::run),
+            CompletableFuture.runAsync(() -> {
+                logger.withScopedInfo("Shutting down")
+                    .run(() -> {
+                        try
+                        {
+                            shutdownHandler.run();
+                        }
+                        catch (Throwable t)
+                        {
+                            logger.error("Exception in shutdown handler", t);
+                        }
+                    });
+            },
                 CompletableFutures.delayedExecutor(SHUTDOWN_GRACE_DELAY));
         }
     }
