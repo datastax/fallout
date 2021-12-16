@@ -88,7 +88,7 @@ public class JettyArtifactServlet extends ArtifactServlet
             else
             {
                 // partially copied from org.eclipse.jetty.server.ResourceContentFactory
-                String compressedPathInContext = pathInContext + GZIP._extension;
+                String compressedPathInContext = pathInContext + GZIP.getExtension();
                 Resource compressedResource = resourceBase.getResource(compressedPathInContext);
 
                 if (compressedResource.exists())

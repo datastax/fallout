@@ -50,7 +50,7 @@ public abstract class ArtifactServlet extends HttpServlet
     protected final void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException, ServletException
     {
         final Path artifactPath = Paths.get(req.getPathInfo().substring(1));
-        final Path compressedArtifactPath = Paths.get(artifactPath.toString() + GZIP._extension);
+        final Path compressedArtifactPath = Paths.get(artifactPath.toString() + GZIP.getExtension());
 
         boolean rangeRequested = req.getHeader(HttpHeader.RANGE.asString()) != null;
 

@@ -207,7 +207,7 @@ public class FalloutAppExtensionBase<FC extends FalloutConfiguration, FS extends
 
                 // Don't create directories if this is the QUEUE process, otherwise we'd be racing
                 // the subordinate RUNNER process.
-                if (getConfiguration().getMode() != FalloutConfiguration.ServerMode.QUEUE)
+                if (configuration.getMode() != FalloutConfiguration.ServerMode.QUEUE)
                 {
                     ensureEmptyDirectoryExists(artifactPath);
                     ensureEmptyDirectoryExists(configuration.getRunDir());

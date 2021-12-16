@@ -130,7 +130,7 @@ allprojects {
     }
 }
 
-def dropwizardVersion = '2.0.18'
+def dropwizardVersion = '2.0.+'
 
 def autoServiceVersion = '1.0'
 def autoValueVersion = '1.7.5'
@@ -179,6 +179,16 @@ java {
     }
 }
 
+configurations.all {
+    resolutionStrategy {
+        // The transitive dependency
+        // io.dropwizard.metrics:metrics-jersey2:4.1.28 brings in jersey-server
+        // 2.35, while io.dropwizard:dropwizard-core depends on jersey
+        // 2.33; the combination of the two versions causes SSE failures
+        force("org.glassfish.jersey.core:jersey-server:2.33")
+    }
+}
+
 dependencies {
     api project(path: ':cassandra-all-shaded', configuration: 'shadow')
     api project(path: ':jepsen', configuration: 'shadow')
@@ -187,16 +197,11 @@ dependencies {
 
     api(platform("io.dropwizard:dropwizard-bom:${dropwizardVersion}"))
     api(platform("io.dropwizard:dropwizard-dependencies:${dropwizardVersion}"))
-    implementation(platform("io.dropwizard:dropwizard-bom:${dropwizardVersion}"))
-    implementation(platform("io.dropwizard:dropwizard-dependencies:${dropwizardVersion}"))
 
     api "com.google.guava:guava:28.2-jre"
     api "com.github.spullara.mustache.java:compiler"
     api "io.dropwizard:dropwizard-core"
-
-    implementation("io.dropwizard:dropwizard-views-mustache") {
-     //   exclude(group: 'com.github.spullara.mustache.java', module: 'compiler')
-    }
+    implementation "io.dropwizard:dropwizard-views-mustache"
     implementation "io.dropwizard:dropwizard-assets"
     api "io.dropwizard:dropwizard-auth"
     api "io.dropwizard:dropwizard-logging"
@@ -274,8 +279,6 @@ dependencies {
 
     testBaseApi(platform("io.dropwizard:dropwizard-bom:${dropwizardVersion}"))
     testBaseApi(platform("io.dropwizard:dropwizard-dependencies:${dropwizardVersion}"))
-    testBaseImplementation(platform("io.dropwizard:dropwizard-bom:${dropwizardVersion}"))
-    testBaseImplementation(platform("io.dropwizard:dropwizard-dependencies:${dropwizardVersion}"))
 
     testBaseImplementation "io.dropwizard:dropwizard-logging"
     testBaseApi("io.dropwizard:dropwizard-testing") {
