@@ -255,7 +255,7 @@ dependencies {
         // See https://github.com/dropwizard/dropwizard/issues/1341
         exclude(group: "org.glassfish.jersey.media", module: "jersey-media-json-jackson")
     }
-    implementation "javax.ws.rs:javax.ws.rs-api:2.1.1"
+    implementation "javax.ws.rs:javax.ws.rs-api:2.+"
 
     // AutoService
     def autoServiceVersion = '1.0'
