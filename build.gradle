@@ -215,7 +215,7 @@ dependencies {
     implementation "com.jcraft:jsch.agentproxy.sshagent:${jschAgentProxyVersion}"
     implementation "com.jcraft:jsch.agentproxy.usocket-jna:${jschAgentProxyVersion}"
 
-    implementation "commons-io:commons-io:2.5"
+    api "commons-io:commons-io:2.+"
     implementation "org.yaml:snakeyaml:1.28"
     implementation "com.h2database:h2:1.4.195"
     implementation "javax.mail:javax.mail-api:1.6.0"
