@@ -257,6 +257,10 @@ dependencies {
     }
     implementation "javax.ws.rs:javax.ws.rs-api:2.+"
 
+    implementation('com.google.cloud:google-cloud-logging:2.2.+') {
+        exclude group: 'com.google.guava', module: 'guava'
+    }
+
     // AutoService
     def autoServiceVersion = '1.+'
     annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
@@ -302,10 +306,6 @@ dependencies {
     }
     // Needed for ClojureShutdownListener
     testImplementation "org.junit.platform:junit-platform-launcher"
-
-    implementation('com.google.cloud:google-cloud-logging:2.2.0') {
-        exclude group: 'com.google.guava', module: 'guava'
-    }
 
     integrationTestImplementation sourceSets.testBase.output
     integrationTestRuntimeOnly tasks.jar.outputs.files
