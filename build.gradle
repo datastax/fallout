@@ -190,6 +190,10 @@ configurations.all {
 }
 
 dependencies {
+    // The DataStax internal version of fallout uses this project as a
+    // dependency, which is why several dependencies are exposed as api
+    // dependencies rather than implementation dependencies
+
     api project(path: ':cassandra-all-shaded', configuration: 'shadow')
     api project(path: ':jepsen', configuration: 'shadow')
 
