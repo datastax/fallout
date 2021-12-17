@@ -132,9 +132,6 @@ allprojects {
 
 def dropwizardVersion = '2.0.+'
 
-def autoServiceVersion = '1.0'
-def autoValueVersion = '1.7.5'
-
 // Used by jepsen as well, so we define this at the project level
 ext.jschVersion = "0.1.55"
 def jschAgentProxyVersion = "0.0.9"
@@ -201,42 +198,49 @@ dependencies {
 
     api(platform("io.dropwizard:dropwizard-bom:${dropwizardVersion}"))
     api(platform("io.dropwizard:dropwizard-dependencies:${dropwizardVersion}"))
-
-    api "com.google.guava:guava:28.2-jre"
-    api "com.github.spullara.mustache.java:compiler"
     api "io.dropwizard:dropwizard-core"
     implementation "io.dropwizard:dropwizard-views-mustache"
     implementation "io.dropwizard:dropwizard-assets"
     api "io.dropwizard:dropwizard-auth"
     api "io.dropwizard:dropwizard-logging"
     api "io.dropwizard:dropwizard-metrics-graphite"
+
+    api "com.google.guava:guava:28.2-jre"
+    api "com.github.spullara.mustache.java:compiler"
+
     implementation "org.eclipse.jetty:jetty-rewrite"
+
     implementation "com.jcraft:jsch:${jschVersion}"
     implementation "com.jcraft:jsch.agentproxy.jsch:${jschAgentProxyVersion}"
     implementation "com.jcraft:jsch.agentproxy.sshagent:${jschAgentProxyVersion}"
     implementation "com.jcraft:jsch.agentproxy.usocket-jna:${jschAgentProxyVersion}"
+
     implementation "commons-io:commons-io:2.5"
     implementation "org.yaml:snakeyaml:1.28"
     implementation "com.h2database:h2:1.4.195"
     implementation "javax.mail:javax.mail-api:1.6.0"
     implementation "com.sun.mail:javax.mail:1.6.0"
     api "org.apache.commons:commons-csv:1.5"
-    api "org.hdrhistogram:HdrHistogram:2.1.12"
-    api 'com.github.pingtimeout:HdrLogProcessing:274e279'
     api "io.netty:netty-all:4.1.63.Final"
     implementation "com.fasterxml.jackson.core:jackson-annotations"
     implementation "org.apache.httpcomponents:httpclient:4.5.13"
     implementation "org.apache.commons:commons-math3:3.6.1"
 
-    implementation("io.dropwizard:dropwizard-views-freemarker")
+    api "org.hdrhistogram:HdrHistogram:2.1.12"
+    api 'com.github.pingtimeout:HdrLogProcessing:274e279'
+
+    // Swagger
+    implementation("io.dropwizard:dropwizard-views-freemarker") {
+        because "Freemarker rendering is used by the dropwizard swagger bundle"
+    }
 
     // See https://github.com/smoketurner/dropwizard-swagger/releases
     //
     // Waiting for fix of
     // https://github.com/smoketurner/dropwizard-swagger/issues/210 be
     // released before we move any higher than 2.0.0-1.  Once that has
-    // been done, remove DropWizard2SwaggerBundle from the source code,
-    // and the constraint on io.swagger:swagger-jersey2-jaxrs:1.5.0.
+    // been done, remove the constraint on
+    // io.swagger:swagger-jersey2-jaxrs:1.5.x.
     implementation ("com.smoketurner:dropwizard-swagger:2.0.0-1")
     constraints {
         implementation('io.swagger:swagger-jersey2-jaxrs') {
@@ -249,7 +253,7 @@ dependencies {
         }
     }
 
-    // For Server-Sent Events
+    // Server-Sent Events
     implementation "org.glassfish.jersey.media:jersey-media-sse"
     implementation("org.glassfish.jersey.security:oauth2-client") {
         // Prevent the Jersey JacksonFeature (which overrides the Dropwizard
@@ -259,19 +263,22 @@ dependencies {
     }
     implementation "javax.ws.rs:javax.ws.rs-api:2.1.1"
 
+    // AutoService
+    def autoServiceVersion = '1.0'
     annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
     testAnnotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
     testBaseAnnotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
 
     implementation "com.google.auto.service:auto-service-annotations:${autoServiceVersion}"
 
+    // AutoValue
+    def autoValueVersion = '1.7.5'
     annotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
-    implementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
-
     testAnnotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
-    testImplementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
-
     integrationTestAnnotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
+
+    implementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
+    testImplementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
     integrationTestImplementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
 
     // Compile against the main classes, but leave it up to the
