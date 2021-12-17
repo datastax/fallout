@@ -220,8 +220,8 @@ dependencies {
     implementation("com.h2database:h2:1.4.+") {
         because("InMemoryCsvCheck uses this")
     }
-    implementation "javax.mail:javax.mail-api:1.6.0"
-    implementation "com.sun.mail:javax.mail:1.6.0"
+    implementation "javax.mail:javax.mail-api:1.6.+"
+    implementation "com.sun.mail:javax.mail:1.6.+"
     api "org.apache.commons:commons-csv:1.5"
     api "io.netty:netty-all:4.1.63.Final"
     implementation "com.fasterxml.jackson.core:jackson-annotations"
