@@ -231,7 +231,7 @@ dependencies {
         because "HttpUtils is the only user; everything else uses jersey"
     }
 
-    api "org.hdrhistogram:HdrHistogram:2.1.12"
+    api "org.hdrhistogram:HdrHistogram:2.+"
     api 'com.github.pingtimeout:HdrLogProcessing:274e279'
 
     // Swagger
