@@ -280,7 +280,7 @@ dependencies {
     // will already use sourceSets.main.output by default).
     testBaseCompileOnly sourceSets.main.output
 
-    testBaseApi "org.awaitility:awaitility:4.0.3"
+    testBaseApi "org.awaitility:awaitility"
 
     testBaseApi(platform("io.dropwizard:dropwizard-bom:${dropwizardVersion}"))
     testBaseApi(platform("io.dropwizard:dropwizard-dependencies:${dropwizardVersion}"))
