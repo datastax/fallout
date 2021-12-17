@@ -24,13 +24,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.sshd.common.Factory;
-import org.apache.sshd.server.Command;
-import org.apache.sshd.server.CommandFactory;
 import org.apache.sshd.server.Environment;
 import org.apache.sshd.server.ExitCallback;
 import org.apache.sshd.server.SshServer;
+import org.apache.sshd.server.channel.ChannelSession;
+import org.apache.sshd.server.command.Command;
+import org.apache.sshd.server.command.CommandFactory;
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider;
-import org.apache.sshd.server.subsystem.sftp.SftpSubsystemFactory;
+import org.apache.sshd.sftp.server.SftpSubsystemFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,26 +91,31 @@ public class DummySshServerFactory
             this.name = name;
         }
 
+        @Override
         public void setInputStream(final InputStream inputStream)
         {
         }
 
+        @Override
         public void setOutputStream(final OutputStream outputStream)
         {
             this.outputStream = outputStream;
         }
 
+        @Override
         public void setErrorStream(OutputStream outputStream)
         {
             this.errorStream = outputStream;
         }
 
+        @Override
         public void setExitCallback(ExitCallback exitCallback)
         {
             this.exitCallback = exitCallback;
         }
 
-        public void start(Environment environment) throws IOException
+        @Override
+        public void start(ChannelSession session, Environment environment) throws IOException
         {
             try
             {
@@ -149,7 +155,8 @@ public class DummySshServerFactory
             }
         }
 
-        public void destroy()
+        @Override
+        public void destroy(ChannelSession session)
         {
             // client or server closed connection, clean up resources here
         }
@@ -157,14 +164,16 @@ public class DummySshServerFactory
 
     public static class DummyCommandFactory implements CommandFactory, Factory<Command>
     {
-        public Command createCommand(String s)
+        @Override
+        public Command createCommand(ChannelSession session, String s)
         {
             return new MyCommand(s);
         }
 
+        @Override
         public Command create()
         {
-            return createCommand("exec");
+            return createCommand(null, "exec");
         }
     }
 }

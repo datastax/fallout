@@ -291,7 +291,9 @@ dependencies {
     }
 
     testImplementation sourceSets.testBase.output
-    testApi "org.apache.sshd:sshd-core:1.7.0"
+    testApi "org.apache.sshd:sshd-core:2.+"
+    testApi "org.apache.sshd:sshd-sftp:2.+"
+    testApi "org.apache.sshd:sshd-scp:2.+"
     testApi "org.mockito:mockito-core:3.8.0"
     testApi 'org.mockito:mockito-junit-jupiter:3.8.0'
     testApi "org.quicktheories:quicktheories:0.26"
