@@ -223,7 +223,9 @@ dependencies {
     implementation "javax.mail:javax.mail-api:1.6.+"
     implementation "com.sun.mail:javax.mail:1.6.+"
     api "org.apache.commons:commons-csv:1.+"
-    api "io.netty:netty-all:4.1.63.Final"
+    api("io.netty:netty-common:4.1.+") {
+        because "HashedWheelTimer is used in several places"
+    }
     implementation "com.fasterxml.jackson.core:jackson-annotations"
     implementation "org.apache.httpcomponents:httpclient:4.5.13"
     implementation "org.apache.commons:commons-math3:3.6.1"
