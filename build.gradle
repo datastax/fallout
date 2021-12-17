@@ -242,21 +242,10 @@ dependencies {
     // See https://github.com/smoketurner/dropwizard-swagger/releases
     //
     // Waiting for fix of
-    // https://github.com/smoketurner/dropwizard-swagger/issues/210 be
-    // released before we move any higher than 2.0.0-1.  Once that has
-    // been done, remove the constraint on
-    // io.swagger:swagger-jersey2-jaxrs:1.5.x.
-    implementation ("com.smoketurner:dropwizard-swagger:2.0.0-1")
-    constraints {
-        implementation('io.swagger:swagger-jersey2-jaxrs') {
-            version {
-                strictly '1.5.13'
-            }
-            because 'later versions bring in reflections 0.9.11, triggering ' +
-                'https://github.com/smoketurner/dropwizard-swagger/issues/171 ' +
-                '(fixed in com.smoketurner:dropwizard-swagger:2.0.12-1)'
-        }
-    }
+    // https://github.com/smoketurner/dropwizard-swagger/issues/210 to be
+    // released in an official version.  Once that has
+    // been done, we can use that instead of this jitpack dependency,
+    implementation ("com.github.smoketurner:dropwizard-swagger:661c79d")
 
     // Server-Sent Events
     implementation "org.glassfish.jersey.media:jersey-media-sse"
