@@ -217,7 +217,9 @@ dependencies {
 
     api "commons-io:commons-io:2.+"
     api "org.yaml:snakeyaml:1.+"
-    implementation "com.h2database:h2:1.4.195"
+    implementation("com.h2database:h2:1.4.+") {
+        because("InMemoryCsvCheck uses this")
+    }
     implementation "javax.mail:javax.mail-api:1.6.0"
     implementation "com.sun.mail:javax.mail:1.6.0"
     api "org.apache.commons:commons-csv:1.5"
