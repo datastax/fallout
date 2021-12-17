@@ -230,7 +230,6 @@ dependencies {
     implementation("org.apache.httpcomponents:httpclient:4.+") {
         because "HttpUtils is the only user; everything else uses jersey"
     }
-    implementation "org.apache.commons:commons-math3:3.6.1"
 
     api "org.hdrhistogram:HdrHistogram:2.1.12"
     api 'com.github.pingtimeout:HdrLogProcessing:274e279'
