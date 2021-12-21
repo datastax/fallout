@@ -36,7 +36,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
 import io.netty.util.HashedWheelTimer;
@@ -81,25 +80,22 @@ public class ServerSentEvents implements Managed
             .build();
     }
 
-    @AutoValue
-    public static abstract class EventConsumer<T> implements Predicate<InboundSseEvent>
-    {
-        public abstract Class<T> getEventType();
-
-        public abstract Consumer<T> getConsumer();
+    public record EventConsumer<T> (Class<T> eventType, Consumer<T> consumer)
+        implements
+            Predicate<InboundSseEvent> {
 
         public static <T> EventConsumer<T> of(Class<T> eventType, Consumer<T> consumer)
         {
-            return new AutoValue_ServerSentEvents_EventConsumer<T>(eventType, consumer);
+            return new EventConsumer<T>(eventType, consumer);
         }
 
         @Override
         public boolean test(InboundSseEvent event)
         {
-            if (eventName(getEventType()).equals(event.getName()))
+            if (eventName(this.eventType()).equals(event.getName()))
             {
-                getConsumer().accept(
-                    logger.withResultDebug("readEvent({})", event).get(() -> event.readData(getEventType())));
+                this.consumer().accept(
+                    logger.withResultDebug("readEvent({})", event).get(() -> event.readData(this.eventType())));
                 return true;
             }
             logger.trace("readEvent({}): no matching consumers", event);
