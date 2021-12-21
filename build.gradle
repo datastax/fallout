@@ -184,6 +184,9 @@ dependencies {
     api "io.dropwizard:dropwizard-logging"
     api "io.dropwizard:dropwizard-metrics-graphite"
 
+    api(platform("com.fasterxml.jackson:jackson-bom:2.12.+"))
+    api("com.fasterxml.jackson.core:jackson-databind")
+
     api "com.google.guava:guava"
     api "com.github.spullara.mustache.java:compiler"
 
