@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
 
-import com.google.auto.value.AutoValue;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,18 +57,10 @@ public class FileUtilsTest extends TestHelpers.ArtifactTest
         assertThat(content).isEqualTo("foo\nbar\n");
     }
 
-    @AutoValue
-    public static abstract class FileContents
-    {
-        abstract public Path getPath();
-
-        abstract public Optional<String> getArchivePath();
-
-        abstract public String getContent();
-
+    public record FileContents(Path path, Optional<String> archivePath, String content) {
         static FileContents of(Path path, Optional<String> archivePath, String content)
         {
-            return new AutoValue_FileUtilsTest_FileContents(path, archivePath, content);
+            return new FileContents(path, archivePath, content);
         }
 
         static FileContents of(Path path, String archivePath, String content)
