@@ -42,23 +42,23 @@ class StableMetricsThresholdArtifactCheckerTest
         String json = ResourceUtils.getResourceAsString(getClass(), "metric_a.json");
         RangeQueryResult rangeQueryResult = JsonUtils.fromJson(json, RangeQueryResult.class);
 
-        List<Result> result = rangeQueryResult.getData().getResult();
+        List<Result> result = rangeQueryResult.data().result();
         assertThat(result).containsExactly(
-            Result.of(Metric.of("metric_a", "123.123.123.134:8080", "some_job"),
-                List.of(Value.of(Instant.ofEpochSecond(1612169177), 0L), Value.of(
+            new Result(new Metric("metric_a", "123.123.123.134:8080", "some_job"),
+                List.of(new Value(Instant.ofEpochSecond(1612169177), 0L), new Value(
                     Instant.ofEpochSecond(1612169192), 5L
                 ))),
-            Result.of(Metric.of("metric_a", "123.123.123.135:8084", "some_job"),
-                List.of(Value.of(Instant.ofEpochSecond(1612169177), 15L))));
+            new Result(new Metric("metric_a", "123.123.123.135:8084", "some_job"),
+                List.of(new Value(Instant.ofEpochSecond(1612169177), 15L))));
 
     }
 
     public static Stream<Value> metricsWithinRange()
     {
         return Stream.of(
-            Value.of(Instant.ofEpochSecond(1612169170), 15L),
-            Value.of(Instant.ofEpochSecond(1612169170), 0L),
-            Value.of(Instant.ofEpochSecond(1612169170), 5L));
+            new Value(Instant.ofEpochSecond(1612169170), 15L),
+            new Value(Instant.ofEpochSecond(1612169170), 0L),
+            new Value(Instant.ofEpochSecond(1612169170), 5L));
     }
 
     @ParameterizedTest
@@ -69,12 +69,12 @@ class StableMetricsThresholdArtifactCheckerTest
             new StableMetricsThresholdArtifactChecker();
         List<Result> metricResults =
             List.of(
-                Result.of(Metric.of("metric_a", "123.123.123.134:8080", "some_job"),
-                    List.of(Value.of(Instant.ofEpochSecond(1612169192), 0L), inRangeValue)),
-                Result.of(Metric.of("metric_a", "123.123.123.135:8084", "some_job"),
-                    List.of(Value.of(Instant.ofEpochSecond(1612169140), 15L))));
+                new Result(new Metric("metric_a", "123.123.123.134:8080", "some_job"),
+                    List.of(new Value(Instant.ofEpochSecond(1612169192), 0L), inRangeValue)),
+                new Result(new Metric("metric_a", "123.123.123.135:8084", "some_job"),
+                    List.of(new Value(Instant.ofEpochSecond(1612169140), 15L))));
 
-        RangeQueryResult rangeQueryResult = RangeQueryResult.of(Data.of(metricResults));
+        RangeQueryResult rangeQueryResult = new RangeQueryResult(new Data(metricResults));
 
         boolean result = stableMetricsThresholdArtifactChecker
             .validateIfMetricValuesAreWithinRange(rangeQueryResult, Duration.seconds(0), 0L, 15L);
@@ -84,8 +84,8 @@ class StableMetricsThresholdArtifactCheckerTest
     public static Stream<Value> metricValueOutOfRange()
     {
         return Stream.of(
-            Value.of(Instant.ofEpochSecond(1612169170), 16L),
-            Value.of(Instant.ofEpochSecond(1612169170), -1L));
+            new Value(Instant.ofEpochSecond(1612169170), 16L),
+            new Value(Instant.ofEpochSecond(1612169170), -1L));
     }
 
     @ParameterizedTest
@@ -94,14 +94,14 @@ class StableMetricsThresholdArtifactCheckerTest
     {
         StableMetricsThresholdArtifactChecker stableMetricsThresholdArtifactChecker =
             new StableMetricsThresholdArtifactChecker();
-        List<Result> metricResults = List.of(Result.of(Metric.of("metric_a", "123.123.123.134:8080", "some_job"),
-            List.of(Value.of(Instant.ofEpochSecond(1612169140), 0L), Value.of(
-                Instant.ofEpochSecond(1612169170), 5L
-            ))),
-            (Result.of(Metric.of("metric_a", "123.123.123.135:8084", "some_job"),
+        List<Result> metricResults = List.of(new Result(new Metric("metric_a", "123.123.123.134:8080", "some_job"),
+            List.of(
+                new Value(Instant.ofEpochSecond(1612169140), 0L),
+                new Value(Instant.ofEpochSecond(1612169170), 5L))),
+            (new Result(new Metric("metric_a", "123.123.123.135:8084", "some_job"),
                 List.of(outOfRangeValue))));
 
-        RangeQueryResult rangeQueryResult = RangeQueryResult.of(Data.of(metricResults));
+        RangeQueryResult rangeQueryResult = new RangeQueryResult(new Data(metricResults));
 
         boolean result = stableMetricsThresholdArtifactChecker
             .validateIfMetricValuesAreWithinRange(rangeQueryResult, Duration.seconds(0), 0L, 15L);
@@ -115,14 +115,14 @@ class StableMetricsThresholdArtifactCheckerTest
             new StableMetricsThresholdArtifactChecker();
         Duration warmupOffset = Duration.seconds(60);
         Instant now = Instant.now();
-        List<Result> metricResults = List.of(Result.of(Metric.of("metric_a", "123.123.123.134:8080", "some_job"),
-            List.of(Value.of(now, 100L), Value.of(
-                now.plusSeconds(60), 5L
-            ))),
-            Result.of(Metric.of("metric_a", "123.123.123.135:8084", "some_job"),
-                List.of(Value.of(now, 15L))));
+        List<Result> metricResults = List.of(new Result(new Metric("metric_a", "123.123.123.134:8080", "some_job"),
+            List.of(
+                new Value(now, 100L),
+                new Value(now.plusSeconds(60), 5L))),
+            new Result(new Metric("metric_a", "123.123.123.135:8084", "some_job"),
+                List.of(new Value(now, 15L))));
 
-        RangeQueryResult rangeQueryResult = RangeQueryResult.of(Data.of(metricResults));
+        RangeQueryResult rangeQueryResult = new RangeQueryResult(new Data(metricResults));
 
         boolean result = stableMetricsThresholdArtifactChecker
             .validateIfMetricValuesAreWithinRange(rangeQueryResult, warmupOffset, 0L, 15L);
@@ -136,14 +136,14 @@ class StableMetricsThresholdArtifactCheckerTest
             new StableMetricsThresholdArtifactChecker();
         Duration warmupOffset = Duration.seconds(60);
         Instant now = Instant.now();
-        List<Result> metricResults = List.of(Result.of(Metric.of("metric_a", "123.123.123.134:8080", "some_job"),
-            List.of(Value.of(now, 100L), Value.of(
-                now.plusSeconds(60), 33L
-            ))),
-            Result.of(Metric.of("metric_a", "123.123.123.135:8084", "some_job"),
-                List.of(Value.of(now, 100L))));
+        List<Result> metricResults = List.of(new Result(new Metric("metric_a", "123.123.123.134:8080", "some_job"),
+            List.of(
+                new Value(now, 100L),
+                new Value(now.plusSeconds(60), 33L))),
+            new Result(new Metric("metric_a", "123.123.123.135:8084", "some_job"),
+                List.of(new Value(now, 100L))));
 
-        RangeQueryResult rangeQueryResult = RangeQueryResult.of(Data.of(metricResults));
+        RangeQueryResult rangeQueryResult = new RangeQueryResult(new Data(metricResults));
 
         boolean result = stableMetricsThresholdArtifactChecker
             .validateIfMetricValuesAreWithinRange(rangeQueryResult, warmupOffset, 0L, 15L);

@@ -42,6 +42,6 @@ public class CustomValueDeserializer extends StdDeserializer<Value>
 
         JsonNode timestamp = node.get(0);
         JsonNode metricValue = node.get(1);
-        return Value.of(Instant.ofEpochSecond(timestamp.asLong()), Long.parseLong(metricValue.asText()));
+        return new Value(Instant.ofEpochSecond(timestamp.asLong()), Long.parseLong(metricValue.asText()));
     }
 }

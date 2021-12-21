@@ -116,26 +116,26 @@ public class StableMetricsThresholdArtifactChecker extends ArtifactChecker
         Long lowerThreshold,
         Long upperThreshold)
     {
-        for (Result result : rangeQueryResult.getData().getResult())
+        for (Result result : rangeQueryResult.data().result())
         {
             // this is executed per-node
-            Metric metric = result.getMetric();
+            Metric metric = result.metric();
             Instant metricStartTime = null;
 
-            for (Value value : result.getValues())
+            for (Value value : result.values())
             {
 
                 // the first value denotes the first produced metric for the given result;
                 // if it is not present, take the first timestamp and use it as the first one.
                 if (metricStartTime == null)
                 {
-                    metricStartTime = value.getTimestamp();
+                    metricStartTime = value.timestamp();
                 }
-                if (metricIsAfterWarmup(metricStartTime, warmupOffset, value.getTimestamp()) &&
-                    (value.getValue() < lowerThreshold || value.getValue() > upperThreshold))
+                if (metricIsAfterWarmup(metricStartTime, warmupOffset, value.timestamp()) &&
+                    (value.value() < lowerThreshold || value.value() > upperThreshold))
                 {
                     logger().error("The value: {} for metric: {} is not within threshold ({}-{})",
-                        value.getValue(),
+                        value.value(),
                         metric,
                         lowerThreshold,
                         upperThreshold);
