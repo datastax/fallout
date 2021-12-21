@@ -27,10 +27,6 @@ public record ResourceLimit(
     @Nullable String tenant,
     @Nullable String instanceType,
     int nodeLimit) {
-    public static ResourceLimit of(String provider, String tenant, String instanceType, int nodeLimit)
-    {
-        return new ResourceLimit(provider, tenant, instanceType, nodeLimit);
-    }
 
     private boolean matches(ResourceType target)
     {

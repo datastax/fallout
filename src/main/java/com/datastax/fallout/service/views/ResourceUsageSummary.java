@@ -21,8 +21,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -49,88 +47,73 @@ public class ResourceUsageSummary
         @SuppressWarnings("unused")
         default String getInUseWithZeroAsBlank()
         {
-            return formatIntegerWithZeroAsBlank(getInUse());
+            return formatIntegerWithZeroAsBlank(inUse());
         }
 
         @SuppressWarnings("unused")
         default String getRequestedWithZeroAsBlank()
         {
-            return formatIntegerWithZeroAsBlank(getRequested());
+            return formatIntegerWithZeroAsBlank(requested());
         }
 
-        int getInUse();
+        int inUse();
 
-        int getRequested();
+        int requested();
     }
 
-    @AutoValue
-    public static abstract class ResourceLimitUsage implements ResourceUsageDisplay
-    {
-        public static ResourceLimitUsage of(ResourceLimit limit, int inUse, int requested)
-        {
-            return new AutoValue_ResourceUsageSummary_ResourceLimitUsage(inUse, requested, limit);
-        }
-
-        public abstract ResourceLimit getLimit();
+    public record ResourceLimitUsage(ResourceLimit limit, int inUse, int requested)
+        implements
+            ResourceUsageDisplay {
     }
 
     /** Combines the in-use and requested counts for a resource type in a single entry */
-    @AutoValue
-    public static abstract class ResourceUsage implements Comparable<ResourceUsage>, ResourceUsageDisplay
-    {
+    public record ResourceUsage(ResourceType type, int inUse,
+        int requested) implements Comparable<ResourceUsage>, ResourceUsageDisplay {
         public static ResourceUsage inUse(ResourceType type, int inUse)
         {
-            return of(type, inUse, 0);
+            return new ResourceUsage(type, inUse, 0);
         }
 
         public static ResourceUsage requested(ResourceType type, int requested)
         {
-            return of(type, 0, requested);
+            return new ResourceUsage(type, 0, requested);
         }
 
-        @VisibleForTesting
-        public static ResourceUsage of(ResourceType type, int inUse, int requested)
-        {
-            return new AutoValue_ResourceUsageSummary_ResourceUsage(inUse, requested, type);
-        }
-
-        /** Combine this with other by summing the {@link #getInUse} and {@link #getRequested()} values,
-         * and return a new ResourceUsage. {@link #getType()} must be the same in both this and other.  */
+        /** Combine this with other by summing the {@link #inUse} and {@link #requested()} values,
+         * and return a new ResourceUsage. {@link #type()} must be the same in both this and other.  */
         public ResourceUsage merge(ResourceUsage other)
         {
-            Preconditions.checkArgument(other.getType().equals(getType()));
-            return new AutoValue_ResourceUsageSummary_ResourceUsage(
-                getInUse() + other.getInUse(),
-                getRequested() + other.getRequested(),
-                getType());
+            Preconditions.checkArgument(other.type().equals(type()));
+            return new ResourceUsage(
+                type(),
+                inUse() + other.inUse(),
+                requested() + other.requested());
         }
 
         @Override
         public int compareTo(ResourceUsage other)
         {
-            return getType().compareTo(other.getType());
+            return type().compareTo(other.type());
         }
 
         @SuppressWarnings("unused")
         public String getInUseWithZeroAsBlank()
         {
-            return formatIntegerWithZeroAsBlank(getInUse());
+            return formatIntegerWithZeroAsBlank(inUse());
         }
 
         @SuppressWarnings("unused")
         public String getRequestedWithZeroAsBlank()
         {
-            return formatIntegerWithZeroAsBlank(getRequested());
+            return formatIntegerWithZeroAsBlank(requested());
         }
-
-        public abstract ResourceType getType();
     }
 
     private static List<ResourceUsage> mergeResourceUsages(Stream<ResourceUsage> usages)
     {
         return usages
             .collect(Collectors.groupingBy(
-                ResourceUsage::getType, Collectors.reducing(ResourceUsage::merge)))
+                ResourceUsage::type, Collectors.reducing(ResourceUsage::merge)))
             .values().stream()
             .flatMap(Optional::stream)
             .sorted()
@@ -161,17 +144,17 @@ public class ResourceUsageSummary
         for (var limit : resourceLimits)
         {
             final var resourceUsagesMatchingLimit = mergeResourceUsages(Stream.concat(
-                resourcesInUse.stream().filter(usage -> limit.matchesInUse(usage.getType())),
-                resourcesRequested.stream().filter(usage -> limit.matchesRequested(usage.getType()))));
+                resourcesInUse.stream().filter(usage -> limit.matchesInUse(usage.type())),
+                resourcesRequested.stream().filter(usage -> limit.matchesRequested(usage.type()))));
 
-            resourcesInUse.removeIf(usage -> limit.matchesInUse(usage.getType()));
-            resourcesRequested.removeIf(usage -> limit.matchesRequested(usage.getType()));
+            resourcesInUse.removeIf(usage -> limit.matchesInUse(usage.type()));
+            resourcesRequested.removeIf(usage -> limit.matchesRequested(usage.type()));
 
             resourceUsageGroupedByLimits.add(Pair.of(
-                Optional.of(ResourceLimitUsage.of(
+                Optional.of(new ResourceLimitUsage(
                     limit,
-                    resourceUsagesMatchingLimit.stream().mapToInt(ResourceUsage::getInUse).sum(),
-                    resourceUsagesMatchingLimit.stream().mapToInt(ResourceUsage::getRequested).sum())),
+                    resourceUsagesMatchingLimit.stream().mapToInt(ResourceUsage::inUse).sum(),
+                    resourceUsagesMatchingLimit.stream().mapToInt(ResourceUsage::requested).sum())),
                 resourceUsagesMatchingLimit));
         }
 

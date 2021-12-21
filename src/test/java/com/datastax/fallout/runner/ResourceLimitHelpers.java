@@ -21,7 +21,7 @@ public class ResourceLimitHelpers
 {
     public static ResourceLimit limit(String provider, String tenant, String instanceType, int nodeCount)
     {
-        return ResourceLimit.of(
+        return new ResourceLimit(
             provider,
             Preconditions.checkNotNull(tenant),
             Preconditions.checkNotNull(instanceType),
@@ -30,7 +30,7 @@ public class ResourceLimitHelpers
 
     public static ResourceLimit limit(String provider, String tenant, int nodeCount)
     {
-        return ResourceLimit.of(
+        return new ResourceLimit(
             provider,
             Preconditions.checkNotNull(tenant),
             null,
@@ -39,7 +39,7 @@ public class ResourceLimitHelpers
 
     public static ResourceLimit limit(String provider, int nodeCount)
     {
-        return ResourceLimit.of(
+        return new ResourceLimit(
             provider,
             null,
             null,
