@@ -59,15 +59,15 @@ public class FalloutDockerTest extends WithPersistentTestOutputDir
 
         assertThat(dockerRun("fallout", "--version"))
             .satisfies(processResult -> {
-                assertThat(processResult.getExitCode()).isZero();
-                assertThat(processResult.getStdout()).contains(falloutVersion);
+                assertThat(processResult.exitCode()).isZero();
+                assertThat(processResult.stdout()).contains(falloutVersion);
             });
     }
 
     @Test
     public void bogus_command_fails()
     {
-        assertThat(dockerRun("fallout", "--bogus").getExitCode())
+        assertThat(dockerRun("fallout", "--bogus").exitCode())
             .isNotZero();
     }
 }

@@ -28,7 +28,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import com.google.auto.value.AutoValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,19 +81,7 @@ public class ProcessHelpers
         }), outputExecutor);
     }
 
-    @AutoValue
-    public static abstract class ProcessResult
-    {
-        public abstract int getExitCode();
-
-        public abstract List<String> getStdout();
-
-        public abstract List<String> getStderr();
-
-        public static ProcessResult of(int exitCode, List<String> stdout, List<String> stderr)
-        {
-            return new AutoValue_ProcessHelpers_ProcessResult(exitCode, stdout, stderr);
-        }
+    public record ProcessResult(int exitCode, List<String> stdout, List<String> stderr) {
     }
 
     public static ProcessResult run(List<String> command, Map<String, String> extraEnv, Duration timeout)
@@ -116,6 +103,6 @@ public class ProcessHelpers
         int exitCode = process.exitValue();
         logger.info("proc exit: {} {}", exitCode, command);
         return Exceptions
-            .getUnchecked(() -> ProcessResult.of(exitCode, outputLoggers.get(0).join(), outputLoggers.get(1).join()));
+            .getUnchecked(() -> new ProcessResult(exitCode, outputLoggers.get(0).join(), outputLoggers.get(1).join()));
     }
 }
