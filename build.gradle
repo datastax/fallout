@@ -251,16 +251,6 @@ dependencies {
 
     implementation "com.google.auto.service:auto-service-annotations:${autoServiceVersion}"
 
-    // AutoValue
-    def autoValueVersion = '1.+'
-    annotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
-    testAnnotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
-    integrationTestAnnotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
-
-    implementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
-    testImplementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
-    integrationTestImplementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
-
     // Compile against the main classes, but leave it up to the
     // test configuration to specify where the runtime is (test
     // will already use sourceSets.main.output by default).
