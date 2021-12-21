@@ -30,7 +30,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import io.netty.util.HashedWheelTimer;
 import org.apache.commons.io.FilenameUtils;
@@ -128,25 +127,19 @@ public class KubeControlProvider extends Provider
             "patch persistentvolume %s -p '{\"spec\":{\"claimRef\": null}}'", persistentVolumeName))).waitForSuccess();
     }
 
-    @AutoValue
-    public static abstract class HelmInstallValues
-    {
+    public record HelmInstallValues(List<String> valuesFiles, List<String> setValues,
+        List<String> setStringValues) {
+
         public static HelmInstallValues of(List<String> valuesFiles, List<String> setValues,
             List<String> setStringValues)
         {
-            return new AutoValue_KubeControlProvider_HelmInstallValues(valuesFiles, setValues, setStringValues);
+            return new HelmInstallValues(valuesFiles, setValues, setStringValues);
         }
 
         public static HelmInstallValues of(List<String> valuesFiles, List<String> setValues)
         {
             return of(valuesFiles, setValues, List.of());
         }
-
-        public abstract List<String> getValuesFiles();
-
-        public abstract List<String> getSetValues();
-
-        public abstract List<String> getSetStringValues();
     }
 
     public class NamespacedKubeCtl
@@ -485,11 +478,11 @@ public class KubeControlProvider extends Provider
                 maybeWithHelmNamespace(), debug ? " --debug" : "", timeout.toSeconds(),
                 dependencyUpdate ? " --dependency-update" : "", name, chartLocation));
             version.ifPresent(v -> arguments.append(" --version=").append(v));
-            installValues.getValuesFiles()
+            installValues.valuesFiles()
                 .forEach(valuesFile -> arguments.append(String.format(" --values '%s'", valuesFile)));
-            installValues.getSetValues()
+            installValues.setValues()
                 .forEach(setValue -> arguments.append(String.format(" --set '%s'", setValue)));
-            installValues.getSetStringValues()
+            installValues.setStringValues()
                 .forEach(setValue -> arguments.append(String.format(" --set-string '%s'", setValue)));
             return arguments.toString();
         }

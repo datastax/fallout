@@ -309,7 +309,7 @@ public class HelmChartConfigurationManager extends ConfigurationManager
         //First setup the helm upgrade provider
         try
         {
-            new HelmProvider(node, installName, chartLocation, getInstallValues().getValuesFiles());
+            new HelmProvider(node, installName, chartLocation, getInstallValues().valuesFiles());
         }
         catch (Throwable t)
         {
