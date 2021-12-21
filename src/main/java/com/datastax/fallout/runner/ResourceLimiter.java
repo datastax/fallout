@@ -93,7 +93,7 @@ public class ResourceLimiter implements Predicate<ReadOnlyTestRun>
         return firstLimitMatchingRequired(required.getResourceType())
             .map(limit -> {
                 final var inUse = allInUseMatching(limit, resourcesInUse);
-                boolean available = required.getNodeCount() + inUse <= limit.getNodeLimit();
+                boolean available = required.getNodeCount() + inUse <= limit.nodeLimit();
                 if (!available)
                 {
                     logger.info("TestRun {} {} {} not available for running because " +

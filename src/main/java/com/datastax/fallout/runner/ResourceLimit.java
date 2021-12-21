@@ -19,27 +19,23 @@ import javax.annotation.Nullable;
 
 import java.util.Optional;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.auto.value.AutoValue;
-
 import com.datastax.fallout.ops.ResourceType;
 
 /** Represents a resource limit; see {@link #matchesInUse} for matching rules */
-@AutoValue
-@AutoValue.CopyAnnotations
-@JsonSerialize(as = ResourceLimit.class)
-public abstract class ResourceLimit
-{
-    @JsonCreator
+public record ResourceLimit(
+    String provider,
+    @Nullable String tenant,
+    @Nullable String instanceType,
+    int nodeLimit) {
     public static ResourceLimit of(String provider, String tenant, String instanceType, int nodeLimit)
     {
-        return new AutoValue_ResourceLimit(provider, tenant, instanceType, nodeLimit);
+        return new ResourceLimit(provider, tenant, instanceType, nodeLimit);
     }
 
     private boolean matches(ResourceType target)
     {
-        final var resourceType = new ResourceType(getProvider(), getTenant(), getInstanceType(), Optional.empty());
+        final var resourceType =
+            new ResourceType(this.provider(), this.tenant(), this.instanceType(), Optional.empty());
 
         return resourceType.equals(target.copyOnlyProvider()) ||
             resourceType.equals(target.copyOnlyProviderAndTenant()) ||
@@ -71,14 +67,4 @@ public abstract class ResourceLimit
     {
         return target.getUniqueName().isEmpty() && matches(target);
     }
-
-    public abstract String getProvider();
-
-    @Nullable
-    public abstract String getTenant();
-
-    @Nullable
-    public abstract String getInstanceType();
-
-    public abstract int getNodeLimit();
 }
