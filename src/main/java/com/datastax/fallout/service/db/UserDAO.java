@@ -197,7 +197,7 @@ public class UserDAO implements Managed
             return Optional.of(user);
         }
         return userGroupMapper.findGroup(user.getGroup())
-            .flatMap(userGroup -> Optional.ofNullable(getUser(userGroup.getUserGroupEmail())))
+            .flatMap(userGroup -> Optional.ofNullable(getUser(userGroup.userGroupEmail())))
             .map(ciUser -> {
                 Preconditions.checkState(userGroupMapper.isCIUser(ciUser));
                 return ciUser;
@@ -222,7 +222,7 @@ public class UserDAO implements Managed
     private void maybeCreateAdminUser()
     {
         adminUserCreds.ifPresent(userCreds -> {
-            var user = makeUser(userCreds.getName(), userCreds.getEmail(), userCreds.getPassword(),
+            var user = makeUser(userCreds.name(), userCreds.email(), userCreds.password(),
                 UserGroupMapper.UserGroup.OTHER);
             user.setAdmin(true);
             createUserIfNotExists(user);

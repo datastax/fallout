@@ -35,7 +35,6 @@ import java.util.stream.Stream;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
@@ -502,9 +501,7 @@ public class FalloutConfiguration extends Configuration
         return resourceLimits;
     }
 
-    @AutoValue
-    public static abstract class UserCreds
-    {
+    public record UserCreds(String name, String email, String password) {
         /** Expects a string in the form "username:email:password"
          */
         public static UserCreds from(String creds)
@@ -515,17 +512,11 @@ public class FalloutConfiguration extends Configuration
                 throw new InvalidConfigurationException(String.format(
                     "Incorrect format for FALLOUT_ADMIN_CREDS (%s): must be \"USERNAME:EMAIL:PASSWORD\"", creds));
             }
-            return new AutoValue_FalloutConfiguration_UserCreds(
+            return new UserCreds(
                 ownerEmailPassword.get(0),
                 ownerEmailPassword.get(1),
                 ownerEmailPassword.get(2));
         }
-
-        public abstract String getName();
-
-        public abstract String getEmail();
-
-        public abstract String getPassword();
     }
 
     /** Reads the environment variable {@code FALLOUT_ADMIN_CREDS} assuming the format

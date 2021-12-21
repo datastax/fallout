@@ -26,36 +26,25 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.google.auto.value.AutoValue;
-
 import com.datastax.fallout.service.core.User;
 
 public class UserGroupMapper
 {
-    @AutoValue
-    public static abstract class UserGroup
-    {
+    public record UserGroup(String name, String prettyName, String userGroupEmail, boolean isNotOther) {
+
         public static final String OTHER = "OTHER";
 
         public static UserGroup of(String name, String prettyName, String email)
         {
-            return new AutoValue_UserGroupMapper_UserGroup(name, prettyName, email, true);
+            return new UserGroup(name, prettyName, email, true);
         }
 
         /** Special "other" value indicating this is not to take part in CI group lookup,
          *  but should be available as a value for selection */
         public static UserGroup other(String prettyName, String email)
         {
-            return new AutoValue_UserGroupMapper_UserGroup(OTHER, prettyName, email, false);
+            return new UserGroup(OTHER, prettyName, email, false);
         }
-
-        public abstract String getName();
-
-        public abstract String getPrettyName();
-
-        public abstract String getUserGroupEmail();
-
-        protected abstract boolean isNotOther();
     }
 
     private final Map<String, UserGroup> groups;
@@ -66,7 +55,7 @@ public class UserGroupMapper
             .concat(
                 groups.stream(),
                 Stream.of(UserGroup.other("Other", "")))
-            .collect(Collectors.toMap(UserGroup::getName, Function.identity(),
+            .collect(Collectors.toMap(userGroup -> userGroup.name(), Function.identity(),
                 // Prefer existing vals to new: this lets an explicit OTHER override the default
                 (existingVal, newVal) -> existingVal,
                 // Preserve the order of entries
@@ -87,7 +76,7 @@ public class UserGroupMapper
 
     public String validGroupOrOther(String groupName)
     {
-        return findGroup(groupName).map(UserGroup::getName).orElse(UserGroup.OTHER);
+        return findGroup(groupName).map(userGroup -> userGroup.name()).orElse(UserGroup.OTHER);
     }
 
     public Collection<UserGroup> getGroups()
@@ -104,7 +93,7 @@ public class UserGroupMapper
     public boolean isInGroupOfCIUser(User user, String potentialCIUserEmail)
     {
         return findGroup(user.getGroup())
-            .map(userGroup -> userGroup.getUserGroupEmail().equalsIgnoreCase(potentialCIUserEmail))
+            .map(userGroup -> userGroup.userGroupEmail().equalsIgnoreCase(potentialCIUserEmail))
             .orElse(false);
     }
 }

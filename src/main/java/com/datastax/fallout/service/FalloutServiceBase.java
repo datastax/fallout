@@ -586,7 +586,7 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
                     FalloutConfiguration.AuthenticationMode.SINGLE_USER, FalloutConfiguration.ADMIN_CREDS_ENV_VAR));
             }
             uiAuthFilter = new SingleUserAuthFilter(
-                () -> userDAO.getUser(conf.getAdminUserCreds().get().getEmail()));
+                () -> userDAO.getUser(conf.getAdminUserCreds().get().email()));
         }
         else
         {

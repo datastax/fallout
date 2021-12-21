@@ -64,17 +64,17 @@ public class UserDAOTest extends WithTestResources
 
         assertThat(userDAO.getAllUsers()).hasSize(1);
 
-        final var adminUser = userDAO.getUser(adminUserCreds.getEmail());
+        final var adminUser = userDAO.getUser(adminUserCreds.email());
         assertThat(adminUser)
             .isAdmin()
-            .hasEmail(adminUserCreds.getEmail())
-            .hasName(adminUserCreds.getName());
+            .hasEmail(adminUserCreds.email())
+            .hasName(adminUserCreds.name());
 
-        assertThat(securityUtil.authenticate(adminUserCreds.getPassword(),
+        assertThat(securityUtil.authenticate(adminUserCreds.password(),
             adminUser.getEncryptedPassword(), adminUser.getSalt())).isTrue();
 
         assertThat(userDAO.getSession(adminUser.getOauthId().toString()).getUserId())
-            .isEqualTo(adminUserCreds.getEmail());
+            .isEqualTo(adminUserCreds.email());
     }
 
     @Test

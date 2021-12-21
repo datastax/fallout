@@ -56,7 +56,7 @@ public abstract class AuthTest
     @Test
     public void test_auth_using_oauth_token()
     {
-        UUID oauthToken = AccountClient.getOAuthId(getServiceExtension().getSession(), userCreds.getEmail());
+        UUID oauthToken = AccountClient.getOAuthId(getServiceExtension().getSession(), userCreds.email());
         String header = String.format("%s %s", FalloutService.OAUTH_BEARER_TOKEN_TYPE, oauthToken);
         assertThat(accountTarget().header("Authorization", header).get()).hasStatusInfo(Response.Status.OK);
     }
@@ -130,9 +130,9 @@ public abstract class AuthTest
         public void registerAccount()
         {
             MultivaluedMap<String, String> registerForm = new MultivaluedHashMap<>();
-            registerForm.add("name", userCreds.getName());
-            registerForm.add("email", userCreds.getEmail());
-            registerForm.add("password", userCreds.getPassword());
+            registerForm.add("name", userCreds.name());
+            registerForm.add("email", userCreds.email());
+            registerForm.add("password", userCreds.password());
 
             Response register = AccountClient.register(resetExtension.anonApi(), registerForm);
             assertThat(register).hasStatusInfo(Response.Status.OK);
