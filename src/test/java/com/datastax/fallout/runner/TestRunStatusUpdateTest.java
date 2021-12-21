@@ -35,7 +35,7 @@ public class TestRunStatusUpdateTest
             "{\"testRunIdentifier\":{\"testOwner\":\"owner@example.com\",\"testName\":\"http-docsapi-cql-keyvalue-casstrunk\",\"testRunId\":\"4ec86744-d72b-47da-9691-4ad66fa3e4a6\"},\"state\":\"RUNNING\"}";
 
         assertThat(JsonUtils.fromJson(json, TestRunStatusUpdate.class))
-            .isEqualTo(TestRunStatusUpdate.of(
+            .isEqualTo(new TestRunStatusUpdate(
                 new TestRunIdentifier(
                     "owner@example.com",
                     "http-docsapi-cql-keyvalue-casstrunk",

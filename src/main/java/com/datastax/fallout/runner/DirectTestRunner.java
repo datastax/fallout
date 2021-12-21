@@ -49,7 +49,7 @@ public class DirectTestRunner implements Managed
                 abortableExecutorFactory.create(testRun, userCredentials);
             final var testRunId = testRun.getTestRunIdentifier();
             executor.getTestRunStatus().addStateListener(state -> testRunStatusUpdatePublisher.publish(
-                TestRunStatusUpdate.of(testRunId, state)));
+                new TestRunStatusUpdate(testRunId, state)));
             executor.run();
         }
         return !shutdownHandler.isShuttingDown();

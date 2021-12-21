@@ -88,14 +88,14 @@ public class DelegatingExecutorFactory extends AbstractDelegatingExecutorFactory
 
     private boolean handleTestRunStatusUpdate(TestRunStatusUpdate update)
     {
-        executorPool.addExecutorIfNotExists(update.getTestRunIdentifier().getTestRunId(), () -> {
+        executorPool.addExecutorIfNotExists(update.testRunIdentifier().getTestRunId(), () -> {
             logger.info("{}: Creating new Executor from {}", getRunner().getUri(), update);
             return new DelegatingExecutor(
                 getRunner(),
                 DelegatingExecutorFactory.this::getTestRun,
                 getTestRunStatusUpdatePublisher(),
-                update.getTestRunIdentifier(),
-                update.getState());
+                update.testRunIdentifier(),
+                update.state());
         });
         return true;
     }

@@ -15,10 +15,6 @@
  */
 package com.datastax.fallout.runner;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.auto.value.AutoValue;
-
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.TestRunIdentifier;
 
@@ -26,18 +22,5 @@ import com.datastax.fallout.service.core.TestRunIdentifier;
  * com.datastax.fallout.service.resources.runner.RunnerResource#statusFeed}.  When making
  * changes to this class be aware that the QUEUE process must be able to handle older versions
  * of this class being sent by RUNNER processes running an earlier version of fallout */
-@AutoValue
-@AutoValue.CopyAnnotations
-@JsonSerialize(as = TestRunStatusUpdate.class)
-public abstract class TestRunStatusUpdate
-{
-    public abstract TestRunIdentifier getTestRunIdentifier();
-
-    public abstract TestRun.State getState();
-
-    @JsonCreator
-    static public TestRunStatusUpdate of(TestRunIdentifier testRunIdentifier, TestRun.State state)
-    {
-        return new AutoValue_TestRunStatusUpdate(testRunIdentifier, state);
-    }
+public record TestRunStatusUpdate(TestRunIdentifier testRunIdentifier, TestRun.State state) {
 }

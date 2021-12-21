@@ -93,10 +93,10 @@ public class DelegatingExecutor implements RunnableExecutorFactory.Executor
 
             final TestRunStatusUpdatePublisher.Subscription subscription = testRunStatusUpdatePublisher
                 .subscribe(update -> {
-                    if (update.getTestRunIdentifier().getTestRunId().equals(testRunIdentifier.getTestRunId()))
+                    if (update.testRunIdentifier().getTestRunId().equals(testRunIdentifier.getTestRunId()))
                     {
                         logger.info("{}: Updating Executor from {}", runner.getUri(), update);
-                        testRunStatusUpdater.setCurrentState(update.getState());
+                        testRunStatusUpdater.setCurrentState(update.state());
                     }
                     return true;
                 });
