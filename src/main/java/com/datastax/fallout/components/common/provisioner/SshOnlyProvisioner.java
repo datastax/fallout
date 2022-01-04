@@ -126,7 +126,7 @@ public class SshOnlyProvisioner extends AbstractSshProvisioner implements Provis
     protected boolean startImpl(NodeGroup nodeGroup)
     {
         return nodeGroup.waitForAllNodes(node -> {
-            String userName = FalloutPropertySpecs.userPropertySpec.value(node);
+            String userName = userPropertySpec.value(node);
             String host = sshHostSpec.value(node);
             Integer port = sshPortSpec.value(node);
             String password = userPasswordSpec.value(node);
