@@ -59,7 +59,6 @@ public class SshOnlyProvisioner extends AbstractSshProvisioner implements Provis
     static final PropertySpec<String> userPropertySpec = PropertySpecBuilder.createStr(prefix)
         .name("user.name")
         .description("User name")
-        .alias(FalloutPropertySpecs.userPropertySpec.name())
         .required()
         .build();
 

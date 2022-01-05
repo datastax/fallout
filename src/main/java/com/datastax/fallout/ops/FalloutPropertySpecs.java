@@ -26,13 +26,6 @@ public class FalloutPropertySpecs
     private static final Logger logger = LoggerFactory.getLogger(FalloutPropertySpecs.class);
     public static final String prefix = "fallout.system.";
 
-    public static final PropertySpec<String> userPropertySpec = PropertySpecBuilder.createStr(prefix)
-        .name("user.name")
-        .description("The username specified under caller's user profile")
-        .internal()
-        .required()
-        .build();
-
     public static final PropertySpec<String> publicKeyPropertySpec = PropertySpecBuilder.createStr(prefix)
         .name("user.publickey")
         .description("The public key specified under caller's user profile")
