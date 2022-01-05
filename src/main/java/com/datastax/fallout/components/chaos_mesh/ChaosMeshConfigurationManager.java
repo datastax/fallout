@@ -41,6 +41,7 @@ import com.datastax.fallout.util.FileUtils;
 import com.datastax.fallout.util.ResourceUtils;
 
 import static com.datastax.fallout.components.kubernetes.HelmChartConfigurationManager.buildHelmInstallDebugSpec;
+import static com.datastax.fallout.components.kubernetes.HelmChartConfigurationManager.buildHelmInstallDependencyUpdateSpec;
 import static com.datastax.fallout.components.kubernetes.HelmChartConfigurationManager.buildHelmValuesFileSpec;
 
 @AutoService(ConfigurationManager.class)
@@ -57,6 +58,8 @@ public class ChaosMeshConfigurationManager extends ConfigurationManager
     private static final PropertySpec<String> optionsFileSpec =
         buildHelmValuesFileSpec(prefix);
     private final PropertySpec<Boolean> installDebugSpec = buildHelmInstallDebugSpec(this::prefix);
+    private final PropertySpec<Boolean> installDependencyUpdateSpec =
+        buildHelmInstallDependencyUpdateSpec(this::prefix);
 
     @Override
     public String prefix()
@@ -85,7 +88,7 @@ public class ChaosMeshConfigurationManager extends ConfigurationManager
     @Override
     public List<PropertySpec<?>> getPropertySpecs()
     {
-        return List.of(optionsFileSpec, installDebugSpec);
+        return List.of(optionsFileSpec, installDebugSpec, installDependencyUpdateSpec);
     }
 
     @Override
@@ -151,7 +154,9 @@ public class ChaosMeshConfigurationManager extends ConfigurationManager
                 optionsFileSpec.optionalValue(nodeGroup).stream().collect(Collectors.toList()),
                 setValues),
             installDebugSpec.value(nodeGroup),
-            Duration.minutes(5), Optional.empty()));
+            Duration.minutes(5),
+            installDependencyUpdateSpec.value(nodeGroup),
+            Optional.empty()));
     }
 
     private boolean deployChaosMeshCRD()

@@ -141,6 +141,8 @@ public class HelmChartConfigurationManager extends ConfigurationManager
     private final PropertySpec<String> chartVersionSpec = buildHelmChartVersionSpec(this::prefix);
     private final PropertySpec<Duration> installTimeoutSpec = buildHelmInstallTimeoutSpec(this::prefix);
     private final PropertySpec<Boolean> installDebugSpec = buildHelmInstallDebugSpec(this::prefix);
+    private final PropertySpec<Boolean> installDependencyUpdateSpec =
+        buildHelmInstallDependencyUpdateSpec(this::prefix);
 
     String installName;
     String chartLocation;
@@ -172,6 +174,7 @@ public class HelmChartConfigurationManager extends ConfigurationManager
             .add(helmInstalledNameSpec)
             .add(installDebugSpec)
             .add(installTimeoutSpec)
+            .add(installDependencyUpdateSpec)
             .add(helmRepoUrlSpec, helmRepoNameSpec, helmChartNameSpec)
             .add(chartLocationInRepoSpec)
             .addAll(gitClone.getSpecs())
@@ -278,7 +281,7 @@ public class HelmChartConfigurationManager extends ConfigurationManager
         {
             return inNamespace(namespacedKubeCtl -> namespacedKubeCtl.installHelmChart(installName, chartLocation,
                 getInstallValues(), installDebugSpec.value(nodeGroup), installTimeoutSpec.value(nodeGroup),
-                chartVersionSpec.optionalValue(nodeGroup)));
+                installDependencyUpdateSpec.value(nodeGroup), chartVersionSpec.optionalValue(nodeGroup)));
         }
         return false;
     }
@@ -458,6 +461,16 @@ public class HelmChartConfigurationManager extends ConfigurationManager
             .runtimePrefix(prefix)
             .name("helm.install.debug")
             .description("Debug 'helm install' command execution")
+            .defaultOf(false)
+            .build();
+    }
+
+    public static PropertySpec<Boolean> buildHelmInstallDependencyUpdateSpec(Supplier<String> prefix)
+    {
+        return PropertySpecBuilder.createBool(prefix.get())
+            .runtimePrefix(prefix)
+            .name("helm.install.dependency_update")
+            .description("Enables '--dependency-update' flag for current 'helm install'")
             .defaultOf(false)
             .build();
     }

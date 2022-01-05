@@ -478,10 +478,12 @@ public class KubeControlProvider extends Provider
         }
 
         private String helmChartArguments(String name, String chartLocation,
-            HelmInstallValues installValues, boolean debug, Duration timeout, Optional<String> version)
+            HelmInstallValues installValues, boolean debug, Duration timeout,
+            boolean dependencyUpdate, Optional<String> version)
         {
-            StringBuilder arguments = new StringBuilder(String.format("%s --wait%s --timeout %ss %s %s",
-                maybeWithHelmNamespace(), debug ? " --debug" : "", timeout.toSeconds(), name, chartLocation));
+            StringBuilder arguments = new StringBuilder(String.format("%s --wait%s --timeout %ss %s %s %s",
+                maybeWithHelmNamespace(), debug ? " --debug" : "", timeout.toSeconds(),
+                dependencyUpdate ? " --dependency-update" : "", name, chartLocation));
             version.ifPresent(v -> arguments.append(" --version=").append(v));
             installValues.getValuesFiles()
                 .forEach(valuesFile -> arguments.append(String.format(" --values '%s'", valuesFile)));
@@ -501,17 +503,18 @@ public class KubeControlProvider extends Provider
         }
 
         public boolean installHelmChart(Path helmChart, HelmInstallValues installValues,
-            boolean debug, Duration timeout, Optional<String> version)
+            boolean debug, Duration timeout, boolean dependencyUpdate, Optional<String> version)
         {
             return installHelmChart(helmChart.getFileName().toString(), helmChart.toAbsolutePath().toString(),
-                installValues, debug, timeout, version);
+                installValues, debug, timeout, dependencyUpdate, version);
         }
 
         public boolean installHelmChart(String name, String chartLocation,
-            HelmInstallValues installValues, boolean debug, Duration timeout, Optional<String> version)
+            HelmInstallValues installValues, boolean debug, Duration timeout,
+            boolean dependencyUpdate, Optional<String> version)
         {
             String install = String.format("helm install %s",
-                helmChartArguments(name, chartLocation, installValues, debug, timeout, version));
+                helmChartArguments(name, chartLocation, installValues, debug, timeout, dependencyUpdate, version));
             return successfulHelmCommand(kubernetesProvisioner.executeInKubernetesEnv(install, logger()), timeout);
         }
 
@@ -519,7 +522,7 @@ public class KubeControlProvider extends Provider
             HelmInstallValues installValues, boolean debug, Duration timeout, Optional<String> version)
         {
             String upgrade = String.format("helm upgrade --reuse-values %s",
-                helmChartArguments(name, chartLocation, installValues, debug, timeout, version));
+                helmChartArguments(name, chartLocation, installValues, debug, timeout, false, version));
             return successfulHelmCommand(kubernetesProvisioner.executeInKubernetesEnv(upgrade, logger()), timeout);
         }
 

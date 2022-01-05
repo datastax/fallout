@@ -123,7 +123,8 @@ public class HelmUpgradeModule extends Module
             .collect(Collectors.toList());
 
         if (helm.upgrade(namespaceSpec.optionalValue(properties), values, installDebugSpec.value(properties),
-            installTimeoutSpec.value(properties), chartVersionSpec.optionalValue(properties)))
+            installTimeoutSpec.value(properties),
+            chartVersionSpec.optionalValue(properties)))
         {
             emitOk("Upgraded helm chart " + installName);
         }
