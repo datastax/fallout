@@ -23,7 +23,6 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
 import com.datastax.fallout.components.common.provider.SshProvider;
-import com.datastax.fallout.ops.FalloutPropertySpecs;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.PropertySpec;
