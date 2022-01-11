@@ -65,7 +65,7 @@ public class DummySshServerFactory
     public static WritablePropertyGroup createProperties()
     {
         WritablePropertyGroup properties = new WritablePropertyGroup();
-        properties.put("fallout.system.user.name", USERNAME);
+        properties.put("fallout.provisioner.sshonly.user.name", USERNAME);
         properties.put("fallout.system.user.privatekey", "none");
         properties.put("fallout.provisioner.sshonly.host", "localhost");
         properties.put("fallout.provisioner.sshonly.user.password", PASSWORD);

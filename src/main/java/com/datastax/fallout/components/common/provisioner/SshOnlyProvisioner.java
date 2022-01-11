@@ -23,7 +23,6 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
 import com.datastax.fallout.components.common.provider.SshProvider;
-import com.datastax.fallout.ops.FalloutPropertySpecs;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.PropertySpec;
@@ -59,7 +58,6 @@ public class SshOnlyProvisioner extends AbstractSshProvisioner implements Provis
     static final PropertySpec<String> userPropertySpec = PropertySpecBuilder.createStr(prefix)
         .name("user.name")
         .description("User name")
-        .alias(FalloutPropertySpecs.userPropertySpec.name())
         .required()
         .build();
 
@@ -126,7 +124,7 @@ public class SshOnlyProvisioner extends AbstractSshProvisioner implements Provis
     protected boolean startImpl(NodeGroup nodeGroup)
     {
         return nodeGroup.waitForAllNodes(node -> {
-            String userName = FalloutPropertySpecs.userPropertySpec.value(node);
+            String userName = userPropertySpec.value(node);
             String host = sshHostSpec.value(node);
             Integer port = sshPortSpec.value(node);
             String password = userPasswordSpec.value(node);
