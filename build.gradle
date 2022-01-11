@@ -140,7 +140,7 @@ configurations {
 // for consumption as feature variants; see
 // https://docs.gradle.org/current/userguide/cross_project_publications.html#sec:variant-aware-sharing
 java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(11))
+    toolchain.languageVersion.set(JavaLanguageVersion.of(17))
 
     registerFeature("testBase") {
         usingSourceSet(sourceSets.testBase)
@@ -1288,4 +1288,5 @@ wrapper {
     // https://gradle.org/release-checksums/
     gradleVersion = "7.3.2"
     distributionSha256Sum = "23b89f8eac363f5f4b8336e0530c7295c55b728a9caa5268fdd4a532610d5392"
+    scriptFile = file("gradle/gradlew")
 }
