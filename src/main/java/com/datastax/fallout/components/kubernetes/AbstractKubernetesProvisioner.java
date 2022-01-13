@@ -25,7 +25,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.base.Preconditions;
@@ -406,7 +405,7 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
         List<CompletableFuture<Boolean>> artifactCollectorDeploys = pvInfos.stream()
             .map(targetPv -> deployArtifactCollectorPod(
                 nodeGroup, manifestScratchSpace, targetPv, kubeCtl))
-            .collect(Collectors.toList());
+            .toList();
 
         if (!Utils.waitForAll(artifactCollectorDeploys, nodeGroup.logger(), "Deploy artifact collector pods"))
         {
@@ -439,7 +438,7 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
                     return namespacedKubectl
                         .copyFromContainer(pod, ARTIFACT_COLLECTOR_CONTAINER_NAME, "/fallout-artifacts", pvArtifacts);
                 })
-                .collect(Collectors.toList());
+                .toList();
         });
 
         if (!Utils.waitForSuccess(nodeGroup.logger(), collections, Duration.minutes(30)))
@@ -451,7 +450,7 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
         List<NodeResponse> collectorDeletes = kubeCtl.inNamespace(Optional.empty(),
             namespacedKubectl -> FileUtils.listDir(manifestScratchSpace).stream()
                 .map(namespacedKubectl::deleteResource)
-                .collect(Collectors.toList()));
+                .toList());
 
         if (!Utils.waitForSuccess(nodeGroup.logger(), collectorDeletes, Duration.minutes(5)))
         {

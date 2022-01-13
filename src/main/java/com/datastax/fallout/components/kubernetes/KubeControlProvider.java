@@ -474,7 +474,7 @@ public class KubeControlProvider extends Provider
             return Utils.waitForSuccess(logger(), podNameSupplier.get().stream()
                 .map(n -> String.format(waitOnPodCmdBase, conditionAndTimeout, n))
                 .map(this::execute)
-                .collect(Collectors.toList()));
+                .toList());
         }
 
         private String helmChartArguments(String name, String chartLocation,
@@ -638,7 +638,7 @@ public class KubeControlProvider extends Provider
                 boolean allPodsDeleted = scopedLogger.withScopedInfo("Deleting job pods: {}", jobPods)
                     .get(() -> Utils.waitForSuccess(logger(), jobPods.stream()
                         .map(jobPod -> execute(String.format("delete pod %s", jobPod)))
-                        .collect(Collectors.toList())));
+                        .toList()));
 
                 scopedLogger.info("Deleting job: {}", jobName);
                 boolean jobDeleted = deleteResource(jobManifest).waitForSuccess();

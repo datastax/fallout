@@ -22,7 +22,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -105,7 +104,7 @@ public class ModuleLifetimeTest extends EnsembleFalloutTest<FalloutConfiguration
             .filter(op -> op.getType() == Operation.Type.invoke)
             .map(Operation::getProcess)
             .map(process -> process.replaceAll("-\\d$", ""))
-            .collect(Collectors.toList());
+            .toList();
 
         // We should have seen at least RUN_TO_END_OF_PHASE_RUNS invokes of the run-to-end-of-phase modules
         assertThat(
@@ -126,7 +125,7 @@ public class ModuleLifetimeTest extends EnsembleFalloutTest<FalloutConfiguration
             .filter(op -> op.getType() == Operation.Type.end)
             .map(Operation::getProcess)
             .map(process -> process.replaceAll("-\\d$", ""))
-            .collect(Collectors.toList());
+            .toList();
 
         List<String> expectedEndProcessOps = ImmutableList.<String>builder()
             .addAll(Collections.nCopies(RUN_ONCE_MODULES, "run-once"))

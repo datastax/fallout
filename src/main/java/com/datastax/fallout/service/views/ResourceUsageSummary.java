@@ -134,7 +134,7 @@ public class ResourceUsageSummary
             .values().stream()
             .flatMap(Optional::stream)
             .sorted()
-            .collect(Collectors.toList());
+            .toList();
     }
 
     /** Summarize resource usage by limits (if any).

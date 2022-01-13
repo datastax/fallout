@@ -17,7 +17,6 @@ package com.datastax.fallout.components.fallout_system;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import com.datastax.fallout.harness.Checker;
 import com.datastax.fallout.harness.Operation;
@@ -55,7 +54,7 @@ public class NoErrorChecker extends Checker
     {
         List<Operation> errors = history.stream()
             .filter(op -> op.getType() == Operation.Type.error)
-            .collect(Collectors.toList());
+            .toList();
         if (errors.isEmpty())
         {
             logger().info("No errors found in history");

@@ -31,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -361,7 +360,7 @@ public class ActiveTestRun implements AutoCloseable
                 .map(NodeGroup::checkState)
                 .map(CompletableFuture::join)
                 .map(postCheckStateAction -> CompletableFuture.supplyAsync(postCheckStateAction::getAsBoolean))
-                .collect(Collectors.toList());
+                .toList();
 
             return transitionEnsembleStateUpwards(Optional.of(NodeGroup.State.RESERVED),
                 TestRun.State.RESERVING_RESOURCES, "reserving")
@@ -585,7 +584,7 @@ public class ActiveTestRun implements AutoCloseable
                 .map(tearDownState -> ng.transitionStateIfDownwards(tearDownState)
                     .thenApplyAsync(CheckResourcesResult::wasSuccessful))
                 .stream())
-            .collect(Collectors.toList());
+            .toList();
 
         return Utils.waitForAllAsync(transitions);
     }

@@ -277,7 +277,7 @@ public class NodeSelectionSpec
             }
             return pickedNodes.stream()
                 .sorted(Comparator.comparing(Node::getNodeGroupOrdinal))
-                .collect(Collectors.toList());
+                .toList();
         }
 
         public boolean matchesOrdinalFilter(Node n)
@@ -348,7 +348,7 @@ public class NodeSelectionSpec
                 nodes = nodeGroup.getNodes()
                     .stream()
                     .filter(n -> target.matchesOrdinalFilter(n))
-                    .collect(Collectors.toList());
+                    .toList();
             }
             return target.pickRandomly(nodes, randomOrder);
         }

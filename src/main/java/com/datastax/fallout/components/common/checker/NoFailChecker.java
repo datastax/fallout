@@ -18,7 +18,6 @@ package com.datastax.fallout.components.common.checker;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import com.google.auto.service.AutoService;
 
@@ -78,7 +77,7 @@ public class NoFailChecker extends Checker
         List<Operation> failedOperations = history.stream()
             .filter(op -> processFilterSpec.value(this).test(op.getProcess()))
             .filter(op -> op.getType() == Operation.Type.fail)
-            .collect(Collectors.toList());
+            .toList();
         if (failedOperations.isEmpty())
         {
             logger().info("History in jepsen-history.json contained no failures");

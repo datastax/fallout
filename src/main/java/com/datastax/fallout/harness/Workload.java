@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
 import com.datastax.fallout.ops.EnsembleBuilder;
@@ -77,7 +76,7 @@ public class Workload
             .map(Phase::getAllModulesRecursively)
             .map(Map::values)
             .flatMap(Collection::stream)
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public void addChecker(String name, Checker checker)

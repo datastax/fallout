@@ -33,8 +33,6 @@ import com.datastax.fallout.ops.Ensemble;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.PropertySpecBuilder;
 
-import static java.util.stream.Collectors.toList;
-
 /**
  * This class can be used to check a CSV file generated as an artifact with an SQL request.
  *
@@ -92,7 +90,7 @@ public class CsvArtifactChecker extends ArtifactChecker
                 matchingFiles = pathStream
                     .filter(this::fileNameMatchesFilter)
                     .map(this::toPair)
-                    .collect(toList());
+                    .toList();
             }
             return csvCheck.checkQueryAgainst(matchingFiles, getProperties());
         }

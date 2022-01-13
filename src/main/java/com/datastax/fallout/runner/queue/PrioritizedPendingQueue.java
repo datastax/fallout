@@ -89,7 +89,7 @@ public class PrioritizedPendingQueue
     {
         return pendingQueue.pending().stream()
             .sorted(comparator(runningTestRunsSupplier.get()))
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public boolean noneAvailable()

@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.junit.jupiter.api.BeforeAll;
@@ -219,6 +218,6 @@ public abstract class TestResourceTestBase<FA extends FalloutAppExtensionBase<?,
 
     private List<TestRun> getTestRunApi(List<TestRun> testRuns)
     {
-        return testRuns.stream().map(this::getTestRunApi).collect(Collectors.toList());
+        return testRuns.stream().map(this::getTestRunApi).toList();
     }
 }

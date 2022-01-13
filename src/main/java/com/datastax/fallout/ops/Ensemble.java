@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 
@@ -166,7 +165,7 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
                 "Unknown NodeGroup: " + name + " - available: " + nodeGroups.stream()
                     .map(c -> c.name)
                     .sorted()
-                    .collect(Collectors.toList()));
+                    .toList());
         });
     }
 
@@ -254,7 +253,7 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
             List<CompletableFuture<Boolean>> futures = getUniqueNodeGroupInstances().stream()
                 .filter(ng -> !ng.isMarkedForReuse())
                 .map(NodeGroup::forceDestroy)
-                .collect(Collectors.toList());
+                .toList();
             return Utils.waitForAllAsync(futures);
         }
         catch (Throwable e)
@@ -282,7 +281,7 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
     {
         List<CompletableFuture<Boolean>> futures = getUniqueNodeGroupInstances().stream()
             .map(group -> group.downloadArtifacts())
-            .collect(Collectors.toList());
+            .toList();
 
         return Utils.waitForAllAsync(futures, logger, "downloading artifacts from ensemble");
     }
@@ -335,7 +334,7 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
         List<CompletableFuture<Boolean>> futures = getUniqueNodeGroupInstances()
             .stream()
             .map(action)
-            .collect(Collectors.toList());
+            .toList();
         return Utils.waitForAllAsync(futures, logger, operation);
     }
 

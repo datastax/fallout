@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -94,14 +93,14 @@ public class ArtifactWatcherTest extends TestHelpers.FalloutTest<FalloutConfigur
 
     private List<Long> watch(Path... paths)
     {
-        return Arrays.stream(paths).map(path -> watcher.watch(path, this::callback)).collect(Collectors.toList());
+        return Arrays.stream(paths).map(path -> watcher.watch(path, this::callback)).toList();
     }
 
     private List<Path> getExactlyNUpdates(int n)
     {
         List<Path> result = IntStream.range(0, n)
             .mapToObj(ignored -> Exceptions.getUnchecked(() -> updates.take()))
-            .collect(Collectors.toList());
+            .toList();
         assertThat(updates).isEmpty();
         return result;
     }

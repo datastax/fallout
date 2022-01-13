@@ -42,7 +42,6 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Preconditions;
@@ -641,10 +640,10 @@ public class AccountResource
                 !configuration.getUseTeamOpenstackCredentials() || userGroupMapper.isCIUser(user);
             allEmailNotify = Arrays.stream(TestCompletionNotification.values())
                 .map(notify -> Pair.of(notify, user.getEmailPref() == notify))
-                .collect(Collectors.toList());
+                .toList();
             allSlackNotify = Arrays.stream(TestCompletionNotification.values())
                 .map(notify -> Pair.of(notify, user.getSlackPref() == notify))
-                .collect(Collectors.toList());
+                .toList();
             genericSecrets = user.getGenericSecrets().keySet();
         }
     }

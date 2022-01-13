@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -93,7 +92,7 @@ public class FileUtils
         try (Stream<Path> paths = Exceptions.getUncheckedIO(() -> Files.list(dir)))
         {
             // finalize stream so that we can close the open directory
-            return paths.collect(Collectors.toList());
+            return paths.toList();
         }
     }
 
@@ -137,7 +136,7 @@ public class FileUtils
                             return consumer.apply(zipFilePath, Optional.of(entry.getName()), inputStream);
                         }
                     }))
-                    .collect(Collectors.toList());
+                    .toList();
             }
         });
     }
@@ -202,7 +201,7 @@ public class FileUtils
                         }
                         return Stream.empty();
                     })
-                    .collect(Collectors.toList());
+                    .toList();
             }
         });
     }

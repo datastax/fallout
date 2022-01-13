@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import com.google.auto.service.AutoService;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -131,7 +130,7 @@ public class FlamegraphModule extends Module
                 .flatMap(g -> g.getNodes().stream())
                 .map(n -> n.maybeGetProvider(FlamegraphProvider.class))
                 .flatMap(Optional::stream)
-                .collect(Collectors.toList());
+                .toList();
             if (providerList.isEmpty())
             {
                 emitError("No Flamegraph providers found");

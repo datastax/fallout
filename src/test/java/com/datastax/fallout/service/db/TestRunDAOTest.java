@@ -241,7 +241,7 @@ public class TestRunDAOTest
                     testRun_.setFinishedAt(Date.from(startInstant.minus(hours, ChronoUnit.HOURS)));
                 }))
                 .map(FinishedTestRun::fromTestRun)
-                .collect(Collectors.toList());
+                .toList();
 
             final var latestInstant = startInstant.minus(latestAgeInHours, ChronoUnit.HOURS);
             final var earliestInstant = startInstant.minus(earliestAgeInHours, ChronoUnit.HOURS);
@@ -251,7 +251,7 @@ public class TestRunDAOTest
 
             assertThat(
                 testRunDAO.getAllFinishedTestRunsThatFinishedBetweenInclusive(earliestInstant, latestInstant)
-                    .collect(Collectors.toList()))
+                    .toList())
                         .isEqualTo(expectedFinishedTestRuns.subList(latestAgeInHours, earliestAgeInHours + 1));
         }
 

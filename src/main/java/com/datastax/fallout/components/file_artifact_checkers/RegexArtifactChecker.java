@@ -155,7 +155,7 @@ public class RegexArtifactChecker extends ArtifactChecker
                 .map(nodeGroupArtifactsRoot::relativize)
                 .filter(path -> matches.test(path.toString()))
                 .map(path -> rootArtifactLocation.relativize(nodeGroupArtifactsRoot.resolve(path)))
-                .collect(Collectors.toList());
+                .toList();
         }
         catch (IOException e)
         {

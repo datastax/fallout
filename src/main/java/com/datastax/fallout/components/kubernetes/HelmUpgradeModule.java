@@ -18,7 +18,6 @@ package com.datastax.fallout.components.kubernetes;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import com.google.auto.service.AutoService;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -120,7 +119,7 @@ public class HelmUpgradeModule extends Module
         final var values = valueMapSpec.value(properties)
             .entrySet().stream()
             .map(e -> String.format("%s=%s", e.getKey(), e.getValue()))
-            .collect(Collectors.toList());
+            .toList();
 
         if (helm.upgrade(namespaceSpec.optionalValue(properties), values, installDebugSpec.value(properties),
             installTimeoutSpec.value(properties),

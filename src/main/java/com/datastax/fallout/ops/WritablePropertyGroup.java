@@ -202,7 +202,7 @@ public class WritablePropertyGroup implements PropertyGroup
         {
             return ((List<?>) value).stream()
                 .map(value_ -> expandRefs(value_, ignoredRefs))
-                .collect(Collectors.toList());
+                .toList();
         }
         else if (value instanceof Map<?, ?>)
         {

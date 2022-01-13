@@ -19,7 +19,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import clojure.lang.APersistentMap;
 import clojure.lang.Keyword;
@@ -69,7 +68,7 @@ public class TestResult
     {
         return Optional.ofNullable(((Collection<APersistentMap>) jepsenTestMap.get(Keyword.intern("history"))).stream()
             .map(Operation::fromOpMap)
-            .collect(Collectors.toList()))
+            .toList())
             .orElse(List.of());
     }
 }

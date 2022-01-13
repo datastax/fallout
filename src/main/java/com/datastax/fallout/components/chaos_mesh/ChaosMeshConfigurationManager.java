@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import com.google.auto.service.AutoService;
 
@@ -151,7 +150,7 @@ public class ChaosMeshConfigurationManager extends ConfigurationManager
         return inNamespace(namespacedKubeCtl -> namespacedKubeCtl.installHelmChart(
             configFilePath(CHAOS_MESH_HELM_CHART),
             KubeControlProvider.HelmInstallValues.of(
-                optionsFileSpec.optionalValue(nodeGroup).stream().collect(Collectors.toList()),
+                optionsFileSpec.optionalValue(nodeGroup).stream().toList(),
                 setValues),
             installDebugSpec.value(nodeGroup),
             Duration.minutes(5),

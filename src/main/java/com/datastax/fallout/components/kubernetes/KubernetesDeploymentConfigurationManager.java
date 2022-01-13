@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 import com.google.common.base.Preconditions;
 
@@ -276,7 +275,7 @@ public abstract class KubernetesDeploymentConfigurationManager extends Configura
             return Utils.waitForSuccess(getNodeGroup().logger(),
                 podNames.stream()
                     .map(podName -> namespacedKubeCtl.makeDirs(name(), podName, podArtifactsDir.toString()))
-                    .collect(Collectors.toList()));
+                    .toList());
         }
 
         @Override

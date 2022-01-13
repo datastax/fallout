@@ -83,7 +83,7 @@ class ModuleEmitTest extends EnsembleFalloutTest<FalloutConfiguration>
                             .mapToObj(emitter -> CompletableFuture.runAsync(() -> {
                                 IntStream.range(0, EMISSIONS)
                                     .forEach(emission -> emitInfo(emission(emitter, emission)));
-                            })).collect(Collectors.toList());
+                            })).toList();
                         CompletableFuture.allOf(futures.toArray(new CompletableFuture[] {})).join();
                     }
                 })

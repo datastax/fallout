@@ -21,7 +21,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -138,7 +137,7 @@ public abstract class TestRunStatusUpdater implements TestRunStatus
     {
         var callbacksToRun = stateCallbacks.stream()
             .filter(pair -> pair.getLeft().test(state))
-            .collect(Collectors.toList());
+            .toList();
 
         stateCallbacks.removeIf(pair -> pair.getLeft().test(state));
 

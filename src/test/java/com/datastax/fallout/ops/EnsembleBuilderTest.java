@@ -16,7 +16,6 @@
 package com.datastax.fallout.ops;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,7 +56,7 @@ public class EnsembleBuilderTest extends TestHelpers.ArtifactTest
     {
         return Pair.of(nodeGroup.getName(),
             nodeGroup.getNodes().stream()
-                .map(Node::getNodeGroupOrdinal).collect(Collectors.toList()));
+                .map(Node::getNodeGroupOrdinal).toList());
     }
 
     static Pair<String, List<Integer>> nodeGroupOrdinals(String name, Integer... ordinals)

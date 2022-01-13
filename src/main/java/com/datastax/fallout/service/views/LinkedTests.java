@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiPredicate;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.datastax.fallout.service.core.Test;
@@ -75,7 +74,7 @@ public class LinkedTests
         this.tests = tests
             .stream()
             .map(test -> new LinkedTest(test, canDelete.test(user, test)))
-            .collect(Collectors.toList());
+            .toList();
 
         Stream.of(LinkedTests.TableDisplayOption.values()).forEach(v -> show.put(v.toString(), true));
     }

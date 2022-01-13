@@ -181,7 +181,7 @@ public class TestRunQueueTest
 
         List<TestRun> testRuns = IntStream.range(0, 3)
             .mapToObj(ignored -> createTestRun())
-            .collect(Collectors.toList());
+            .toList();
 
         testRuns.forEach(queue::add);
 
@@ -192,7 +192,7 @@ public class TestRunQueueTest
 
         List<TestRun> takenTestRuns = testRuns.stream()
             .map(ignored -> getProcessedTestRun())
-            .collect(Collectors.toList());
+            .toList();
 
         assertThat(takenTestRuns).isEqualTo(testRuns);
     }
@@ -209,7 +209,7 @@ public class TestRunQueueTest
 
         List<TestRun> testRuns = IntStream.range(0, 6)
             .mapToObj(ignored -> createTestRun())
-            .collect(Collectors.toList());
+            .toList();
 
         testRuns.forEach(queue::add);
 
@@ -227,7 +227,7 @@ public class TestRunQueueTest
 
         takenTestRuns.addAll(IntStream.range(0, 3)
             .mapToObj(ignored -> getProcessedTestRun())
-            .collect(Collectors.toList()));
+            .toList());
 
         assertThat(getQueuedTestRunsSize()).isZero();
 

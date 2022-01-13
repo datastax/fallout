@@ -93,7 +93,7 @@ public class NodeGroupCheckStateTest extends TestHelpers.FalloutTest<FalloutConf
         return arbitrary().pick(
             Arrays.stream(NodeGroup.State.values())
                 .filter(state -> state.isRunLevelState() || state.isUnknownState())
-                .collect(Collectors.toList()));
+                .toList());
     }
 
     private static Gen<NodeGroup.State> configManagementStates()
@@ -101,7 +101,7 @@ public class NodeGroupCheckStateTest extends TestHelpers.FalloutTest<FalloutConf
         return arbitrary().pick(
             Arrays.stream(NodeGroup.State.values())
                 .filter(NodeGroup.State::isConfigManagementState)
-                .collect(Collectors.toList()));
+                .toList());
     }
 
     private static Gen<NodeGroup.State> nonConfigManagementStates()
@@ -110,7 +110,7 @@ public class NodeGroupCheckStateTest extends TestHelpers.FalloutTest<FalloutConf
             Arrays.stream(NodeGroup.State.values())
                 .filter(
                     state -> !state.isConfigManagementState() && (state.isRunLevelState() || state.isUnknownState()))
-                .collect(Collectors.toList()));
+                .toList());
     }
 
     @Test

@@ -134,7 +134,7 @@ public class KubernetesManifestSpec
                 return pathStream
                     .filter(p -> !p.equals(parentDirectory))
                     .filter(p -> p.toString().endsWith(".yaml"))
-                    .collect(Collectors.toList());
+                    .toList();
             }
         });
 

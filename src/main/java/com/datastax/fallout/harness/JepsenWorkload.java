@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import clojure.java.api.Clojure;
 import clojure.lang.APersistentMap;
@@ -170,7 +169,7 @@ public class JepsenWorkload
                         ),
                     subPhases.values().stream()
                         .map(this::subgenerator)
-                        .collect(Collectors.toList()))
+                        .toList())
             );
         }
 

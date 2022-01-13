@@ -21,7 +21,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
@@ -85,7 +84,7 @@ public class QueueMetricsManager
             return testRunDAO
                 .getQueued().stream()
                 .map(testRun -> Duration.between(testRun.getCreatedAt().toInstant(), now).toMillis())
-                .collect(Collectors.toList());
+                .toList();
         },
             SUPPLIER_EXPIRATION_SECONDS, TimeUnit.SECONDS)
         );
@@ -101,7 +100,7 @@ public class QueueMetricsManager
                     .getAllFinishedTestRunsThatFinishedBetweenInclusive(now.minus(LONGEST_TEST_RUN_FINISHED_DURATION),
                         now)
                     .map(testRun -> Duration.between(testRun.getStartedAt().toInstant(), now).toMillis())
-                    .collect(Collectors.toList());
+                    .toList();
             },
                 SUPPLIER_EXPIRATION_SECONDS, TimeUnit.SECONDS)
             );

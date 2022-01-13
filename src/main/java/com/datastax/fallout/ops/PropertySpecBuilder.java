@@ -197,7 +197,7 @@ public class PropertySpecBuilder<T>
         PropertySpecBuilder<List<FileProvider.RemoteManagedFileRef>> res = create(prefix);
         res.parser(o -> ((List<Object>) o).stream()
             .map(ref -> new FileProvider.RemoteManagedFileRef(ref.toString()))
-            .collect(Collectors.toList()));
+            .toList());
         res.expandRefsMode = PropertyGroup.ExpandRefsMode.IGNORE_REFS;
         return res;
     }
@@ -240,7 +240,7 @@ public class PropertySpecBuilder<T>
     public static PropertySpecBuilder<List<Pattern>> createRegexList(String prefix)
     {
         PropertySpecBuilder<List<Pattern>> res = create(prefix);
-        res.parser(l -> ((List<String>) l).stream().map(Pattern::compile).collect(Collectors.toList()));
+        res.parser(l -> ((List<String>) l).stream().map(Pattern::compile).toList());
         res.dumper(l -> l.stream().map(Pattern::toString).collect(Collectors.joining(" ")));
         return res;
     }
@@ -792,7 +792,7 @@ public class PropertySpecBuilder<T>
                     if (valueOptionsMustMatch)
                     {
                         List<String> optionStrings = valueOptions.stream()
-                            .map(String::valueOf).collect(Collectors.toList());
+                            .map(String::valueOf).toList();
                         throw new ValidationException(this,
                             String.format("Given value \"%s\" is not available in options: %s", value, optionStrings));
                     }

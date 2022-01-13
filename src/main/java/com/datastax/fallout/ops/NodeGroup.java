@@ -748,7 +748,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
             .filter(providerClass::isInstance)
             .map(providerClass::cast)
             .filter(predicate)
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public <T extends Provider> Optional<T> findFirstProvider(Class<T> providerClass)
@@ -956,7 +956,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
     {
         List<NodeResponse> futures = nodes.stream()
             .map(n -> n.execute(nodeSpecificScriptCreator.apply(n)))
-            .collect(Collectors.toList());
+            .toList();
         return Utils.waitForSuccess(logger, futures, waitOptionsAdjuster);
     }
 
@@ -965,7 +965,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
     {
         List<CompletableFuture<Boolean>> futures = nodes.stream()
             .map(func::apply)
-            .collect(Collectors.toList());
+            .toList();
 
         return Utils.waitForAllAsync(futures, logger, operation);
     }
@@ -979,7 +979,7 @@ public class NodeGroup implements HasProperties, DebugInfoProvidingComponent, Au
     {
         List<CompletableFuture<Boolean>> futures = nodes.stream()
             .map(node -> CompletableFuture.supplyAsync(() -> func.apply(node)))
-            .collect(Collectors.toList());
+            .toList();
 
         return Utils.waitForAllAsync(futures, logger, operation);
     }

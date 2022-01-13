@@ -19,7 +19,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import com.datastax.fallout.components.common.provider.FileProvider;
 import com.datastax.fallout.components.common.provider.FileProvider.LocalFileProvider;
@@ -46,7 +45,7 @@ public class LocalFilesHandler implements HasAvailableProviders
         Path testRunArtifactPath, CommandExecutor commandExecutor)
     {
         return new LocalFilesHandler(
-            fileSpecMaps.stream().map(FileSpec::fromMap).collect(Collectors.toList()),
+            fileSpecMaps.stream().map(FileSpec::fromMap).toList(),
             testRunArtifactPath.resolve(MANAGED_FILES_DIRECTORY),
             commandExecutor);
     }

@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import io.dropwizard.lifecycle.Managed;
 
@@ -97,6 +96,6 @@ public class PerformanceReportDAO implements Managed
                 perfReport.getReportTestRuns().stream()
                     .filter(Objects::nonNull)
                     .anyMatch(predicate))
-            .collect(Collectors.toList());
+            .toList();
     }
 }

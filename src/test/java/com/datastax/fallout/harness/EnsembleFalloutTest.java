@@ -25,7 +25,6 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -186,7 +185,7 @@ public abstract class EnsembleFalloutTest<FC extends FalloutConfiguration> exten
         boolean hasStringContent = stringContentFileExts.contains(fileExtension);
         if (hasStringContent)
         {
-            List<String> lines = withArtifactLines(path, lines_ -> lines_.limit(5).collect(Collectors.toList()));
+            List<String> lines = withArtifactLines(path, lines_ -> lines_.limit(5).toList());
             if (mustBeEmpty)
             {
                 String error = "Artifact was not empty: " + path + " first 5 lines:\n" + String.join("\n", lines);

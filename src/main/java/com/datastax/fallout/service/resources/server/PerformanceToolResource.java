@@ -125,7 +125,7 @@ public class PerformanceToolResource
                 }
                 return createOwnerlessTestRun(tri);
             })
-            .collect(Collectors.toList());
+            .toList();
 
         LinkedTestRuns linkedTestRuns =
             new LinkedTestRuns(userGroupMapper, user, testRuns).hide(TableDisplayOption.MUTATION_ACTIONS,

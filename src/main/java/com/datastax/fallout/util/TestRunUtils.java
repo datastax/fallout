@@ -24,8 +24,6 @@ import java.util.Set;
 
 import com.datastax.fallout.service.core.TestRun;
 
-import static java.util.stream.Collectors.toList;
-
 public class TestRunUtils
 {
     private TestRunUtils()
@@ -123,7 +121,7 @@ public class TestRunUtils
         {
             List<TestRun> runsForTest = testRuns.stream()
                 .filter(r -> r.getTestName().equals(testName))
-                .collect(toList());
+                .toList();
             Map<TestRun, String> uniqueParamInfo = buildUniqueParamInfo(runsForTest);
             for (TestRun run : runsForTest)
             {

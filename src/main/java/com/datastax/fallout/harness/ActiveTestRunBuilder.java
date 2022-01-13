@@ -643,7 +643,7 @@ public class ActiveTestRunBuilder
     private List<String> findDuplicateModuleAliases(List<Phase> phases)
     {
         Set<String> moduleNamesSeen = new HashSet<>();
-        return moduleAliases(phases).filter(name -> !moduleNamesSeen.add(name)).collect(Collectors.toList());
+        return moduleAliases(phases).filter(name -> !moduleNamesSeen.add(name)).toList();
     }
 
     /**
@@ -883,7 +883,7 @@ public class ActiveTestRunBuilder
             productProviders.forEach(provider -> availableProviders.addAll(serverGroup.getAvailableProviders()
                 .stream()
                 .filter(provider::isAssignableFrom)
-                .collect(Collectors.toList())));
+                .toList()));
 
             if (availableProviders.isEmpty())
             {
@@ -1132,8 +1132,8 @@ public class ActiveTestRunBuilder
             workload.getAllModules(),
             workload.getCheckers(),
             workload.getArtifactCheckers(),
-            nodeGroups.stream().map(NodeGroup::getConfigurationManager).collect(Collectors.toList()),
-            nodeGroups.stream().map(NodeGroup::getProvisioner).collect(Collectors.toList())
+            nodeGroups.stream().map(NodeGroup::getConfigurationManager).toList(),
+            nodeGroups.stream().map(NodeGroup::getProvisioner).toList()
         ).flatMap(Collection::stream);
 
         return propertyBasedComponents

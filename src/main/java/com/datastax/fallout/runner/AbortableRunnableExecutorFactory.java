@@ -21,7 +21,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import com.datastax.fallout.harness.TestRunStatus;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
@@ -90,7 +89,7 @@ public class AbortableRunnableExecutorFactory implements RunnableExecutorFactory
                 executor.getTestRunStatus().abort();
                 return executor.getTestRunCopyForReRun();
             })
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public List<ReadOnlyTestRun> activeTestRuns()
@@ -100,7 +99,7 @@ public class AbortableRunnableExecutorFactory implements RunnableExecutorFactory
             // FAL-1776 damage limitation: Handle unexpected nulls by dropping them; otherwise the caller will NPE
             // and bring the UI down
             .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+            .toList();
     }
 
     /** Synchronously send the current state to all listeners; once this has returned, we're guaranteed

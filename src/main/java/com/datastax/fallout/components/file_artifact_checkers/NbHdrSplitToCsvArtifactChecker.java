@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -106,7 +105,7 @@ public class NbHdrSplitToCsvArtifactChecker extends ArtifactChecker
         List<String> invalidFiles = files
             .stream()
             .filter(fileName -> !fileName.endsWith(".hdr"))
-            .collect(Collectors.toList());
+            .toList();
         if (invalidFiles.size() != 0)
         {
             throw new PropertySpec.ValidationException("Found invalid files: " + invalidFiles);

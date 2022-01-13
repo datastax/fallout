@@ -22,7 +22,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -94,7 +93,7 @@ class DumpNodeGroupStatesToDot
         out.println("anchor -> runlevel [style=invis];");
 
         List<NodeGroup.State> unknown = Arrays.stream(NodeGroup.State.values())
-            .filter(NodeGroup.State::isUnknownState).collect(Collectors.toList());
+            .filter(NodeGroup.State::isUnknownState).toList();
 
         out.format("isStarted -> %s [style=invis];\n", unknown.get(0));
 
@@ -105,7 +104,7 @@ class DumpNodeGroupStatesToDot
         out.println("}");
 
         List<NodeGroup.State> runLevels = Arrays.stream(NodeGroup.State.values())
-            .filter(NodeGroup.State::isRunLevelState).collect(Collectors.toList());
+            .filter(NodeGroup.State::isRunLevelState).toList();
 
         out.format("anchor-> %s [style=invis];\n", runLevels.get(0));
 

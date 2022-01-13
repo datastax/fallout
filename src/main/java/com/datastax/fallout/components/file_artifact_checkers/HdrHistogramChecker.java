@@ -147,7 +147,7 @@ public class HdrHistogramChecker extends ArtifactChecker
                     .get(rootArtifactPath, run.getOwner(), run.getTestName(), run.getTestRunId().toString(), f)
                 )
                 .filter(HdrHistogramChecker::isHdrHistogram)
-                .collect(toList());
+                .toList();
 
             // HDR files from old tests could have been gzipped by the artifact compressor
             Pair<List<File>, List<File>> preparedHdrFiles = prepareTemporaryHdrFiles(hdrPaths, true);
@@ -270,7 +270,7 @@ public class HdrHistogramChecker extends ArtifactChecker
 
                             List<Histogram> summaries = tagOutputMap.values().stream().map(output -> output
                                 .getAggregatedHistogram())
-                                .collect(Collectors.toList());
+                                .toList();
                             historyAggregates.addAll(getHistoryAggregates(simpleFilename, summaries));
                         }
                         // auto close union output stream
@@ -417,7 +417,7 @@ public class HdrHistogramChecker extends ArtifactChecker
 
         List<Path> hdrPaths = listNodeGroupArtifacts(clientGroupPath)
             .filter(HdrHistogramChecker::isHdrHistogram)
-            .collect(toList());
+            .toList();
 
         // no HDR files should be gzipped from a newly run test
         Pair<List<File>, List<File>> preparedHdrFiles = prepareTemporaryHdrFiles(hdrPaths, false);

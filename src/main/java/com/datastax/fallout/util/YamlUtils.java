@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -97,7 +96,7 @@ public class YamlUtils
             false)
             .map(YamlUtils::loadYamlDocument)
             .filter(n -> !n.isEmpty())
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public static String dumpYaml(Object data)

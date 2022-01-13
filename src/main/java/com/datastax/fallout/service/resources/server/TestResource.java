@@ -329,7 +329,7 @@ public class TestResource
         List<UUID> testRunsSafeFromDeletion = testRunDAO.getAll(test.getOwner(), test.getName()).stream().filter(
             TestRun::keepForever)
             .map(TestRun::getTestRunId)
-            .collect(Collectors.toList());
+            .toList();
         if (!testRunsSafeFromDeletion.isEmpty())
         {
             throw new WebApplicationException(
@@ -533,7 +533,7 @@ public class TestResource
             .filter(t -> testName == null || t.getName().equals(testName))
             .filter(t -> owner == null || t.getOwner().equals(owner))
             .filter(t -> dateCreated == null || t.getCreatedAt().after(dateCreated))
-            .collect(Collectors.toList());
+            .toList();
 
         return result;
     }
@@ -697,12 +697,12 @@ public class TestResource
         List<TestRun> finishedTestRuns = alltestRuns.stream()
             .filter(r -> r.getState().finished())
             .sorted(Comparator.comparing(TestRun::getCreatedAt).reversed())
-            .collect(Collectors.toList());
+            .toList();
         final Map<TestRun, String> testRunDisplayNames = TestRunUtils.buildTestRunDisplayNames(finishedTestRuns, false);
 
         List<SimpleTestRun> simpleTestRuns = finishedTestRuns.stream()
-            .map(r -> new SimpleTestRun(r.getTestRunId(), testRunDisplayNames.get(r))).collect(
-                Collectors.toList());
+            .map(r -> new SimpleTestRun(r.getTestRunId(), testRunDisplayNames.get(r)))
+            .toList();
         return simpleTestRuns;
     }
 
@@ -1159,7 +1159,7 @@ public class TestResource
                 .distinct()
                 .sorted()
                 .map(testName -> linkForShowDeletedTestRuns(owner, testName))
-                .collect(Collectors.toList());
+                .toList();
             return new TrashBinView(user, owner, "", tests, List.of(), testNamesOfDeletedTestRuns);
         }
         else
@@ -1303,21 +1303,21 @@ public class TestResource
                 new LinkedTestRuns(userGroupMapper, user,
                     runningTestRuns.stream()
                         .filter(testRun -> testRun.getOwner().equals(email))
-                        .collect(Collectors.toList()))
+                        .toList())
                             .hide(OWNER, FINISHED_AT, RESULTS, TEMPLATE_PARAMS, RESTORE_ACTIONS, RESOURCE_REQUIREMENTS,
                                 DELETE_MANY, SIZE_ON_DISK);
             this.queuedTestRuns =
                 new LinkedTestRuns(userGroupMapper, user, true,
                     testRunner.getQueuedTestRuns().stream()
                         .filter(testRun -> testRun.getOwner().equals(email))
-                        .collect(Collectors.toList()))
+                        .toList())
                             .hide(OWNER, FINISHED_AT, RESULTS, TEMPLATE_PARAMS, RESTORE_ACTIONS, RESOURCE_REQUIREMENTS,
                                 DELETE_MANY, SIZE_ON_DISK);
             this.recentTestRuns =
                 new LinkedTestRuns(userGroupMapper, user,
                     testRunDAO.getRecentFinishedTestRuns().stream()
                         .filter(testRun -> testRun.getOwner().equals(email))
-                        .collect(Collectors.toList()))
+                        .toList())
                             .hide(OWNER, RESULTS, TEMPLATE_PARAMS, MUTATION_ACTIONS, RESTORE_ACTIONS,
                                 RESOURCE_REQUIREMENTS, DELETE_MANY, SIZE_ON_DISK);
             this.totalSizeOnDisk = FileUtils.byteCountToDisplaySize(tests.stream()
@@ -1372,10 +1372,10 @@ public class TestResource
 
             allEmailNotify = Arrays.stream(TestCompletionNotification.values())
                 .map(notify -> Pair.of(notify, user.map(user_ -> user_.getEmailPref() == notify).orElse(false)))
-                .collect(Collectors.toList());
+                .toList();
             allSlackNotify = Arrays.stream(TestCompletionNotification.values())
                 .map(notify -> Pair.of(notify, user.map(user_ -> user_.getSlackPref() == notify).orElse(false)))
-                .collect(Collectors.toList());
+                .toList();
         }
 
         public boolean isOwner()
@@ -1455,7 +1455,7 @@ public class TestResource
                 .stream()
                 .map(p -> Paths.get(p))
                 .sorted(Comparator.comparing(java.nio.file.Path::toAbsolutePath))
-                .collect(Collectors.toList());
+                .toList();
         }
 
         public boolean hasArtifacts()

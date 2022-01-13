@@ -25,7 +25,6 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.google.common.base.Preconditions;
@@ -236,8 +235,8 @@ public class EnsembleBuilder
         observerBuilder.withName(OBSERVER_NAME);
         controllerBuilder.withName(CONTROLLER_NAME);
 
-        List<NodeGroup> servers = serverBuilders.stream().map(NodeGroupBuilder::build).collect(Collectors.toList());
-        List<NodeGroup> clients = clientBuilders.stream().map(NodeGroupBuilder::build).collect(Collectors.toList());
+        List<NodeGroup> servers = serverBuilders.stream().map(NodeGroupBuilder::build).toList();
+        List<NodeGroup> clients = clientBuilders.stream().map(NodeGroupBuilder::build).toList();
 
         NodeGroup observers = observerBuilder.build();
         NodeGroup controllers = controllerBuilder.build();

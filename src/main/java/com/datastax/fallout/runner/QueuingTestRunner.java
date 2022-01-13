@@ -27,7 +27,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -213,7 +212,7 @@ public class QueuingTestRunner implements AutoCloseable, Managed
     {
         final var testRuns = Stream
             .concat(abortableTestRunExecutorFactory.activeTestRuns().stream(), getQueuedTestRuns().stream())
-            .collect(Collectors.toList());
+            .toList();
 
         return test -> testRuns.stream().anyMatch(testRun -> testRun.belongsTo(test));
     }
@@ -225,7 +224,7 @@ public class QueuingTestRunner implements AutoCloseable, Managed
         return getRunningTestRuns()
             .stream()
             .sorted(Comparator.comparing(ReadOnlyTestRun::getStartedAt).reversed())
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public int getRunningTestRunsCount()

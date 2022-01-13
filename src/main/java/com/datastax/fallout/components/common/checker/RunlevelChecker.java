@@ -17,7 +17,6 @@ package com.datastax.fallout.components.common.checker;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import com.google.auto.service.AutoService;
 
@@ -43,7 +42,7 @@ public class RunlevelChecker extends Checker
             .description("comma separated list of runlevels to find on the history")
             .parser(input -> List.of(((String) input).split(","))
                 .stream().map(x -> NodeGroup.State.valueOf(x.trim()))
-                .collect(Collectors.toList()))
+                .toList())
             .required()
             .build();
 
@@ -77,7 +76,7 @@ public class RunlevelChecker extends Checker
             .filter(op -> op.getModule() instanceof RunlevelModule)
             .filter(op -> op.getType().equals(Operation.Type.ok))
             .map(op -> (NodeGroup.State) op.getValue())
-            .collect(Collectors.toList());
+            .toList();
 
         List<NodeGroup.State> expectedRunlevels = runlevelsSpec.value(this);
 

@@ -83,7 +83,7 @@ public class ScopedLoggerTest
     {
         return events.values().stream().flatMap(Collection::stream)
             .map(event -> Pair.of(event.getLevel(), event.getFormattedMessage()))
-            .collect(Collectors.toList());
+            .toList();
     }
 
     private Map<String, List<String>> logMessagesByThread()
@@ -91,7 +91,7 @@ public class ScopedLoggerTest
         return events.entrySet().stream()
             .map(entry -> Pair.of(entry.getKey(), entry.getValue().stream()
                 .map(ILoggingEvent::getFormattedMessage)
-                .collect(Collectors.toList())))
+                .toList()))
             .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }
 

@@ -19,7 +19,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import clojure.lang.APersistentMap;
 import clojure.lang.Keyword;
@@ -102,7 +101,7 @@ public abstract class Checker implements jepsen.checker.Checker, WorkloadCompone
         Map<Keyword, Object> resultsMap = new HashMap<>();
         List<Operation> historyList = ((Collection<APersistentMap>) history).stream()
             .map(Operation::fromOpMap)
-            .collect(Collectors.toList());
+            .toList();
 
         boolean checkResult = false;
         try

@@ -217,7 +217,7 @@ public class TestRunDAO implements Managed
                 }
                 return true;
             })
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public DeletedTestRun getDeleted(TestRunIdentifier tri)
@@ -243,8 +243,8 @@ public class TestRunDAO implements Managed
     public List<String> getTestNamesOfDeletedTestRuns(String owner)
     {
         return deletedTestRunAccessor.getTestNamesOfDeletedTestRuns(owner).all().stream()
-            .map(row -> row.getString("testName")).collect(
-                Collectors.toList());
+            .map(row -> row.getString("testName"))
+            .toList();
     }
 
     public void add(TestRun testRun)
@@ -335,12 +335,12 @@ public class TestRunDAO implements Managed
     private static final List<TestRun.State> unfinishedStates =
         Arrays.stream(TestRun.State.values())
             .filter(state -> !state.finished())
-            .collect(Collectors.toList());
+            .toList();
 
     private static final List<TestRun.State> finishedStates =
         Arrays.stream(TestRun.State.values())
             .filter(TestRun.State::finished)
-            .collect(Collectors.toList());
+            .toList();
 
     /** Update only the artifacts fields in the DB, and only if the {@link TestRun}} in the DB is not
      *  finished <em>or</em> the artifacts field is empty.  This prevents accidentally overwriting
@@ -394,7 +394,7 @@ public class TestRunDAO implements Managed
     {
         return getAllFinishedTestRunsThatFinishedBeforeInclusive(Instant.now())
             .limit(FINISHED_TEST_RUN_LIMIT)
-            .collect(Collectors.toList());
+            .toList();
     }
 
     /** Get all {@link FinishedTestRun}s that finished in the closed range [earliestInstant, latestInstant] */
@@ -445,7 +445,7 @@ public class TestRunDAO implements Managed
             final var maybeStaleTestRuns = Arrays.stream(TestRun.State.values())
                 .filter(TestRun.State::active)
                 .flatMap(state -> testRunAccessor.getWithState(state).all().stream())
-                .collect(Collectors.toList());
+                .toList();
 
             logger.info("Active testruns in the DB:");
             maybeStaleTestRuns.forEach(testRun -> logger.info("  {}", testRun.getTestRunIdentifier()));

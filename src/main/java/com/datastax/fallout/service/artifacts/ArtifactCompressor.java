@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BooleanSupplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -144,7 +143,7 @@ public class ArtifactCompressor extends PeriodicTask
                     !INCOMPRESSIBLE_FILE_EXTENSIONS
                         .contains(com.google.common.io.Files.getFileExtension(path.toString()))))
             {
-                uncompressedArtifacts = pathStream.collect(Collectors.toList());
+                uncompressedArtifacts = pathStream.toList();
             }
 
             if (uncompressedArtifacts.isEmpty())

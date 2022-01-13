@@ -56,9 +56,9 @@ public class MultiConfigurationManager extends ConfigurationManager
         this.delegates =
             determineConfigurationOrder(delegates, nodeGroupAvailableProviders, nodegroupProperties);
         logger().info("Successfully determined MultiConfigurationManager configuration order: {}",
-            this.delegates.stream().map(PropertyBasedComponent::name).collect(Collectors.toList()));
+            this.delegates.stream().map(PropertyBasedComponent::name).toList());
 
-        this.allSpecs = delegates.stream().flatMap(cm -> cm.getPropertySpecs().stream()).collect(Collectors.toList());
+        this.allSpecs = delegates.stream().flatMap(cm -> cm.getPropertySpecs().stream()).toList();
     }
 
     @Override

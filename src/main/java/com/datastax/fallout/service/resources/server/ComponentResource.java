@@ -130,7 +130,7 @@ public class ComponentResource
             .sorted(Comparator
                 .<PropertyCategory>comparingInt(propertyCategory -> propertyCategory.isDependencyCategory() ? 1 : 0)
                 .thenComparing(propertyCategory -> propertyCategory.category))
-            .collect(Collectors.toList());
+            .toList();
     }
 
     private static List<ComponentProperties> loadComponents(FalloutConfiguration configuration,
@@ -147,7 +147,7 @@ public class ComponentResource
             })
             .sorted(Comparator.comparing(
                 componentProperties -> componentProperties.component.name().toLowerCase()))
-            .collect(Collectors.toList());
+            .toList();
     }
 
     private static ComponentType loadComponentType(FalloutConfiguration configuration,
@@ -184,7 +184,7 @@ public class ComponentResource
         this.componentTypes = Stream
             .of("provisioners", "configurationmanagers", "modules", "checkers", "artifact_checkers")
             .map(type -> loadComponentType(configuration, componentFactory, type))
-            .collect(Collectors.toList());
+            .toList();
         this.componentTypeLookup = componentTypes.stream()
             .collect(Collectors.toMap(componentType -> componentType.type, Functions.identity()));
     }

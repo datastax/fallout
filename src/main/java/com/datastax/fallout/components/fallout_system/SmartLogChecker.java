@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.google.auto.service.AutoService;
@@ -98,7 +97,7 @@ public class SmartLogChecker extends ArtifactChecker
                 // for the errors log we take the first N lines of the file
                 try (Stream<String> lines = Files.lines(errorsLogPath).limit(snippetSize))
                 {
-                    logLines = lines.collect(Collectors.toList());
+                    logLines = lines.toList();
                 }
             }
             if (logLines.isEmpty())

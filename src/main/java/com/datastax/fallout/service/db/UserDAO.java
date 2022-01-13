@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import com.google.common.base.Preconditions;
@@ -127,13 +126,13 @@ public class UserDAO implements Managed
     {
         return userAccessor.getAllNamesAndEmails().all().stream()
             .map(r -> Map.of("name", r.getString("name"), "email", r.getString("email")))
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public List<String> getAllEmails()
     {
         return userAccessor.getAllEmails().all().stream()
-            .map(r -> r.getString("email")).collect(Collectors.toList());
+            .map(r -> r.getString("email")).toList();
     }
 
     /** Adds a new user to the database if they don't already exist; if the add was successful,

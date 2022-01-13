@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 import com.google.auto.service.AutoService;
 
@@ -113,7 +112,7 @@ public class RemoteFilesConfigurationManager extends ConfigurationManager
         List<FileSpec> fileSpecs = remoteFileSpecs.stream()
             .peek(rfs -> remoteFileHandler.validate(rfs))
             .map(rfs -> rfs.fileSpec)
-            .collect(Collectors.toList());
+            .toList();
 
         Set<String> seenPaths = new HashSet<>();
         Set<String> duplicatePaths = new HashSet<>();
@@ -151,7 +150,7 @@ public class RemoteFilesConfigurationManager extends ConfigurationManager
         List<RemoteFileSpec> remoteFileSpecs = parseRemoteFileSpecs(nodeGroup);
         List<CompletableFuture<Boolean>> futures = remoteFileSpecs.stream()
             .map(rfs -> CompletableFuture.supplyAsync(() -> this.createFile(nodeGroup, rfs)))
-            .collect(Collectors.toList());
+            .toList();
         return Utils.waitForAll(futures, nodeGroup.logger(), "Creating files");
     }
 
@@ -206,7 +205,7 @@ public class RemoteFilesConfigurationManager extends ConfigurationManager
                 }
                 return new RemoteFileSpec(FileSpec.fromMap(m), namespace);
             })
-            .collect(Collectors.toList());
+            .toList();
     }
 
     private boolean createFile(NodeGroup nodeGroup, RemoteFileSpec remoteFileSpec)

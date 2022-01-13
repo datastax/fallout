@@ -18,7 +18,6 @@ package com.datastax.fallout.components.kubernetes;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -122,7 +121,7 @@ public class KubernetesJobModule extends Module
         List<String> jobNames = YamlUtils.loadYamlDocuments(yamlMultiDoc).stream()
             .filter(jsonNode -> jsonNode.path("kind").asText().equals("Job"))
             .map(jsonNode -> jsonNode.at("/metadata/name").asText())
-            .collect(Collectors.toList());
+            .toList();
 
         if (jobNames.isEmpty())
         {

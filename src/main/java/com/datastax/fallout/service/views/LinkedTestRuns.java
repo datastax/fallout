@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.datastax.fallout.harness.ActiveTestRun;
@@ -225,7 +224,7 @@ public class LinkedTestRuns
 
         this.testRuns = testRuns.stream()
             .map(tr -> new LinkedTestRun(userGroupMapper, currentUser, templateParamColumns, tr, externalUrl))
-            .collect(Collectors.toList());
+            .toList();
 
         this.areQueued = areQueued;
         this.canDeleteAny = testRuns.stream().anyMatch(tr -> TestResource.canDelete(userGroupMapper, currentUser, tr));

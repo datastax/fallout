@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.google.common.base.Preconditions;
@@ -496,7 +495,7 @@ class NodeGroupStateTransitionTest extends TestHelpers.FalloutTest<FalloutConfig
                 .concat(
                     illegalTransitionsFromRunLevelAndUnknownStates,
                     illegalTransitionsFromTransitioningStates)
-                .collect(Collectors.toList());
+                .toList();
 
             final Stream<Pair<NodeGroup.State, NodeGroup.State>> legalTransitions =
                 Arrays.stream(NodeGroup.State.values())
@@ -550,7 +549,7 @@ class NodeGroupStateTransitionTest extends TestHelpers.FalloutTest<FalloutConfig
             // Get the states we expect to transition between for each pair of
             // (startState, endState), and create iterator.
             List<NodeGroup.State> expectedRunLevelStates = toRunLevel(transition.startState, transition.endState)
-                .collect(Collectors.toList());
+                .toList();
             ListIterator<NodeGroup.State> stateListIterator = expectedRunLevelStates.listIterator();
 
             // Expect checkState if we're in an unknown state

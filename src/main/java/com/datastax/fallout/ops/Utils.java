@@ -199,7 +199,7 @@ public class Utils
         Logger logger, Collection<T> nodeResponses, NodeResponse.WaitOptionsAdjuster adjuster)
     {
         return waitForAll(
-            nodeResponses.stream().map(nr -> nr.awaitAsync(adjuster)).collect(Collectors.toList()), logger,
+            nodeResponses.stream().map(nr -> nr.awaitAsync(adjuster)).toList(), logger,
             "waitForProcessEnd");
     }
 
@@ -439,8 +439,7 @@ public class Utils
     public static List<String> getContactPoints(List<Node> clientNodes, List<Node> serverNodes)
     {
         return usePrivateIps(clientNodes.get(0).getNodeGroup(), serverNodes.get(0).getNodeGroup()) ?
-            getPrivateNodeIps(serverNodes).collect(Collectors.toList()) : getPublicNodeIps(serverNodes).collect(
-                Collectors.toList());
+            getPrivateNodeIps(serverNodes).toList() : getPublicNodeIps(serverNodes).toList();
     }
 
     public static String getContactPointsCommaSeparated(List<Node> clientNodes, List<Node> serverNodes)
@@ -523,6 +522,6 @@ public class Utils
 
     public static <T> List<String> toSortedList(Set<T> set, Function<T, String> toStringFunc)
     {
-        return set.stream().map(toStringFunc).sorted().collect(Collectors.toList());
+        return set.stream().map(toStringFunc).sorted().toList();
     }
 }

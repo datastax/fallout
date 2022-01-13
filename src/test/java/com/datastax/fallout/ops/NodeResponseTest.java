@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import ch.qos.logback.classic.LoggerContext;
@@ -351,7 +350,7 @@ public class NodeResponseTest
             nodeResponses = IntStream
                 .range(0, 1024)
                 .mapToObj(id -> new FakeNodeResponse(id, java.time.Duration.ofSeconds(1)))
-                .collect(Collectors.toList());
+                .toList();
 
             assertThat(Utils.waitForSuccess(logger, nodeResponses)).isTrue();
 
@@ -366,12 +365,12 @@ public class NodeResponseTest
             List<FakeNodeResponse> slowNodeResponses = IntStream
                 .range(0, responseCount)
                 .mapToObj(id -> new FakeNodeResponse(id, java.time.Duration.ofSeconds(3)))
-                .collect(Collectors.toList());
+                .toList();
 
             List<FakeNodeResponse> fastNodeResponses = IntStream
                 .range(responseCount + 1, responseCount * 2)
                 .mapToObj(id -> new FakeNodeResponse(id, java.time.Duration.ofSeconds(1)))
-                .collect(Collectors.toList());
+                .toList();
 
             nodeResponses = ImmutableList.copyOf(Iterables.concat(slowNodeResponses, fastNodeResponses));
 

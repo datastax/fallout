@@ -282,7 +282,7 @@ public class NoSqlBenchModule extends Module
 
             nosqlBenchProviders = clientNodes.stream()
                 .map(n -> n.getProvider(NoSqlBenchProvider.class))
-                .collect(Collectors.toList());
+                .toList();
             numClients = nosqlBenchProviders.size();
         }
 
@@ -341,7 +341,7 @@ public class NoSqlBenchModule extends Module
 
                 List<String> contactPoints = contactPointProviders.stream()
                     .map(ServiceContactPointProvider::getContactPoint)
-                    .collect(Collectors.toList());
+                    .toList();
 
                 clientSpecificArgs.add(String.format("host=%s", String.join(",", contactPoints)));
             }
@@ -351,7 +351,7 @@ public class NoSqlBenchModule extends Module
                 duration -> clientSpecificArgs.add(String.format("waitmillis %s stop %s", duration.toMillis(), alias)));
 
             List<String> orderedCommandParameters =
-                Stream.concat(clientSpecificArgs.stream(), options.stream()).collect(Collectors.toList());
+                Stream.concat(clientSpecificArgs.stream(), options.stream()).toList();
             NoSqlBenchProvider nbProvider = nosqlBenchProviders.get(i);
             NodeResponse response = nbProvider
                 .nosqlbench(getInstanceName(), clientPrepareScript, orderedCommandParameters, histogramFrequency);
@@ -398,7 +398,7 @@ public class NoSqlBenchModule extends Module
                 .stream()
                 .findFirst()
                 .stream()
-                .collect(Collectors.toList());
+                .toList();
         }
         else
         {
@@ -407,7 +407,7 @@ public class NoSqlBenchModule extends Module
                 .map(p -> p.maybeGetProvider(ServiceContactPointProvider.class))
                 .flatMap(Optional::stream)
                 .filter(p -> serviceType.equals(p.getServiceName()))
-                .collect(Collectors.toList());
+                .toList();
         }
         return contactPointProviders;
     }
@@ -416,7 +416,7 @@ public class NoSqlBenchModule extends Module
     {
         return distributeCycleRangeByClient(totalCycles, cycleOffset, numClients)
             .map(r -> String.format("%d..%d", r.lowerEndpoint(), r.upperEndpoint()))
-            .collect(Collectors.toList());
+            .toList();
     }
 
     @VisibleForTesting

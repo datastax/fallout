@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.google.auto.service.AutoService;
@@ -115,7 +114,7 @@ public class NoSqlBenchConfigurationManager extends KubernetesDeploymentConfigur
             .map(remoteFile -> Map.of(
                 "name", remoteFile.fileName(getNodeGroup()),
                 "configMap", remoteFile.fileName(getNodeGroup())))
-            .collect(Collectors.toList());
+            .toList();
     }
 
     @Override
@@ -128,6 +127,6 @@ public class NoSqlBenchConfigurationManager extends KubernetesDeploymentConfigur
                 // create a file per ConfigMap key under this directory.
                 "mountPath", remoteFile.fullPath(getNodeGroup()).getParent().toString()
             ))
-            .collect(Collectors.toList());
+            .toList();
     }
 }

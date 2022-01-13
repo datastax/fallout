@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.api.gax.core.FixedCredentialsProvider;
@@ -438,7 +437,7 @@ public class GoogleKubernetesEngineProvisioner extends AbstractKubernetesProvisi
         {
             List<CompletableFuture<Boolean>> futures = userNamespaces.stream()
                 .map(namespace -> handleNamespaceLogs(loggingClient, namespace))
-                .collect(Collectors.toList());
+                .toList();
             return Utils.waitForAll(futures);
         }
         catch (IOException e)

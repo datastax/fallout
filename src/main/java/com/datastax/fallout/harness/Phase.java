@@ -19,7 +19,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class Phase
 {
@@ -76,8 +75,8 @@ public class Phase
         return String.format("Phase %s: Contains modules: [%s] and subphase lists: [%s]",
             name,
             String.join(", ", modules.keySet().stream()
-                .collect(Collectors.toList())),
+                .toList()),
             String.join(", ", subPhases.keySet().stream()
-                .collect(Collectors.toList())));
+                .toList()));
     }
 }
