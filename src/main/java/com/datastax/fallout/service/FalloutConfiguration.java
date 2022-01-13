@@ -590,10 +590,9 @@ public class FalloutConfiguration extends Configuration
         final LoggingFactory loggingFactory = getLoggingFactory();
         final var objectMapper = Jackson.newObjectMapper();
 
-        if (loggingFactory instanceof DefaultLoggingFactory)
+        if (loggingFactory instanceof final DefaultLoggingFactory defaultLoggingFactory)
         {
             // Root appenders will have been defined as AppenderFactories
-            final var defaultLoggingFactory = (DefaultLoggingFactory) loggingFactory;
             modifyAppenders(clazz, defaultLoggingFactory.getAppenders(), appenderModifier);
 
             // Appenders on individual loggers will be defined as JsonNodes;

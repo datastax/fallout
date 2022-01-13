@@ -73,11 +73,10 @@ public class TestRunIdentifier
         {
             return true;
         }
-        if (!(o instanceof TestRunIdentifier))
+        if (!(o instanceof TestRunIdentifier that))
         {
             return false;
         }
-        TestRunIdentifier that = (TestRunIdentifier) o;
         return testOwner.equals(that.testOwner) &&
             testName.equals(that.testName) &&
             testRunId.equals(that.testRunId);

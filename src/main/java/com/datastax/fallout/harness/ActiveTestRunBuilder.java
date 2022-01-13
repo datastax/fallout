@@ -594,11 +594,10 @@ public class ActiveTestRunBuilder
         {
             throw new InvalidConfigurationException("Jepsen test names not yet supported");
         }
-        if (!(workload instanceof Map))
+        if (!(workload instanceof Map workloadMap))
         {
             throw new InvalidConfigurationException("Workload is not a Jepsen test name or Fallout workload");
         }
-        Map workloadMap = (Map) workload;
         validateYamlKeys(workloadMap, Set.of("phases", "checkers", "artifact_checkers"), "below workload");
         List<Map<String, Object>> rawYamlForPhases = (List<Map<String, Object>>) workloadMap.get("phases");
         Map<String, Object> yamlCheckers = (Map<String, Object>) workloadMap.get("checkers");
