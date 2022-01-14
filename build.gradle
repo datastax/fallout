@@ -52,7 +52,6 @@ mainClassName = 'com.datastax.fallout.service.FalloutService'
 def javaModuleJvmArgs = [
     // Handle jackson reflection under Java 9+ (see
     // https://github.com/FasterXML/jackson-modules-base/issues/37#issuecomment-389581245)
-    '--illegal-access=permit',
     '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
     '--add-opens', 'java.base/java.nio=ALL-UNNAMED'
 ]
