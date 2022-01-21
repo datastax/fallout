@@ -682,16 +682,16 @@ externalTools {
             // https://github.com/helm/helm/releases
 
             platforms(["linux", "darwin"]) {
-                source.set("https://get.helm.sh/helm-v3.5.4-${platform}-amd64.tar.gz")
+                source.set("https://get.helm.sh/helm-v3.7.2-${platform}-amd64.tar.gz")
                 unpackedBinDir.set("${platform}-amd64")
             }
 
             platform("linux") {
-                checksum.set("a8ddb4e30435b5fd45308ecce5eaad676d64a5de9c89660b56face3fe990b318")
+                checksum.set("4ae30e48966aba5f807a4e140dad6736ee1a392940101e4d79ffb4ee86200a9e")
             }
 
             platform("darwin") {
-                checksum.set("072c40c743d30efdb8231ca03bab55caee7935e52175e42271a0c3bc37ec0b7b")
+                checksum.set("5a0738afb1e194853aab00258453be8624e0a1d34fcc3c779989ac8dbcd59436")
             }
         }
 
