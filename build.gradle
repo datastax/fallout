@@ -666,15 +666,15 @@ externalTools {
             // for location of binaries and checksums
 
             platforms(["linux", "darwin"]) {
-                source.set("https://dl.k8s.io/release/v1.21.0/bin/${platform}/amd64/kubectl")
+                source.set("https://dl.k8s.io/release/v1.23.2/bin/${platform}/amd64/kubectl")
             }
 
             platform("linux") {
-                checksum.set("9f74f2fa7ee32ad07e17211725992248470310ca1988214518806b39b1dad9f0")
+                checksum.set("5b55b58205acbafa7f4e3fc69d9ce5a9257be63455db318e24db4ab5d651cbde")
             }
 
             platform("darwin") {
-                checksum.set("f9dcc271590486dcbde481a65e89fbda0f79d71c59b78093a418aa35c980c41b")
+                checksum.set("e4d0e8b3a5686907f4285cf5caf9cef4a22fc84f813ae6f22890078febf698f1")
             }
         }
 
