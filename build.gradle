@@ -701,16 +701,16 @@ externalTools {
 
             platforms(["linux", "darwin"]) {
                 source.set("https://dl.google.com/dl/cloudsdk/channels/rapid/" +
-                    "downloads/google-cloud-sdk-341.0.0-${platform}-x86_64.tar.gz")
+                    "downloads/google-cloud-sdk-369.0.0-${platform}-x86_64.tar.gz")
                 unpackedBinDir.set("google-cloud-sdk/bin")
             }
 
             platform("linux") {
-                checksum.set("baafb8415d0d1c909c229ad704b1b05de57e10cddabc4fdf8018db4bcf02ab45")
+                checksum.set("b5a60ea86c14452580e2019d33586ab2d5dbcde375870d0a030e6b73e7c06093")
             }
 
             platform("darwin") {
-                checksum.set("e7c13e1159b9a9652b2fb96b776f73b58f145fb53e0d4c13c4cba1a6dd01b800")
+                checksum.set("8a09c9de7c415bdb6ad09b513138d0dffe113fb22c708e10163342e87f80b300")
             }
         }
     }
