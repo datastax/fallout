@@ -15,7 +15,6 @@
  */
 package com.datastax.fallout.runner;
 
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 
@@ -90,16 +89,8 @@ public class DelegatingRunnableExecutorFactory extends AbstractDelegatingExecuto
             }
             catch (Throwable ex)
             {
-                String errorMessage = "";
-
-                // Jersey re-throws any WebApplicationException wrapped by ProcessingException
-                if (ex instanceof WebApplicationException)
-                {
-                    errorMessage = ": " + ((WebApplicationException) ex).getResponse().readEntity(String.class);
-                }
-
                 throw new RuntimeException(String.format("Could not run testrun %s via %s%s",
-                    runParams.testRun.getTestRunIdentifier(), run.getUri(), errorMessage), ex);
+                    runParams.testRun.getTestRunIdentifier(), run.getUri(), getErrorMessage(ex)), ex);
             }
         }
     }

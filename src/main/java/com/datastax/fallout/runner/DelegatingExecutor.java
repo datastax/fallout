@@ -15,7 +15,7 @@
  */
 package com.datastax.fallout.runner;
 
-import javax.ws.rs.ProcessingException;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.WebTarget;
 
 import java.util.function.Function;
@@ -83,6 +83,17 @@ public class DelegatingExecutor implements RunnableExecutorFactory.Executor
         return testRun;
     }
 
+    protected String getErrorMessage(Throwable ex)
+    {
+        // If a ProcessingException that wraps a WebApplicationException is thrown,
+        // Jersey unwraps and re-throws the wrapped WebApplicationException.
+        if (ex instanceof WebApplicationException e)
+        {
+            return ": " + e.getResponse().readEntity(String.class);
+        }
+        return "";
+    }
+
     protected class TestRunStatusUpdater extends com.datastax.fallout.harness.TestRunStatusUpdater
     {
         /** Uses {@link InMemoryTestRunStateStorage} instead of the DB-backed {@link TestRunStateStorage}, since
@@ -115,10 +126,10 @@ public class DelegatingExecutor implements RunnableExecutorFactory.Executor
                 logger.info("{}: Aborting testrun via {}", runner.getUri(), abort.getUri());
                 abort.request().post(null, Void.class);
             }
-            catch (ProcessingException ex)
+            catch (Throwable ex)
             {
-                throw new RuntimeException(String.format("Could not abort testrun %s via %s",
-                    testRunIdentifier.getTestRunId(), abort.getUri()), ex);
+                throw new RuntimeException(String.format("Could not abort testrun %s via %s%s",
+                    testRunIdentifier.getTestRunId(), abort.getUri(), getErrorMessage(ex)), ex);
             }
         }
     }
