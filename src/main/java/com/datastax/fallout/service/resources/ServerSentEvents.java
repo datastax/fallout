@@ -114,6 +114,22 @@ public class ServerSentEvents implements Managed
         return event -> readEvent(event, consumers);
     }
 
+    /** Consumer that hands the event to each consumer in order until it is consumed;
+     *  exceptions are logged and squashed to prevent calling threads from being terminated */
+    public static Consumer<InboundSseEvent> safeEventConsumers(EventConsumer<?>... consumers)
+    {
+        return event -> {
+            try
+            {
+                readEvent(event, consumers);
+            }
+            catch (Throwable ex)
+            {
+                logger.error("Ignoring unexpected exception when consuming event " + event, ex);
+            }
+        };
+    }
+
     @VisibleForTesting
     public static void setStreamOpenStatesListener(Consumer<Boolean> streamOpenStatesListener)
     {

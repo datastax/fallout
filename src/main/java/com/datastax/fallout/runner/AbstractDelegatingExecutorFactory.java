@@ -30,7 +30,7 @@ import com.datastax.fallout.service.core.TestRunIdentifier;
 import com.datastax.fallout.service.resources.ServerSentEvents.EventConsumer;
 import com.datastax.fallout.service.resources.runner.RunnerResource;
 
-import static com.datastax.fallout.service.resources.ServerSentEvents.eventConsumers;
+import static com.datastax.fallout.service.resources.ServerSentEvents.safeEventConsumers;
 import static com.datastax.fallout.service.views.FalloutView.uriFor;
 
 public abstract class AbstractDelegatingExecutorFactory implements Managed
@@ -51,7 +51,7 @@ public abstract class AbstractDelegatingExecutorFactory implements Managed
             .target(runner.path(uriFor(RunnerResource.class, "statusFeed").toString()))
             .build();
         eventSource.register(
-            eventConsumers(
+            safeEventConsumers(
                 EventConsumer.of(TestRunStatusUpdate.class,
                     this.testRunStatusUpdatePublisher::publish),
                 EventConsumer.of(RunnerResource.AllTestRunStatusesSent.class,
