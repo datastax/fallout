@@ -103,10 +103,15 @@ public class ServerSentEvents implements Managed
         }
     }
 
-    /** Hand the event to each consumer in order until it is consumed, and return whether it was consumed */
-    public static boolean readEvent(InboundSseEvent event, EventConsumer<?>... consumers)
+    private static void readEvent(InboundSseEvent event, EventConsumer<?>... consumers)
     {
-        return Arrays.stream(consumers).anyMatch(consumer -> consumer.test(event));
+        Arrays.stream(consumers).anyMatch(consumer -> consumer.test(event));
+    }
+
+    /** Consumer that hands the event to each consumer in order until it is consumed */
+    public static Consumer<InboundSseEvent> eventConsumers(EventConsumer<?>... consumers)
+    {
+        return event -> readEvent(event, consumers);
     }
 
     @VisibleForTesting
