@@ -18,8 +18,6 @@ package com.datastax.fallout.runner.queue;
 import java.util.Collection;
 import java.util.function.Supplier;
 
-import com.google.common.base.Preconditions;
-
 import com.datastax.fallout.service.core.TestRun;
 
 public class PersistentPendingQueue implements PendingQueue
@@ -34,8 +32,8 @@ public class PersistentPendingQueue implements PendingQueue
     @Override
     public void add(TestRun testRun)
     {
-        // no-op; the testRun should already exist in testRunDAO and be in a waiting state
-        Preconditions.checkState(testRun.getState().waiting());
+        // no-op; the testRun _should_ already exist in testRunDAO and be in a waiting state; we
+        // cannot guarantee the state however because of FAL-1792, so we don't assert this condition.
     }
 
     @Override
