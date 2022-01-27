@@ -57,6 +57,7 @@ public class KubeControlProvider extends Provider
         new HashedWheelTimer(new NamedThreadFactory("KubernetesReadyTimer"));
     private static final Duration podCreationTimeout = Duration.seconds(30);
     public static final Duration PORT_FORWARDING_WAIT = Duration.seconds(10);
+    private static final int KUBECTL_CP_RETRIES = 10;
 
     private final AbstractKubernetesProvisioner kubernetesProvisioner;
     private final Consumer<String> namespaceCreationCallback;
@@ -199,15 +200,15 @@ public class KubeControlProvider extends Provider
         public NodeResponse copyToContainer(String podName, String containerName, Path localPath,
             String pathInContainer)
         {
-            return execute(String.format("cp --container=%s %s %s:%s",
-                containerName, localPath, podName, pathInContainer));
+            return execute(String.format("cp --retries=%d --container=%s %s %s:%s",
+                KUBECTL_CP_RETRIES, containerName, localPath, podName, pathInContainer));
         }
 
         public NodeResponse copyFromContainer(String podName, String containerName, String pathInContainer,
             Path localPath)
         {
-            return execute(String.format("cp --container=%s %s:%s %s",
-                containerName, podName, pathInContainer, localPath));
+            return execute(String.format("cp --retries=%d --container=%s %s:%s %s",
+                KUBECTL_CP_RETRIES, containerName, podName, pathInContainer, localPath));
         }
 
         public boolean createDockerSecret(String secretName, DockerRegistryCredential cred)

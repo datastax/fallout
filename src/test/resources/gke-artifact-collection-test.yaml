@@ -30,6 +30,9 @@ ensemble:
           wait.strategy: WAIT_ON_CONTAINERS
           wait.container_name: nginx
           wait.expected_containers: 1
+      - name: nosqlbench
+        properties:
+          replicas: 1
 
     local_files:
       - path: nginx-service.yaml

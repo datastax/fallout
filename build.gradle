@@ -666,15 +666,15 @@ externalTools {
             // for location of binaries and checksums
 
             platforms(["linux", "darwin"]) {
-                source.set("https://dl.k8s.io/release/v1.21.0/bin/${platform}/amd64/kubectl")
+                source.set("https://dl.k8s.io/release/v1.23.2/bin/${platform}/amd64/kubectl")
             }
 
             platform("linux") {
-                checksum.set("9f74f2fa7ee32ad07e17211725992248470310ca1988214518806b39b1dad9f0")
+                checksum.set("5b55b58205acbafa7f4e3fc69d9ce5a9257be63455db318e24db4ab5d651cbde")
             }
 
             platform("darwin") {
-                checksum.set("f9dcc271590486dcbde481a65e89fbda0f79d71c59b78093a418aa35c980c41b")
+                checksum.set("e4d0e8b3a5686907f4285cf5caf9cef4a22fc84f813ae6f22890078febf698f1")
             }
         }
 
@@ -682,16 +682,16 @@ externalTools {
             // https://github.com/helm/helm/releases
 
             platforms(["linux", "darwin"]) {
-                source.set("https://get.helm.sh/helm-v3.5.4-${platform}-amd64.tar.gz")
+                source.set("https://get.helm.sh/helm-v3.7.2-${platform}-amd64.tar.gz")
                 unpackedBinDir.set("${platform}-amd64")
             }
 
             platform("linux") {
-                checksum.set("a8ddb4e30435b5fd45308ecce5eaad676d64a5de9c89660b56face3fe990b318")
+                checksum.set("4ae30e48966aba5f807a4e140dad6736ee1a392940101e4d79ffb4ee86200a9e")
             }
 
             platform("darwin") {
-                checksum.set("072c40c743d30efdb8231ca03bab55caee7935e52175e42271a0c3bc37ec0b7b")
+                checksum.set("5a0738afb1e194853aab00258453be8624e0a1d34fcc3c779989ac8dbcd59436")
             }
         }
 
@@ -701,16 +701,16 @@ externalTools {
 
             platforms(["linux", "darwin"]) {
                 source.set("https://dl.google.com/dl/cloudsdk/channels/rapid/" +
-                    "downloads/google-cloud-sdk-341.0.0-${platform}-x86_64.tar.gz")
+                    "downloads/google-cloud-sdk-369.0.0-${platform}-x86_64.tar.gz")
                 unpackedBinDir.set("google-cloud-sdk/bin")
             }
 
             platform("linux") {
-                checksum.set("baafb8415d0d1c909c229ad704b1b05de57e10cddabc4fdf8018db4bcf02ab45")
+                checksum.set("b5a60ea86c14452580e2019d33586ab2d5dbcde375870d0a030e6b73e7c06093")
             }
 
             platform("darwin") {
-                checksum.set("e7c13e1159b9a9652b2fb96b776f73b58f145fb53e0d4c13c4cba1a6dd01b800")
+                checksum.set("8a09c9de7c415bdb6ad09b513138d0dffe113fb22c708e10163342e87f80b300")
             }
         }
     }
@@ -720,15 +720,15 @@ externalTools {
             // https://github.com/kubernetes-sigs/kind/releases
 
             platforms(["linux", "darwin"]) {
-                source.set("https://kind.sigs.k8s.io/dl/v0.10.0/kind-${platform}-amd64")
+                source.set("https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-${platform}-amd64")
             }
 
             platform("linux") {
-                checksum.set("74767776488508d847b0bb941212c1cb76ace90d9439f4dee256d8a04f1309c6")
+                checksum.set("949f81b3c30ca03a3d4effdecda04f100fa3edc07a28b19400f72ede7c5f0491")
             }
 
             platform("darwin") {
-                checksum.set("a934e573621917a2785f3ddfa7b6187d18fa1c20c94c013919736b3256d37f57")
+                checksum.set("432bef555a70e9360b44661c759658265b9eaaf7f75f1beec4c4d1e6bbf97ce3")
             }
         }
     }
