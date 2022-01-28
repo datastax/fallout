@@ -65,11 +65,10 @@ public class PropertyRefExpander
             String propertyRef = matchedPropertyRefs.group();
             String type = matchedPropertyRefs.group(1);
             String key = matchedPropertyRefs.group(2);
-
             return ignoredRefTypes.contains(type) ?
                 propertyRef :
                 Optional.ofNullable(handlers.get(type))
-                    .map(handler -> handler.expandKey(key))
+                    .map(handler -> Matcher.quoteReplacement(handler.expandKey(key)))
                     .orElseThrow(() -> new InvalidConfigurationException(
                         String.format("No property reference of type '%s'", type)));
         });

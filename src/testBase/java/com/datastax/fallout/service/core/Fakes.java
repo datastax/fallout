@@ -57,6 +57,7 @@ public class Fakes
             "test",
             "fake-token"));
         user.addDockerRegistryCredential(new User.DockerRegistryCredential(TEST_REGISTRY, "user", "docker-password"));
+        user.addGenericSecret("a-secret", "pswd");
         return user;
     }
 
