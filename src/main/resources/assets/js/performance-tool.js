@@ -7,15 +7,6 @@ function initiate(defaultUser) {
         type: "GET",
         success: function (data) {
             allUsers = data;
-            allUsers = allUsers.sort(function(u1, u2){
-                                         if (u1.name < u2.name) {
-                                            return -1;
-                                         }
-                                         else if (u1.name > u2.name) {
-                                            return 1;
-                                         }
-                                         return 0;
-                                     });
             buildDefaultView(defaultUser);
         },
         error: function (data) {

@@ -23,7 +23,6 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
 
 import java.net.URI;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -115,7 +114,6 @@ public class HomeResource
             super(List.of("Users"), "directory.mustache", user, mainView);
 
             this.allUsers = userDAO.getAllUsers();
-            this.allUsers.sort(Comparator.comparing(userMap -> userMap.get("name")));
         }
     }
 

@@ -16,6 +16,7 @@
 package com.datastax.fallout.service.db;
 
 import java.nio.ByteBuffer;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -122,10 +123,12 @@ public class UserDAO implements Managed
         return userMapper.get(userId, Mapper.Option.consistencyLevel(ConsistencyLevel.SERIAL));
     }
 
+    /** Return a list of users as maps of <code>{"name": ..., "email": ...}</code>, sorted by name. */
     public List<Map<String, String>> getAllUsers()
     {
         return userAccessor.getAllNamesAndEmails().all().stream()
             .map(r -> Map.of("name", r.getString("name"), "email", r.getString("email")))
+            .sorted(Comparator.comparing(userMap -> userMap.get("name")))
             .toList();
     }
 
