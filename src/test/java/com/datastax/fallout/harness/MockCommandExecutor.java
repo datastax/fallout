@@ -15,7 +15,6 @@
  */
 package com.datastax.fallout.harness;
 
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.PipedInputStream;
@@ -39,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.commands.CommandExecutor;
 import com.datastax.fallout.ops.commands.NodeResponse;
+import com.datastax.fallout.util.CompletableFutures;
 import com.datastax.fallout.util.Exceptions;
 
 /** Implementation of CommandExecutor that allows mocking the exit codes and output
@@ -51,7 +51,9 @@ public class MockCommandExecutor implements CommandExecutor
     {
         private final Predicate<String> matches;
         private int exitCode = 0;
+        private String stdoutContent = "";
         private String stderrContent = "";
+        private Consumer<PrintWriter> stdoutOutputStreamWriter = writer -> writer.print(stdoutContent);
         private Consumer<PrintWriter> stderrOutputStreamWriter = writer -> writer.print(stderrContent);
         private Optional<Duration> duration = Optional.empty();
 
@@ -66,6 +68,12 @@ public class MockCommandExecutor implements CommandExecutor
             return this;
         }
 
+        public MockCommandResponse outputsOnStdout(String output)
+        {
+            this.stdoutContent = output;
+            return this;
+        }
+
         public MockCommandResponse outputsOnStderr(String output)
         {
             this.stderrContent = output;
@@ -75,6 +83,13 @@ public class MockCommandExecutor implements CommandExecutor
         public MockCommandResponse exitsAfter(Duration duration)
         {
             this.duration = Optional.of(duration);
+            return this;
+        }
+
+        /** stdoutOutputStreamWriter will be called on a separate thread */
+        public MockCommandResponse outputsOnStdout(Consumer<PrintWriter> stdoutOutputStreamWriter)
+        {
+            this.stdoutOutputStreamWriter = stdoutOutputStreamWriter;
             return this;
         }
 
@@ -154,37 +169,45 @@ public class MockCommandExecutor implements CommandExecutor
 
     private static class MockNodeResponse extends NodeResponse
     {
-        private final long startTime = System.nanoTime();
         private final CompletableFuture<Integer> exitCodeFuture;
-        private final PipedInputStream stderrInputStream;
+        private final PipedInputStream stdoutInputStream = new PipedInputStream();
+        private final PipedInputStream stderrInputStream = new PipedInputStream();
 
         private MockNodeResponse(MockCommandResponse mockCommandResponse, String command, Logger logger)
         {
             super(null, command, logger);
 
+            final var stdoutFuture = createOutputFuture(
+                stdoutInputStream, mockCommandResponse.stdoutOutputStreamWriter);
+            final var stderrFuture = createOutputFuture(
+                stderrInputStream, mockCommandResponse.stderrOutputStreamWriter);
+
+            exitCodeFuture = CompletableFuture.allOf(stdoutFuture, stderrFuture)
+                .thenComposeAsync(ignored -> mockCommandResponse.createExitCodeFuture());
+        }
+
+        private CompletableFuture<Void> createOutputFuture(PipedInputStream inputStream,
+            Consumer<PrintWriter> outputStreamWriter)
+        {
             // Connect both ends of the pipe before we start the thread that will write to the pipe, and just as
-            // importantly, before we return from this constructor and anything tries to read from stderrInputStream.
-            stderrInputStream = new PipedInputStream();
-            var stderrOutputWriter = new PrintWriter(new OutputStreamWriter(
-                Exceptions.getUncheckedIO(() -> new PipedOutputStream(stderrInputStream)),
+            // importantly, before we return from the constructor and anything tries to read from stderrInputStream.
+
+            final var outputWriter = new PrintWriter(new OutputStreamWriter(
+                Exceptions.getUncheckedIO(() -> new PipedOutputStream(inputStream)),
                 StandardCharsets.UTF_8));
 
-            var stderrFuture = CompletableFuture.runAsync(() -> {
-                try (var writer = stderrOutputWriter)
+            return CompletableFuture.runAsync(() -> {
+                try (var writer = outputWriter)
                 {
-                    mockCommandResponse.stderrOutputStreamWriter.accept(writer);
+                    outputStreamWriter.accept(writer);
                 }
-            });
-
-            exitCodeFuture = mockCommandResponse.createExitCodeFuture()
-                .thenComposeAsync(exitCode -> stderrFuture
-                    .thenApplyAsync(v -> exitCode));
+            }, CompletableFutures.BLOCKING_EXECUTOR);
         }
 
         @Override
         protected InputStream getOutputStream()
         {
-            return new ByteArrayInputStream(new byte[] {});
+            return stdoutInputStream;
         }
 
         @Override

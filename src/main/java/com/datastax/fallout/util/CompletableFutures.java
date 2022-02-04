@@ -15,6 +15,18 @@
  */
 package com.datastax.fallout.util;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
 public class CompletableFutures
 {
+    private CompletableFutures()
+    {
+        // utility class
+    }
+
+    /** An executor that should be used for {@link CompletableFuture} instances that invoke thread blocking methods */
+    public static Executor BLOCKING_EXECUTOR =
+        Executors.newCachedThreadPool(new NamedThreadFactory("BlockingExecutor"));
 }
