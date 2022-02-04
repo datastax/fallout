@@ -23,6 +23,7 @@ import java.io.PipedOutputStream;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,7 +39,6 @@ import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.commands.CommandExecutor;
 import com.datastax.fallout.ops.commands.NodeResponse;
 import com.datastax.fallout.util.CompletableFutures;
-import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.Exceptions;
 
 /** Implementation of CommandExecutor that allows mocking the exit codes and output
