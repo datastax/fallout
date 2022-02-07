@@ -233,5 +233,13 @@ public class MockCommandExecutor implements CommandExecutor
         {
             exitCodeFuture.complete(-1);
         }
+
+        @Override
+        protected WaitOptions createWaitOptions()
+        {
+            final var waitOptions = super.createWaitOptions();
+            waitOptions.checkInterval = com.datastax.fallout.util.Duration.milliseconds(100);
+            return waitOptions;
+        }
     }
 }
