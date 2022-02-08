@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -38,7 +39,6 @@ import org.slf4j.LoggerFactory;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.commands.CommandExecutor;
 import com.datastax.fallout.ops.commands.NodeResponse;
-import com.datastax.fallout.util.CompletableFutures;
 import com.datastax.fallout.util.Exceptions;
 
 /** Implementation of CommandExecutor that allows mocking the exit codes and output
@@ -93,7 +93,7 @@ public class MockCommandExecutor implements CommandExecutor
         private CompletableFuture<Integer> createExitCodeFuture()
         {
             var durationFuture = duration.map(duration_ -> CompletableFuture.supplyAsync(() -> exitCode,
-                CompletableFutures.delayedExecutor(duration_)));
+                CompletableFuture.delayedExecutor(duration_.toNanos(), TimeUnit.NANOSECONDS)));
 
             return durationFuture.orElse(CompletableFuture.completedFuture(exitCode));
         }

@@ -15,18 +15,6 @@
  */
 package com.datastax.fallout.util;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-
 public class CompletableFutures
 {
-    public static Executor delayedExecutor(Duration delay)
-    {
-        return CompletableFuture.delayedExecutor(delay.value, delay.unit);
-    }
-
-    public static Executor delayedExecutor(java.time.Duration delay)
-    {
-        return CompletableFutures.delayedExecutor(Duration.fromJdkDuration(delay));
-    }
 }

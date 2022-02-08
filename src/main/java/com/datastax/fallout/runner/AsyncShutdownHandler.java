@@ -17,7 +17,6 @@ package com.datastax.fallout.runner;
 
 import java.util.concurrent.CompletableFuture;
 
-import com.datastax.fallout.util.CompletableFutures;
 import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.ScopedLogger;
 
@@ -67,7 +66,7 @@ public class AsyncShutdownHandler
                         }
                     });
             },
-                CompletableFutures.delayedExecutor(SHUTDOWN_GRACE_DELAY));
+                CompletableFuture.delayedExecutor(SHUTDOWN_GRACE_DELAY.value, SHUTDOWN_GRACE_DELAY.unit));
         }
     }
 }
