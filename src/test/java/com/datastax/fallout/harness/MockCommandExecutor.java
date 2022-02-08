@@ -23,6 +23,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,6 +47,8 @@ import com.datastax.fallout.util.Exceptions;
 public class MockCommandExecutor implements CommandExecutor
 {
     private static final Logger logger = LoggerFactory.getLogger(MockCommandExecutor.class);
+
+    private final List<String> commandsExecuted = new ArrayList<>();
 
     public static class MockCommandResponse
     {
@@ -159,8 +162,14 @@ public class MockCommandExecutor implements CommandExecutor
         return new MockNodeResponse(executeCommand(command), command, logger);
     }
 
+    public List<String> getCommandsExecuted()
+    {
+        return commandsExecuted;
+    }
+
     private MockCommandResponse executeCommand(String command)
     {
+        commandsExecuted.add(command);
         return commandResponses.stream()
             .filter(commandResponse -> commandResponse.matches.test(command))
             .findFirst()
