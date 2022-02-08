@@ -18,11 +18,12 @@ package com.datastax.fallout.components.kubernetes;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -30,8 +31,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.rpc.ResourceExhaustedException;
 import com.google.auth.oauth2.GoogleCredentials;
@@ -64,7 +65,6 @@ import com.datastax.fallout.runner.CheckResourcesResult;
 import com.datastax.fallout.service.core.TestRunIdentifier;
 import com.datastax.fallout.service.core.User;
 import com.datastax.fallout.util.DateUtils;
-import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.FileUtils;
 import com.datastax.fallout.util.JsonUtils;
@@ -393,37 +393,6 @@ public class GoogleKubernetesEngineProvisioner extends AbstractKubernetesProvisi
         return super.stopImpl(nodeGroup) && collectedLogs;
     }
 
-    @Override
-    protected boolean cleanupPersistentVolumeDisks(NodeGroup nodeGroup)
-    {
-        KubeControlProvider kubectl = nodeGroup.findFirstRequiredProvider(KubeControlProvider.class);
-        List<NodeResponse> deletes = new ArrayList<>();
-        JsonNode pvs = kubectl.getPersistentVolumes();
-        for (var pv : pvs)
-        {
-            JsonNode createdBy = pv.at("/metadata/annotations").path("kubernetes.io/createdby");
-            if (createdBy.asText().equals("gce-pd-dynamic-provisioner"))
-            {
-                String diskName = pv.at("/spec/gcePersistentDisk/pdName").asText();
-                if (pv.at("/status/phase").asText().equals("Bound"))
-                {
-                    nodeGroup.logger().warn(
-                        "Found Bound persistent volume ({}) - this must be deleted manually", diskName);
-                    continue;
-                }
-
-                deletes.add(executeInKubernetesEnv(String.format(
-                    "gcloud compute disks delete %s %s --project %s",
-                    diskName, getRegionOrZoneArg(), projectSpec.value(nodeGroup))));
-
-                deletes.add(kubectl.inNamespace(Optional.empty(), namespacedKubectl -> namespacedKubectl.execute(
-                    String.format("delete persistentvolume %s", pv.at("/metadata/name").asText()))));
-            }
-        }
-
-        return Utils.waitForSuccess(nodeGroup.logger(), deletes, Duration.minutes(10));
-    }
-
     private boolean collectLogsFromGke()
     {
         GoogleCredentials credentials = Exceptions.getUncheckedIO(() -> GoogleCredentials.fromStream(
@@ -562,14 +531,141 @@ public class GoogleKubernetesEngineProvisioner extends AbstractKubernetesProvisi
         userNamespaces.add(namespace);
     }
 
+    private record GCEDisk(String zone, String name) {
+        private static String toString(Collection<GCEDisk> gceDisks)
+        {
+            return gceDisks.stream().map(GCEDisk::toString)
+                .collect(Collectors.joining("\n  ", "  ", ""));
+        }
+    }
+
+    private boolean getGCEDisksFromGCloudJSON(String gcloudJson, Set<GCEDisk> gceDisks)
+    {
+        try
+        {
+            for (final var item : JsonUtils.getJsonNode(gcloudJson))
+            {
+                // The JSON format of gcloud compute disks has the zone as a URL, while the output of
+                // kubectl get pv has an unadorned zone.
+                final var zonePath = URI.create(item.get("zone").require().asText()).getPath();
+                final var zone = zonePath.substring(zonePath.lastIndexOf('/') + 1);
+                gceDisks.add(new GCEDisk(zone, item.get("name").require().asText()));
+            }
+        }
+        catch (Throwable ex)
+        {
+            getNodeGroup().logger().error("Could not read all GCE disks", ex);
+            return false;
+        }
+        return true;
+    }
+
+    private boolean deleteLeakedDisks(HashSet<GCEDisk> gceDisksInCluster)
+    {
+        final var gCloudListDisksJsonCommand = executeInKubernetesEnv(
+            "gcloud compute disks list --project %s --format json".formatted(
+                projectSpec.value(getNodeGroup())))
+                    .buffered();
+
+        final var existingGCEDisks = new HashSet<GCEDisk>();
+
+        final var gCloudListDisksJsonSucceeded =
+            gCloudListDisksJsonCommand.doWait().forSuccess() &&
+                getGCEDisksFromGCloudJSON(gCloudListDisksJsonCommand.getStdout(), existingGCEDisks);
+
+        if (!gCloudListDisksJsonSucceeded)
+        {
+            getNodeGroup().logger().error("Could not get existing GCE disks; " +
+                "attempting to delete all disks in cluster even if they no longer exist");
+        }
+        else
+        {
+            getNodeGroup().logger().info("Found the following existing GCE disks:\n{}",
+                GCEDisk.toString(existingGCEDisks));
+
+            gceDisksInCluster.retainAll(existingGCEDisks);
+
+            if (!gceDisksInCluster.isEmpty())
+            {
+                getNodeGroup().logger().warn("The following GCE disks were leaked by the cluster; " +
+                    "attempting to delete them now:\n{}", GCEDisk.toString(gceDisksInCluster));
+            }
+        }
+
+        final var deleteDiskCommands = gceDisksInCluster.stream()
+            .map(disk -> executeInKubernetesEnv(
+                "gcloud compute disks delete --project %s --quiet --zone %s %s".formatted(
+                    projectSpec.value(getNodeGroup()),
+                    disk.zone(),
+                    disk.name())))
+            .toList();
+
+        return Utils.waitForSuccess(getNodeGroup().logger(), deleteDiskCommands) && gCloudListDisksJsonSucceeded;
+    }
+
+    private boolean getGCEDisksFromPVJson(String pvJson, Set<GCEDisk> gceDisks)
+    {
+        try
+        {
+            final var rootNode = JsonUtils.getJsonNode(pvJson);
+
+            for (final var item : rootNode.at("/items").require())
+            {
+                // Ignore PVs that are not dynamic (https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/),
+                // operating under the assumption that static PVs will be backed by disks containing
+                // data that should not be deleted between testruns (for example, test data).
+                final var createdBy = item.at("/metadata/annotations").get("kubernetes.io/createdby");
+                if (createdBy != null && createdBy.asText().equals("gce-pd-dynamic-provisioner"))
+                {
+                    gceDisks.add(new GCEDisk(
+                        item.at("/metadata/labels").get("topology.kubernetes.io/zone").require().asText(),
+                        item.at("/spec/gcePersistentDisk/pdName").require().asText()));
+                }
+            }
+        }
+        catch (Throwable ex)
+        {
+            getNodeGroup().logger().error("Could not read all PVs from cluster", ex);
+            return false;
+        }
+
+        return true;
+    }
+
     @Override
     protected boolean destroyKubernetesCluster(NodeGroup nodeGroup)
     {
-        String destroyClusterCmd = String.format(
-            "gcloud container clusters delete %s --project %s %s", clusterName(nodeGroup),
-            projectSpec.value(nodeGroup), getRegionOrZoneArg());
-        NodeResponse destroy = executeInKubernetesEnv(destroyClusterCmd);
-        return destroy.waitForSuccess();
+        final var getPVJsonCommand =
+            executeInKubernetesEnv("kubectl get persistentvolumes -o json").buffered();
+
+        final var gceDisksInCluster = new HashSet<GCEDisk>();
+
+        final var getPVJsonSucceeded =
+            getPVJsonCommand.doWait().forSuccess() &&
+                getGCEDisksFromPVJson(getPVJsonCommand.getStdout(), gceDisksInCluster);
+
+        if (!getPVJsonSucceeded)
+        {
+            nodeGroup.logger().error("Could not get all PVs from cluster; " +
+                "YOU MUST MANUALLY CHECK FOR LEAKED GCE DISKS AFTER THIS CLUSTER IS DESTROYED");
+        }
+        else
+        {
+            nodeGroup.logger().info("Found the following GCE disks backing cluster PVs:\n{}",
+                GCEDisk.toString(gceDisksInCluster));
+        }
+
+        final var clusterDestroyed =
+            executeInKubernetesEnv(
+                "gcloud container clusters delete %s --project %s %s".formatted(
+                    clusterName(nodeGroup),
+                    projectSpec.value(nodeGroup),
+                    getRegionOrZoneArg()))
+                        .waitForSuccess();
+
+        return getPVJsonSucceeded &&
+            clusterDestroyed &&
+            deleteLeakedDisks(gceDisksInCluster);
     }
 
     @Override

@@ -263,15 +263,10 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
         return true;
     }
 
-    protected boolean cleanupPersistentVolumeDisks(NodeGroup nodeGroup)
-    {
-        return true;
-    }
-
     @Override
     protected boolean stopImpl(NodeGroup nodeGroup)
     {
-        return cleanupPersistentVolumeDisks(nodeGroup);
+        return true;
     }
 
     /**

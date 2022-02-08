@@ -1,0 +1,326 @@
+[
+    {
+        "creationTimestamp": "2022-01-24T14:44:23.931-08:00",
+        "guestOsFeatures": [
+            {
+                "type": "UEFI_COMPATIBLE"
+            },
+            {
+                "type": "SEV_CAPABLE"
+            },
+            {
+                "type": "SECURE_BOOT"
+            },
+            {
+                "type": "VIRTIO_SCSI_MULTIQUEUE"
+            }
+        ],
+        "id": "8127579368634619176",
+        "kind": "compute#disk",
+        "labelFingerprint": "oxWUxO6zs5Y=",
+        "labels": {
+            "fallout_testrun_id": "e81bdc6c-fa33-4040-84ab-cb3dab5accdb",
+            "goog-gke-node": "",
+            "goog-gke-volume": ""
+        },
+        "lastAttachTimestamp": "2022-01-24T14:44:23.931-08:00",
+        "licenseCodes": [
+            "166739712233658766",
+            "1001003",
+            "1001010",
+            "6880041984096540132"
+        ],
+        "licenses": [
+            "https://www.googleapis.com/compute/v1/projects/cos-cloud-shielded/global/licenses/shielded-cos",
+            "https://www.googleapis.com/compute/v1/projects/gke-node-images/global/licenses/gke-node",
+            "https://www.googleapis.com/compute/v1/projects/cos-cloud/global/licenses/cos",
+            "https://www.googleapis.com/compute/v1/projects/cos-cloud/global/licenses/cos-pcid"
+        ],
+        "name": "gke-k8s-nb-default-pool-d32b654e-zv7n",
+        "physicalBlockSizeBytes": "4096",
+        "selfLink": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-c/disks/gke-k8s-nb-default-pool-d32b654e-zv7n",
+        "sizeGb": "100",
+        "sourceImage": "https://www.googleapis.com/compute/v1/projects/gke-node-images/global/images/gke-12012-gke1500-cos-89-16108-534-18-v211117-pre",
+        "sourceImageId": "1856647295059775037",
+        "status": "READY",
+        "type": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-c/diskTypes/pd-standard",
+        "users": [
+            "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-c/instances/gke-k8s-nb-default-pool-d32b654e-zv7n"
+        ],
+        "zone": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-c"
+    },
+    {
+        "creationTimestamp": "2022-01-24T14:44:33.164-08:00",
+        "guestOsFeatures": [
+            {
+                "type": "UEFI_COMPATIBLE"
+            },
+            {
+                "type": "SEV_CAPABLE"
+            },
+            {
+                "type": "SECURE_BOOT"
+            },
+            {
+                "type": "VIRTIO_SCSI_MULTIQUEUE"
+            }
+        ],
+        "id": "5666332326548903231",
+        "kind": "compute#disk",
+        "labelFingerprint": "oxWUxO6zs5Y=",
+        "labels": {
+            "fallout_testrun_id": "e81bdc6c-fa33-4040-84ab-cb3dab5accdb",
+            "goog-gke-node": "",
+            "goog-gke-volume": ""
+        },
+        "lastAttachTimestamp": "2022-01-24T14:44:33.164-08:00",
+        "licenseCodes": [
+            "166739712233658766",
+            "1001003",
+            "1001010",
+            "6880041984096540132"
+        ],
+        "licenses": [
+            "https://www.googleapis.com/compute/v1/projects/cos-cloud-shielded/global/licenses/shielded-cos",
+            "https://www.googleapis.com/compute/v1/projects/gke-node-images/global/licenses/gke-node",
+            "https://www.googleapis.com/compute/v1/projects/cos-cloud/global/licenses/cos",
+            "https://www.googleapis.com/compute/v1/projects/cos-cloud/global/licenses/cos-pcid"
+        ],
+        "name": "gke-k8s-nb-default-pool-5dd27f40-pqmv",
+        "physicalBlockSizeBytes": "4096",
+        "selfLink": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-b/disks/gke-k8s-nb-default-pool-5dd27f40-pqmv",
+        "sizeGb": "100",
+        "sourceImage": "https://www.googleapis.com/compute/v1/projects/gke-node-images/global/images/gke-12012-gke1500-cos-89-16108-534-18-v211117-pre",
+        "sourceImageId": "1856647295059775037",
+        "status": "READY",
+        "type": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-b/diskTypes/pd-standard",
+        "users": [
+            "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-b/instances/gke-k8s-nb-default-pool-5dd27f40-pqmv"
+        ],
+        "zone": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-b"
+    },
+    {
+        "creationTimestamp": "2022-01-06T11:58:26.092-08:00",
+        "guestOsFeatures": [
+            {
+                "type": "UEFI_COMPATIBLE"
+            },
+            {
+                "type": "SEV_CAPABLE"
+            },
+            {
+                "type": "SECURE_BOOT"
+            },
+            {
+                "type": "VIRTIO_SCSI_MULTIQUEUE"
+            }
+        ],
+        "id": "1667254763617187598",
+        "kind": "compute#disk",
+        "labelFingerprint": "d8iJ1PzyeaQ=",
+        "labels": {
+            "fallout_testrun_id": "3db62be1-8984-402a-aaa9-23b07c79adc8",
+            "goog-gke-node": "",
+            "goog-gke-volume": ""
+        },
+        "lastAttachTimestamp": "2022-01-06T11:58:26.092-08:00",
+        "licenseCodes": [
+            "166739712233658766",
+            "1001003",
+            "1001010",
+            "6880041984096540132"
+        ],
+        "licenses": [
+            "https://www.googleapis.com/compute/v1/projects/cos-cloud-shielded/global/licenses/shielded-cos",
+            "https://www.googleapis.com/compute/v1/projects/gke-node-images/global/licenses/gke-node",
+            "https://www.googleapis.com/compute/v1/projects/cos-cloud/global/licenses/cos",
+            "https://www.googleapis.com/compute/v1/projects/cos-cloud/global/licenses/cos-pcid"
+        ],
+        "name": "gke-cndb-cdc-server-default-pool-436f6c27-d8rk",
+        "physicalBlockSizeBytes": "4096",
+        "selfLink": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/disks/gke-cndb-cdc-server-default-pool-436f6c27-d8rk",
+        "sizeGb": "20",
+        "sourceImage": "https://www.googleapis.com/compute/v1/projects/gke-node-images/global/images/gke-12012-gke1500-cos-89-16108-534-18-v211117-pre",
+        "sourceImageId": "1856647295059775037",
+        "status": "READY",
+        "type": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/diskTypes/pd-ssd",
+        "users": [
+            "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/instances/gke-cndb-cdc-server-default-pool-436f6c27-d8rk"
+        ],
+        "zone": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a"
+    },
+    {
+        "creationTimestamp": "2022-01-06T12:01:24.989-08:00",
+        "description": "{\"kubernetes.io/created-for/pv/name\":\"pvc-d453183b-47ea-4f71-aafb-b5d83533a789\",\"kubernetes.io/created-for/pvc/name\":\"nb-deploy\",\"kubernetes.io/created-for/pvc/namespace\":\"default\"}",
+        "id": "2824653857529459835",
+        "kind": "compute#disk",
+        "labelFingerprint": "OjocbPiRXp4=",
+        "labels": {
+            "fallout_testrun_id": "3db62be1-8984-402a-aaa9-23b07c79adc8",
+            "goog-gke-volume": ""
+        },
+        "lastAttachTimestamp": "2022-01-06T12:03:37.481-08:00",
+        "name": "gke-cndb-cdc-server-f8-pvc-d453183b-47ea-4f71-aafb-b5d83533a789",
+        "physicalBlockSizeBytes": "4096",
+        "selfLink": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/disks/gke-cndb-cdc-server-f8-pvc-d453183b-47ea-4f71-aafb-b5d83533a789",
+        "sizeGb": "10",
+        "status": "READY",
+        "type": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/diskTypes/pd-ssd",
+        "users": [
+            "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/instances/gke-cndb-cdc-server-default-pool-436f6c27-d8rk"
+        ],
+        "zone": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a"
+    },
+    {
+        "creationTimestamp": "2022-01-31T10:33:27.701-08:00",
+        "description": "{\"kubernetes.io/created-for/pv/name\":\"pvc-1d8636ba-e961-4480-b640-9dc44bb201eb\",\"kubernetes.io/created-for/pvc/name\":\"fal-1793-pvc-delete\",\"kubernetes.io/created-for/pvc/namespace\":\"default\"}",
+        "id": "2269126715694749080",
+        "kind": "compute#disk",
+        "labelFingerprint": "nT7_dAxskBs=",
+        "labels": {
+            "goog-gke-volume": ""
+        },
+        "name": "gke-gke-elasticsearch--pvc-1d8636ba-e961-4480-b640-9dc44bb201eb",
+        "physicalBlockSizeBytes": "4096",
+        "selfLink": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/disks/gke-gke-elasticsearch--pvc-1d8636ba-e961-4480-b640-9dc44bb201eb",
+        "sizeGb": "1",
+        "status": "READY",
+        "type": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/diskTypes/pd-standard",
+        "zone": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a"
+    },
+    {
+        "creationTimestamp": "2022-01-31T10:17:35.381-08:00",
+        "description": "{\"kubernetes.io/created-for/pv/name\":\"pvc-27c967a6-d6a4-4ab6-9f65-0d88e26a5423\",\"kubernetes.io/created-for/pvc/name\":\"fal-1793-pvc-delete\",\"kubernetes.io/created-for/pvc/namespace\":\"default\"}",
+        "id": "4821497334415595856",
+        "kind": "compute#disk",
+        "labelFingerprint": "nT7_dAxskBs=",
+        "labels": {
+            "goog-gke-volume": ""
+        },
+        "name": "gke-gke-elasticsearch--pvc-27c967a6-d6a4-4ab6-9f65-0d88e26a5423",
+        "physicalBlockSizeBytes": "4096",
+        "selfLink": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/disks/gke-gke-elasticsearch--pvc-27c967a6-d6a4-4ab6-9f65-0d88e26a5423",
+        "sizeGb": "1",
+        "status": "READY",
+        "type": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/diskTypes/pd-standard",
+        "zone": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a"
+    },
+    {
+        "creationTimestamp": "2022-01-31T10:17:32.172-08:00",
+        "description": "{\"kubernetes.io/created-for/pv/name\":\"pvc-310247ef-55e2-4268-b5d1-33c54d7ad6fd\",\"kubernetes.io/created-for/pvc/name\":\"fal-1793-pvc-retain\",\"kubernetes.io/created-for/pvc/namespace\":\"default\"}",
+        "id": "5073713963113748820",
+        "kind": "compute#disk",
+        "labelFingerprint": "nT7_dAxskBs=",
+        "labels": {
+            "goog-gke-volume": ""
+        },
+        "name": "gke-gke-elasticsearch--pvc-310247ef-55e2-4268-b5d1-33c54d7ad6fd",
+        "physicalBlockSizeBytes": "4096",
+        "selfLink": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/disks/gke-gke-elasticsearch--pvc-310247ef-55e2-4268-b5d1-33c54d7ad6fd",
+        "sizeGb": "1",
+        "status": "READY",
+        "type": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/diskTypes/pd-ssd",
+        "zone": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a"
+    },
+    {
+        "creationTimestamp": "2022-01-31T11:21:29.726-08:00",
+        "description": "{\"kubernetes.io/created-for/pv/name\":\"pvc-37dceae5-9a5e-4812-95d4-dc7751031ea2\",\"kubernetes.io/created-for/pvc/name\":\"fal-1793-pvc-retain\",\"kubernetes.io/created-for/pvc/namespace\":\"default\"}",
+        "id": "7193487409832888406",
+        "kind": "compute#disk",
+        "labelFingerprint": "nT7_dAxskBs=",
+        "labels": {
+            "goog-gke-volume": ""
+        },
+        "name": "gke-gke-elasticsearch--pvc-37dceae5-9a5e-4812-95d4-dc7751031ea2",
+        "physicalBlockSizeBytes": "4096",
+        "selfLink": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/disks/gke-gke-elasticsearch--pvc-37dceae5-9a5e-4812-95d4-dc7751031ea2",
+        "sizeGb": "1",
+        "status": "READY",
+        "type": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/diskTypes/pd-ssd",
+        "zone": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a"
+    },
+    {
+        "creationTimestamp": "2022-01-31T11:21:32.861-08:00",
+        "description": "{\"kubernetes.io/created-for/pv/name\":\"pvc-cb130378-db0e-42bb-94a3-6f4f909fb34f\",\"kubernetes.io/created-for/pvc/name\":\"fal-1793-pvc-delete\",\"kubernetes.io/created-for/pvc/namespace\":\"default\"}",
+        "id": "5870460134875301971",
+        "kind": "compute#disk",
+        "labelFingerprint": "nT7_dAxskBs=",
+        "labels": {
+            "goog-gke-volume": ""
+        },
+        "name": "gke-gke-elasticsearch--pvc-cb130378-db0e-42bb-94a3-6f4f909fb34f",
+        "physicalBlockSizeBytes": "4096",
+        "selfLink": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/disks/gke-gke-elasticsearch--pvc-cb130378-db0e-42bb-94a3-6f4f909fb34f",
+        "sizeGb": "1",
+        "status": "READY",
+        "type": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/diskTypes/pd-standard",
+        "zone": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a"
+    },
+    {
+        "creationTimestamp": "2022-01-31T10:33:24.463-08:00",
+        "description": "{\"kubernetes.io/created-for/pv/name\":\"pvc-f91893e7-510c-4677-9644-b739f335a66e\",\"kubernetes.io/created-for/pvc/name\":\"fal-1793-pvc-retain\",\"kubernetes.io/created-for/pvc/namespace\":\"default\"}",
+        "id": "7859506566789436827",
+        "kind": "compute#disk",
+        "labelFingerprint": "nT7_dAxskBs=",
+        "labels": {
+            "goog-gke-volume": ""
+        },
+        "name": "gke-gke-elasticsearch--pvc-f91893e7-510c-4677-9644-b739f335a66e",
+        "physicalBlockSizeBytes": "4096",
+        "selfLink": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/disks/gke-gke-elasticsearch--pvc-f91893e7-510c-4677-9644-b739f335a66e",
+        "sizeGb": "1",
+        "status": "READY",
+        "type": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/diskTypes/pd-ssd",
+        "zone": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a"
+    },
+    {
+        "creationTimestamp": "2022-01-24T14:44:20.940-08:00",
+        "guestOsFeatures": [
+            {
+                "type": "UEFI_COMPATIBLE"
+            },
+            {
+                "type": "SEV_CAPABLE"
+            },
+            {
+                "type": "SECURE_BOOT"
+            },
+            {
+                "type": "VIRTIO_SCSI_MULTIQUEUE"
+            }
+        ],
+        "id": "4247564509667038507",
+        "kind": "compute#disk",
+        "labelFingerprint": "oxWUxO6zs5Y=",
+        "labels": {
+            "fallout_testrun_id": "e81bdc6c-fa33-4040-84ab-cb3dab5accdb",
+            "goog-gke-node": "",
+            "goog-gke-volume": ""
+        },
+        "lastAttachTimestamp": "2022-01-24T14:44:20.940-08:00",
+        "licenseCodes": [
+            "166739712233658766",
+            "1001003",
+            "1001010",
+            "6880041984096540132"
+        ],
+        "licenses": [
+            "https://www.googleapis.com/compute/v1/projects/cos-cloud-shielded/global/licenses/shielded-cos",
+            "https://www.googleapis.com/compute/v1/projects/gke-node-images/global/licenses/gke-node",
+            "https://www.googleapis.com/compute/v1/projects/cos-cloud/global/licenses/cos",
+            "https://www.googleapis.com/compute/v1/projects/cos-cloud/global/licenses/cos-pcid"
+        ],
+        "name": "gke-k8s-nb-default-pool-a04fac24-dmz4",
+        "physicalBlockSizeBytes": "4096",
+        "selfLink": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/disks/gke-k8s-nb-default-pool-a04fac24-dmz4",
+        "sizeGb": "100",
+        "sourceImage": "https://www.googleapis.com/compute/v1/projects/gke-node-images/global/images/gke-12012-gke1500-cos-89-16108-534-18-v211117-pre",
+        "sourceImageId": "1856647295059775037",
+        "status": "READY",
+        "type": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/diskTypes/pd-standard",
+        "users": [
+            "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a/instances/gke-k8s-nb-default-pool-a04fac24-dmz4"
+        ],
+        "zone": "https://www.googleapis.com/compute/v1/projects/eng-test-tools/zones/us-west2-a"
+    }
+]
