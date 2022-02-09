@@ -17,7 +17,6 @@ package com.datastax.fallout.components.kubernetes;
 
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
@@ -95,14 +95,36 @@ class GoogleKubernetesEngineProvisionerTest extends TestHelpers.FalloutTest<Fall
         }
     }
 
-    private static String kubectlGetPersistentVolumesOutputSecondDiskIsDynamicallyAllocated(
-        boolean secondDiskIsDynamicallyAllocated)
+    enum TopologyLabelVersion
+    {
+        /** https://kubernetes.io/docs/reference/labels-annotations-taints/#failure-domainbetakubernetesiozone
+         * is deprecated from 1.17, and absent in later versions */
+        DEPRECATED("failure-domain.beta.kubernetes.io"),
+        CURRENT("topology.kubernetes.io");
+
+        final String prefix;
+
+        TopologyLabelVersion(String prefix)
+        {
+            this.prefix = prefix;
+        }
+    }
+
+    enum SecondDiskAllocation
+    {
+        DYNAMIC,
+        STATIC
+    }
+
+    private static String kubectlGetPersistentVolumesOutput(
+        TopologyLabelVersion topologyLabelVersion, SecondDiskAllocation secondDiskAllocation)
     {
         return MustacheFactoryWithoutHTMLEscaping.renderWithScopes(
-            getTestClassResourceAsString("kubectl-get-persistentvolumes.json" + ".mustache"), List.of(
-                new HashMap<String, Object>(Map.of(
-                    "secondDiskIsDynamicallyAllocated", secondDiskIsDynamicallyAllocated
-                ))));
+            getTestClassResourceAsString("kubectl-get-persistentvolumes.json.mustache"), List.of(Map.of(
+                "topologyLabelPrefix", topologyLabelVersion.prefix,
+                "secondDiskIsDynamicallyAllocated",
+                secondDiskAllocation == SecondDiskAllocation.DYNAMIC
+            )));
     }
 
     @BeforeAll
@@ -122,7 +144,8 @@ class GoogleKubernetesEngineProvisionerTest extends TestHelpers.FalloutTest<Fall
             .outputsOnStdout(kubectlGetNodesOutput);
 
         kubectlGetPersistentVolumesCommand = command("kubectl get persistentvolumes -o json")
-            .outputsOnStdout(kubectlGetPersistentVolumesOutputSecondDiskIsDynamicallyAllocated(true));
+            .outputsOnStdout(
+                kubectlGetPersistentVolumesOutput(TopologyLabelVersion.CURRENT, SecondDiskAllocation.DYNAMIC));
 
         gcloudComputeDisksListCommand = command("gcloud compute disks list --project fake --format json")
             .outputsOnStdout(gcloudComputeDisksListOutput);
@@ -174,9 +197,14 @@ class GoogleKubernetesEngineProvisionerTest extends TestHelpers.FalloutTest<Fall
         }
     }
 
-    @Test
-    void only_leaked_disks_are_deleted()
+    @ParameterizedTest
+    @EnumSource(TopologyLabelVersion.class)
+    void only_leaked_disks_are_deleted(TopologyLabelVersion topologyLabelVersion)
     {
+        kubectlGetPersistentVolumesCommand
+            .outputsOnStdout(kubectlGetPersistentVolumesOutput(
+                topologyLabelVersion, SecondDiskAllocation.DYNAMIC));
+
         createAndDestroyNodegroup(AVAILABLE);
 
         // Multiple disks are returned in gcloud-compute-disks-list.json, but
@@ -188,11 +216,13 @@ class GoogleKubernetesEngineProvisionerTest extends TestHelpers.FalloutTest<Fall
                     "gcloud compute disks delete --project fake --quiet --zone us-west2-a gke-gke-elasticsearch--pvc-cb130378-db0e-42bb-94a3-6f4f909fb34f");
     }
 
-    @Test
-    void only_disks_created_for_dynamic_pvs_are_deleted()
+    @ParameterizedTest
+    @EnumSource(TopologyLabelVersion.class)
+    void only_disks_created_for_dynamic_pvs_are_deleted(TopologyLabelVersion topologyLabelVersion)
     {
         kubectlGetPersistentVolumesCommand
-            .outputsOnStdout(kubectlGetPersistentVolumesOutputSecondDiskIsDynamicallyAllocated(false));
+            .outputsOnStdout(kubectlGetPersistentVolumesOutput(
+                topologyLabelVersion, SecondDiskAllocation.STATIC));
 
         createAndDestroyNodegroup(AVAILABLE);
 
@@ -285,7 +315,8 @@ class GoogleKubernetesEngineProvisionerTest extends TestHelpers.FalloutTest<Fall
 
     static Stream<Arguments> kubeCtlGetPersistentVolumesFailures()
     {
-        return getJsonCommandFailures(kubectlGetPersistentVolumesOutputSecondDiskIsDynamicallyAllocated(true),
+        return getJsonCommandFailures(kubectlGetPersistentVolumesOutput(
+            TopologyLabelVersion.CURRENT, SecondDiskAllocation.DYNAMIC),
             List.of("", "{}", "[]"));
     }
 

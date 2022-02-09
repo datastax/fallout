@@ -15,8 +15,8 @@
                     "kubernetes.io/pv-protection"
                 ],
                 "labels": {
-                    "topology.kubernetes.io/region": "us-west2",
-                    "topology.kubernetes.io/zone": "us-west2-a"
+                    "{{topologyLabelPrefix}}/region": "us-west2",
+                    "{{topologyLabelPrefix}}/zone": "us-west2-a"
                 },
                 "name": "pvc-37dceae5-9a5e-4812-95d4-dc7751031ea2",
                 "resourceVersion": "1269",
@@ -47,14 +47,14 @@
                             {
                                 "matchExpressions": [
                                     {
-                                        "key": "topology.kubernetes.io/zone",
+                                        "key": "{{topologyLabelPrefix}}/zone",
                                         "operator": "In",
                                         "values": [
                                             "us-west2-a"
                                         ]
                                     },
                                     {
-                                        "key": "topology.kubernetes.io/region",
+                                        "key": "{{topologyLabelPrefix}}/region",
                                         "operator": "In",
                                         "values": [
                                             "us-west2"
@@ -89,8 +89,8 @@
                     "kubernetes.io/pv-protection"
                 ],
                 "labels": {
-                    "topology.kubernetes.io/region": "us-west2",
-                    "topology.kubernetes.io/zone": "us-west2-a"
+                    "{{topologyLabelPrefix}}/region": "us-west2",
+                    "{{topologyLabelPrefix}}/zone": "us-west2-a"
                 },
                 "name": "pvc-cb130378-db0e-42bb-94a3-6f4f909fb34f",
                 "resourceVersion": "1310",
@@ -121,14 +121,14 @@
                             {
                                 "matchExpressions": [
                                     {
-                                        "key": "topology.kubernetes.io/region",
+                                        "key": "{{topologyLabelPrefix}}/region",
                                         "operator": "In",
                                         "values": [
                                             "us-west2"
                                         ]
                                     },
                                     {
-                                        "key": "topology.kubernetes.io/zone",
+                                        "key": "{{topologyLabelPrefix}}/zone",
                                         "operator": "In",
                                         "values": [
                                             "us-west2-a"

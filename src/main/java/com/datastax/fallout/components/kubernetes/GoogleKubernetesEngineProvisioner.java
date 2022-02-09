@@ -617,8 +617,18 @@ public class GoogleKubernetesEngineProvisioner extends AbstractKubernetesProvisi
                 final var createdBy = item.at("/metadata/annotations").get("kubernetes.io/createdby");
                 if (createdBy != null && createdBy.asText().equals("gce-pd-dynamic-provisioner"))
                 {
-                    gceDisks.add(new GCEDisk(
-                        item.at("/metadata/labels").get("topology.kubernetes.io/zone").require().asText(),
+                    final var labels = item.at("/metadata/labels");
+                    var zone = labels.get("topology.kubernetes.io/zone");
+                    if (zone == null)
+                    {
+                        // Try the deprecated zone label
+                        zone = labels.get("failure-domain.beta.kubernetes.io/zone");
+                    }
+                    if (zone == null)
+                    {
+                        throw new RuntimeException("Could not extract zone from PV list");
+                    }
+                    gceDisks.add(new GCEDisk(zone.asText(),
                         item.at("/spec/gcePersistentDisk/pdName").require().asText()));
                 }
             }
