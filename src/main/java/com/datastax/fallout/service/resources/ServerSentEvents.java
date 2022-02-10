@@ -278,7 +278,10 @@ public class ServerSentEvents implements Managed
             // that point), so we take a snapshot of its information for logging purposes.
             this.requestInfo = String.format("%s %s", request.getMethod(), request.getRequestURI());
 
-            activeSinks.add(this);
+            synchronized (activeSinks)
+            {
+                activeSinks.add(this);
+            }
         }
 
         /** Send an SSE event and wait for it to complete; returns false on error or if the stream is closed */
