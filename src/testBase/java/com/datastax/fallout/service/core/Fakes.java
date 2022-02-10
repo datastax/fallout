@@ -15,6 +15,7 @@
  */
 package com.datastax.fallout.service.core;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.UUID;
@@ -35,6 +36,8 @@ public class Fakes
         new TestRunIdentifier(TEST_USER_EMAIL, TEST_NAME, TEST_RUN_ID);
     private static final String UNIT_TEST_GOOGLE_SERVICE_ACCOUNT_JSON_FILE =
         "UNIT_TEST_GOOGLE_SERVICE_ACCOUNT_JSON_FILE";
+    private static final String UNIT_TEST_GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 =
+        "UNIT_TEST_GOOGLE_SERVICE_ACCOUNT_JSON_BASE64";
     public static final String TEST_REGISTRY = "docker-registry.example.com";
 
     public static User makeUser()
@@ -68,6 +71,13 @@ public class Fakes
         {
             return User.GoogleCloudServiceAccount.fromJson(
                 FileUtils.readString(Paths.get(existingKeyFileJsonFromEnv)));
+        }
+        final var base64KeyFileJson = System.getenv(UNIT_TEST_GOOGLE_SERVICE_ACCOUNT_JSON_BASE64);
+        if (base64KeyFileJson != null)
+        {
+            return User.GoogleCloudServiceAccount.fromJson(
+                new String(java.util.Base64.getDecoder().decode(base64KeyFileJson), StandardCharsets.UTF_8)
+            );
         }
         return new User.GoogleCloudServiceAccount(
             "fake-service-account@google-cloud.example.com",
