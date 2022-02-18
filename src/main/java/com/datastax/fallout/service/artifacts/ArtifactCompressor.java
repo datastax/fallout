@@ -139,7 +139,7 @@ public class ArtifactCompressor extends PeriodicTask
             }
             List<Path> uncompressedArtifacts;
             try (Stream<Path> pathStream = Files.find(artifactPath, 10,
-                (path, attr) -> !attr.isDirectory() &&
+                (path, attr) -> attr.isRegularFile() &&
                     !INCOMPRESSIBLE_FILE_EXTENSIONS
                         .contains(com.google.common.io.Files.getFileExtension(path.toString()))))
             {

@@ -15,6 +15,7 @@
  */
 package com.datastax.fallout.service.artifacts;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -50,6 +51,8 @@ public class ArtifactCompressorTest extends ManagedArtifactServiceTest
 {
     public static final String COMPRESSIBLE_ARTIFACT_NAME = "monolith.log";
     public static final String INCOMPRESSIBLE_ARTIFACT_NAME = "the_scream.png";
+    public static final String COMPRESSIBLE_ARTIFACT_WITHIN_DIR_NAME = "contains-files/" + COMPRESSIBLE_ARTIFACT_NAME;
+    public static final String SYMLINK_DIR_NAME = "just-pointing";
 
     private Test test;
     private TestRun testRun;
@@ -116,15 +119,25 @@ public class ArtifactCompressorTest extends ManagedArtifactServiceTest
 
         final String compressibleArtifact = COMPRESSIBLE_ARTIFACT_NAME;
         final String incompressibleArtifact = INCOMPRESSIBLE_ARTIFACT_NAME;
+        final String artifactUnderDir = COMPRESSIBLE_ARTIFACT_WITHIN_DIR_NAME;
+        final String symlinkDir = SYMLINK_DIR_NAME;
 
         assertThat(testRunArtifactPath.resolve(compressibleArtifact)).doesNotExist();
         assertThat(testRunArtifactPath.resolve(incompressibleArtifact)).doesNotExist();
+        assertThat(testRunArtifactPath.resolve(artifactUnderDir)).doesNotExist();
+        assertThat(testRunArtifactPath.resolve(symlinkDir)).doesNotExist();
 
         TestHelpers.createArtifact(testRunArtifactPath, compressibleArtifact, LARGE_ARTIFACT_CONTENT);
         TestHelpers.createArtifact(testRunArtifactPath, incompressibleArtifact, ARTIFACT_CONTENT);
+        TestHelpers.createArtifact(testRunArtifactPath, artifactUnderDir, ARTIFACT_CONTENT);
+
+        Exceptions.runUncheckedIO(() -> Files.createSymbolicLink(testRunArtifactPath.resolve(symlinkDir),
+            testRunArtifactPath.resolve(COMPRESSIBLE_ARTIFACT_WITHIN_DIR_NAME)));
 
         assertThat(testRunArtifactPath.resolve(compressibleArtifact)).exists();
         assertThat(testRunArtifactPath.resolve(incompressibleArtifact)).exists();
+        assertThat(testRunArtifactPath.resolve(artifactUnderDir)).exists();
+        assertThat(testRunArtifactPath.resolve(symlinkDir)).exists();
 
         // Set finished date to have files be candidates for compression
         Instant finishedAt = Instant.now().minus(ArtifactCompressor.COMPRESSION_RANGE_DAYS.lowerEndpoint().plusDays(1));
@@ -151,7 +164,8 @@ public class ArtifactCompressorTest extends ManagedArtifactServiceTest
         final var artifacts =
             Exceptions.getUncheckedIO(() -> Artifacts.findTestRunArtifacts(testRunArtifactPath));
 
-        assertThat(artifacts).containsOnlyKeys(COMPRESSIBLE_ARTIFACT_NAME + ".gz", INCOMPRESSIBLE_ARTIFACT_NAME);
+        assertThat(artifacts).containsOnlyKeys(COMPRESSIBLE_ARTIFACT_NAME + ".gz", INCOMPRESSIBLE_ARTIFACT_NAME,
+            COMPRESSIBLE_ARTIFACT_WITHIN_DIR_NAME + ".gz", SYMLINK_DIR_NAME);
 
         final var compressedSize = artifacts.values().stream().mapToLong(Long::longValue).sum();
         assertThat(compressedSize).isGreaterThan(0);
@@ -164,7 +178,9 @@ public class ArtifactCompressorTest extends ManagedArtifactServiceTest
         assertThat(testRun)
             .hasArtifactsSizeBytes(Optional.of(compressedSize));
         assertThat(testRun.getArtifacts())
-            .containsOnlyKeys(COMPRESSIBLE_ARTIFACT_NAME, INCOMPRESSIBLE_ARTIFACT_NAME);
+            .containsOnlyKeys(COMPRESSIBLE_ARTIFACT_NAME, INCOMPRESSIBLE_ARTIFACT_NAME,
+                COMPRESSIBLE_ARTIFACT_WITHIN_DIR_NAME,
+                SYMLINK_DIR_NAME);
     }
 
     @org.junit.jupiter.api.Test
