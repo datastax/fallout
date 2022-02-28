@@ -26,6 +26,7 @@ workload:
           map:
             <<file:weasel.txt>>: <<file:stoat.txt>>
             <<file:stoat.txt>>: <<file:badger.txt>>
+            this_key_has_a_null_value:
 
   checkers:
     nofail:

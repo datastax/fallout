@@ -204,13 +204,13 @@ public class WritablePropertyGroup implements PropertyGroup
                 .map(value_ -> expandRefs(value_, ignoredRefs))
                 .toList();
         }
-        else if (value instanceof Map<?, ?>)
+        else if (value instanceof Map<?, ?> map)
         {
-            return ((Map<?, ?>) value).entrySet().stream()
-                .map(entry -> Map.entry(
-                    expandRefs(entry.getKey(), ignoredRefs),
-                    expandRefs(entry.getValue(), ignoredRefs)))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            // We must handle null entries in map, which is why we are not using
+            // any of the null-excluding Map.entry/Collectors.toMap methods.
+            final var newMap = new HashMap<>();
+            map.forEach((k, v) -> newMap.put(expandRefs(k, ignoredRefs), expandRefs(v, ignoredRefs)));
+            return newMap;
         }
         else
         {
