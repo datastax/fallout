@@ -66,7 +66,8 @@ public class HelmChartConfigurationManager extends ConfigurationManager
         .runtimePrefix(this::prefix)
         .dependsOn(helmChartTypeSpec, "repo")
         .name("helm.repo.name")
-        .description("Name of the helm repo: e.g. bitnami")
+        .description("Name of the helm repo: e.g. bitnami.  If left unset, " +
+            "no repo add command will be issued")
         .build();
 
     private final PropertySpec<String> helmRepoUrlSpec = PropertySpecBuilder.createStr(prefix)
