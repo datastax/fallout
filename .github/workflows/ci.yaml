@@ -75,6 +75,7 @@ jobs:
         env:
           JAVA_HOME: ${{ steps.setup-java.outputs.path }}
           JAVA8_HOME: ${{ steps.setup-java-8.outputs.path }}
+          UNIT_TEST_GOOGLE_SERVICE_ACCOUNT_JSON_BASE64: ${{secrets.UNIT_TEST_GOOGLE_SERVICE_ACCOUNT_JSON_BASE64}}
         # For CI we generate a false gitDescribe: this is expected to be the output of `git describe --tags`,
         # but because we're running in a shallow checkout, we synthesize a value
         run: ./gradlew
