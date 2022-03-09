@@ -432,7 +432,7 @@ public class RemoteFilesConfigurationManager extends ConfigurationManager
         {
             return kubeCtl(rfs.namespace)
                 .execute(String.format("get configmap %s", configMapName(rfs)))
-                .waitForSuccess();
+                .waitForOptionalSuccess();
         }
     }
 }
