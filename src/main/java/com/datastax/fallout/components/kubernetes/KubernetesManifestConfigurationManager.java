@@ -21,14 +21,17 @@ import java.util.Optional;
 import java.util.Set;
 
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 
 import com.datastax.fallout.components.common.provider.FileProvider;
 import com.datastax.fallout.components.common.spec.KubernetesDeploymentManifestSpec;
 import com.datastax.fallout.ops.ConfigurationManager;
+import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.Provider;
+import com.datastax.fallout.ops.ProviderUtil;
 import com.datastax.fallout.ops.commands.NodeResponse;
 import com.datastax.fallout.util.Exceptions;
 
@@ -39,6 +42,8 @@ public class KubernetesManifestConfigurationManager extends ConfigurationManager
 
     private static final KubernetesDeploymentManifestSpec manifestSpec =
         new KubernetesDeploymentManifestSpec(prefix);
+
+    private static final ProviderUtil.DynamicProviderSpec providerSpec = new ProviderUtil.DynamicProviderSpec(prefix);
 
     @Override
     public String prefix()
@@ -61,7 +66,10 @@ public class KubernetesManifestConfigurationManager extends ConfigurationManager
     @Override
     public List<PropertySpec<?>> getPropertySpecs()
     {
-        return manifestSpec.getPropertySpecs();
+        return ImmutableList.<PropertySpec<?>>builder()
+            .addAll(manifestSpec.getPropertySpecs())
+            .addAll(providerSpec.getSpecs())
+            .build();
     }
 
     @Override
@@ -74,6 +82,18 @@ public class KubernetesManifestConfigurationManager extends ConfigurationManager
     public Set<Class<? extends Provider>> getRequiredProviders(PropertyGroup nodeGroupProperties)
     {
         return Set.of(KubeControlProvider.class, FileProvider.class);
+    }
+
+    @Override
+    public Set<Class<? extends Provider>> getAvailableProviders(PropertyGroup nodeGroupProperties)
+    {
+        return providerSpec.getAvailableDynamicProviders(nodeGroupProperties);
+    }
+
+    @Override
+    public boolean registerProviders(Node node)
+    {
+        return providerSpec.registerDynamicProvider(node, getNodeGroup().getProperties(), logger());
     }
 
     @Override
