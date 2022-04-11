@@ -15,24 +15,18 @@
  */
 package com.datastax.fallout.components.cassandra;
 
-import com.datastax.fallout.components.common.provider.ServiceContactPointProvider;
+import com.datastax.fallout.components.common.provider.ServiceContactPointProvider.StaticServiceContactPointProvider;
 import com.datastax.fallout.ops.Node;
 
-public class CassandraContactPointProvider extends ServiceContactPointProvider
+public class CassandraContactPointProvider extends StaticServiceContactPointProvider
 {
     public CassandraContactPointProvider(Node node, String contactPoint)
     {
-        this(node, contactPoint, "cassandra");
+        this(node, "cassandra", contactPoint);
     }
 
-    protected CassandraContactPointProvider(Node node, String contactPoint, String serviceName)
+    protected CassandraContactPointProvider(Node node, String serviceName, String contactPoint)
     {
-        super(node, contactPoint, serviceName);
-    }
-
-    @Override
-    public String name()
-    {
-        return "cassandra_contact_point_provider";
+        super(node, serviceName, contactPoint);
     }
 }

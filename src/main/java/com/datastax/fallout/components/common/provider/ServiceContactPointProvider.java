@@ -18,34 +18,46 @@ package com.datastax.fallout.components.common.provider;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.Provider;
 
-public class ServiceContactPointProvider extends Provider
+public abstract class ServiceContactPointProvider extends Provider
 {
-    private final String contactPoint;
     private final String serviceName;
 
-    public ServiceContactPointProvider(Node node, String contactPoint, String serviceName)
+    public ServiceContactPointProvider(Node node, String serviceName)
     {
         super(node);
-        this.contactPoint = contactPoint;
         this.serviceName = serviceName;
-    }
-
-    @Override
-    public String name()
-    {
-        return "service_contact_point_provider";
     }
 
     /**
      Returns an IP address, host name, or service which can be used to connect to the service
      */
-    public String getContactPoint()
-    {
-        return contactPoint;
-    }
+    public abstract String getContactPoint();
 
     public String getServiceName()
     {
-        return serviceName;
+        return this.serviceName;
+    }
+
+    @Override
+    public String name()
+    {
+        return String.format("%s_contact_point_provider", this.serviceName);
+    }
+
+    public static class StaticServiceContactPointProvider extends ServiceContactPointProvider
+    {
+        private final String contactPoint;
+
+        public StaticServiceContactPointProvider(Node node, String serviceName, String contactPoint)
+        {
+            super(node, serviceName);
+            this.contactPoint = contactPoint;
+        }
+
+        @Override
+        public String getContactPoint()
+        {
+            return this.contactPoint;
+        }
     }
 }
