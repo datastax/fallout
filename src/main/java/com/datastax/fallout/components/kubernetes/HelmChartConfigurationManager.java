@@ -15,9 +15,8 @@
  */
 package com.datastax.fallout.components.kubernetes;
 
-import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
-import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
@@ -36,6 +35,7 @@ import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.PropertySpecBuilder;
 import com.datastax.fallout.ops.Provider;
+import com.datastax.fallout.ops.ProviderUtil;
 import com.datastax.fallout.util.Duration;
 
 import static com.datastax.fallout.ops.FileSpec.GitFileSpec;
@@ -123,21 +123,8 @@ public class HelmChartConfigurationManager extends ConfigurationManager
         .defaultOf(List.of())
         .build();
 
-    private final PropertySpec<String> providerClassSpec = PropertySpecBuilder.createStr(prefix)
-        .runtimePrefix(this::prefix)
-        .category("provider")
-        .name("provider.class")
-        .description("Simple class name of the fallout provider this helm chart adds")
-        .suggestions("CassandraContactPointProvider")
-        .build();
-
-    private final PropertySpec<List<String>> providerArgsSpec = PropertySpecBuilder.createStrList(prefix)
-        .runtimePrefix(this::prefix)
-        .category("provider")
-        .name("provider.args")
-        .description("Options to be passed to the specified provider class constructor")
-        .suggestions(ImmutableList.of("9042"))
-        .build();
+    private final ProviderUtil.DynamicProviderSpec providerSpec =
+        new ProviderUtil.DynamicProviderSpec(prefix, this::prefix);
 
     private final PropertySpec<String> chartVersionSpec = buildHelmChartVersionSpec(this::prefix);
     private final PropertySpec<Duration> installTimeoutSpec = buildHelmInstallTimeoutSpec(this::prefix);
@@ -180,7 +167,7 @@ public class HelmChartConfigurationManager extends ConfigurationManager
             .add(chartLocationInRepoSpec)
             .addAll(gitClone.getSpecs())
             .add(namespaceSpec, helmValuesFileSpec, helmValuesFilesSpec, helmSetValuesSpec, helmSetStringValuesSpec)
-            .add(providerClassSpec, providerArgsSpec)
+            .addAll(providerSpec.getSpecs())
             .add(chartVersionSpec)
             .build();
     }
@@ -317,108 +304,15 @@ public class HelmChartConfigurationManager extends ConfigurationManager
             logger().error("Error setting up helm provider {} {} ", installName, chartLocation, t);
             return false;
         }
-
-        //Add the provider added by the chart if defined
-        String providerClassName = providerClassSpec.value(node);
-        List<String> providerArgs = providerArgsSpec.value(node);
-
-        if (providerClassName != null)
-        {
-            Class clazz;
-            try
-            {
-                clazz = this.getClass().getClassLoader().loadClass(providerClassName);
-            }
-            catch (ClassNotFoundException e)
-            {
-                logger().error("Unable to load provider class: {}", providerClassName);
-                return false;
-            }
-
-            if (!Provider.class.isAssignableFrom(clazz))
-            {
-                logger().error("Class {} is found but not a fallout provider class", providerClassName);
-                return false;
-            }
-
-            int numArgs = providerArgs == null ? 0 : providerArgs.size();
-
-            try
-            {
-                Class argTypes[] = new Class[numArgs + 1];
-                Object args[] = new Object[argTypes.length];
-
-                argTypes[0] = Node.class;
-                args[0] = node;
-
-                for (int i = 1; i < argTypes.length; i++)
-                {
-                    argTypes[i] = String.class;
-                    args[i] = providerArgs.get(i - 1);
-                }
-
-                clazz.getConstructor(argTypes).newInstance(args);
-            }
-            catch (NoSuchMethodException e)
-            {
-                logger().error("No Provider class {} constructor with {} String args found", providerClassName,
-                    providerArgs == null ? 0 : providerArgs.size());
-                return false;
-            }
-            catch (IllegalAccessException | InstantiationException | InvocationTargetException e)
-            {
-                logger().error("Error encountered when creating provider class {}", providerClassName, e);
-                return false;
-            }
-        }
-
-        return true;
+        return providerSpec.registerDynamicProvider(node, getNodeGroup().getProperties(), logger());
     }
 
     @Override
     public Set<Class<? extends Provider>> getAvailableProviders(PropertyGroup nodeGroupProperties)
     {
-        String providerClassName = providerClassSpec.value(nodeGroupProperties);
-        List<String> providerArgs = providerArgsSpec.value(nodeGroupProperties);
-
-        if (providerClassName != null)
-        {
-            Class clazz;
-            try
-            {
-                clazz = this.getClass().getClassLoader().loadClass(providerClassName);
-            }
-            catch (ClassNotFoundException e)
-            {
-                throw new RuntimeException("Unable to load specified provider class: " + providerClassName);
-            }
-
-            if (!Provider.class.isAssignableFrom(clazz))
-            {
-                throw new RuntimeException(
-                    "Specified provider class is found but not a fallout provider class: " + providerClassName);
-            }
-
-            int numArgs = providerArgs == null ? 0 : providerArgs.size();
-
-            try
-            {
-                Class argTypes[] = new Class[numArgs + 1];
-                Arrays.fill(argTypes, String.class);
-                argTypes[0] = Node.class;
-
-                clazz.getConstructor(argTypes);
-
-                return Set.of(clazz, HelmProvider.class);
-            }
-            catch (NoSuchMethodException e)
-            {
-                throw new RuntimeException("Specified provider class has no constructor with " + numArgs +
-                    " String arguments: " + providerClassName);
-            }
-        }
-
-        return Set.of(HelmProvider.class);
+        var available = new HashSet<>(providerSpec.getAvailableDynamicProviders(nodeGroupProperties));
+        available.add(HelmProvider.class);
+        return available;
     }
 
     public static PropertySpec<String> buildHelmValuesFileSpec(String prefix)
