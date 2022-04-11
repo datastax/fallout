@@ -32,6 +32,7 @@ public class ProviderUtil
     {
         private final PropertySpec<String> providerClassSpec;
         private final PropertySpec<List<String>> providerArgsSpec;
+        private final PropertySpec<Boolean> nodeGroupProviderSpec;
 
         public DynamicProviderSpec(String prefix)
         {
@@ -55,19 +56,33 @@ public class ProviderUtil
                 .description("Options to be passed to the specified provider class constructor")
                 .suggestions(ImmutableList.of("9042"))
                 .build();
+
+            nodeGroupProviderSpec = PropertySpecBuilder.createBool(prefix)
+                .runtimePrefix(runtimePrefix)
+                .category("provider")
+                .name("provider.is_nodegroup_provider")
+                .description("Set true if the provider is a 'nodegroup' provider (only available on node 0)")
+                .defaultOf(false)
+                .build();
         }
 
         public List<PropertySpec<?>> getSpecs()
         {
-            return List.of(providerClassSpec, providerArgsSpec);
+            return List.of(providerClassSpec, providerArgsSpec, nodeGroupProviderSpec);
         }
 
         public boolean registerDynamicProvider(Node node, PropertyGroup properties, ScopedLogger logger)
         {
             String providerClassName = providerClassSpec.value(properties);
             List<String> providerArgs = providerArgsSpec.value(properties);
+            boolean nodeGroupProvider = nodeGroupProviderSpec.value(properties);
 
             if (providerClassName == null)
+            {
+                return true;
+            }
+
+            if (nodeGroupProvider && node.getNodeGroupOrdinal() != 0)
             {
                 return true;
             }
