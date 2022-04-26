@@ -52,6 +52,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -124,6 +125,8 @@ public class TestResource
 
     public static final String ALLOWED_NAME_CHARS = "0-9a-zA-Z\\.\\-_";
     public static final String NAME_PATTERN = "[" + ALLOWED_NAME_CHARS + "]+";
+
+    private static final String DEFAULT_TEST_VALIDATION_NAME = "_valid8";
 
     private static final YAMLMapper yamlMapper = new YAMLMapper();
     public static final Pattern namePattern = Pattern.compile(NAME_PATTERN);
@@ -210,6 +213,8 @@ public class TestResource
         public String yamlParams;
         @JsonProperty
         public String testYaml;
+        @JsonProperty(defaultValue = DEFAULT_TEST_VALIDATION_NAME)
+        public String testName;
     }
 
     @POST
@@ -219,8 +224,9 @@ public class TestResource
     @Consumes(MediaType.APPLICATION_JSON)
     public Response validateTestApi(@Auth User user, TestForValidation testForValidation) throws IOException
     {
-        final Test test = Test.createTest(user.getEmail(), "test_to_be_validated_but_not_saved",
-            testForValidation.testYaml);
+        var validationName = Objects.isNull(testForValidation.testName) ?
+            DEFAULT_TEST_VALIDATION_NAME : testForValidation.testName;
+        final Test test = Test.createTest(user.getEmail(), validationName, testForValidation.testYaml);
 
         Map<String, Object> params = testForValidation.params;
 
