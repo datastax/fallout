@@ -22,11 +22,6 @@ public class CassandraContactPointProvider extends StaticServiceContactPointProv
 {
     public CassandraContactPointProvider(Node node, String contactPoint)
     {
-        this(node, "cassandra", contactPoint);
-    }
-
-    protected CassandraContactPointProvider(Node node, String serviceName, String contactPoint)
-    {
-        super(node, serviceName, contactPoint);
+        super(node, "cassandra", contactPoint);
     }
 }
