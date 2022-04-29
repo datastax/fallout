@@ -24,8 +24,10 @@ public abstract class ServiceContactPointProvider extends Provider
 
     public ServiceContactPointProvider(Node node, String serviceName)
     {
-        super(node);
+        super(node, false);
         this.serviceName = serviceName;
+        // Register after serviceName is set so name() used to register on node does not contain null
+        register();
     }
 
     /**
