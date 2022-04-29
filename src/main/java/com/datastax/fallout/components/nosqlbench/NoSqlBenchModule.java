@@ -404,8 +404,7 @@ public class NoSqlBenchModule extends Module
         {
             contactPointProviders = serverGroupSpec.selectNodes(ensemble, properties)
                 .stream()
-                .map(p -> p.maybeGetProvider(ServiceContactPointProvider.class))
-                .flatMap(Optional::stream)
+                .flatMap(n -> n.maybeGetAllProviders(ServiceContactPointProvider.class))
                 .filter(p -> serviceType.equals(p.getServiceName()))
                 .toList();
         }

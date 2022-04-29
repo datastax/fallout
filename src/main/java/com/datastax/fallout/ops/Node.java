@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -318,11 +319,14 @@ public class Node implements HasProperties
      */
     public <T extends Provider> Optional<T> maybeGetProvider(Class<T> clazz)
     {
+        return maybeGetAllProviders(clazz).findFirst();
+    }
+
+    public <T extends Provider> Stream<T> maybeGetAllProviders(Class<T> clazz)
+    {
         synchronized (providers)
         {
-            return providers.values().stream()
-                .filter(clazz::isInstance)
-                .map(clazz::cast).findFirst();
+            return providers.values().stream().filter(clazz::isInstance).map(clazz::cast);
         }
     }
 
