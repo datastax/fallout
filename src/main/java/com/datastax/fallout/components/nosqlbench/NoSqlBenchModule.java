@@ -62,10 +62,10 @@ public class NoSqlBenchModule extends Module
         .description("Number of nosqlbench clients to execute. Default is all replicas.")
         .build();
 
-    private static final NodeSelectionSpec serverGroupSpec = new NodeSelectionSpec(prefix, "server", true, false);
+    protected static final NodeSelectionSpec serverGroupSpec = new NodeSelectionSpec(prefix, "server", true, false);
     private static final NodeSelectionSpec clientGroupSpec = new NodeSelectionSpec(prefix, "client", true, true);
 
-    private static final PropertySpec<String> serviceTypeSpec = PropertySpecBuilder.createStr(prefix)
+    protected static final PropertySpec<String> serviceTypeSpec = PropertySpecBuilder.createStr(prefix)
         .name("service_type")
         .description(
             "The type of service to connect to, correlates to the service described by the ServiceContactProvider.")
@@ -157,14 +157,10 @@ public class NoSqlBenchModule extends Module
         clientsRunInKubernetes = validator.nodeGroupWillHaveProvider(clientGroupSpec, NoSqlBenchPodProvider.class);
         if (clientsRunInKubernetes)
         {
-            // client pods and server pods have to run on the same k8s cluster nodegroup
-            Optional<NodeGroup> clientGroup = validator.getNodeGroup(clientGroupSpec);
-            Optional<NodeGroup> serverGroup = validator.getNodeGroup(serverGroupSpec);
-            if (clientGroup.isEmpty() || serverGroup.isEmpty() || !clientGroup.get().equals(serverGroup.get()))
+            if (!validateKubernetesClients(validator))
             {
-                validator.addValidationError("client and server groups must be the same nodegroup");
+                return;
             }
-            validator.nodeGroupRequiresProvider(clientGroupSpec, NoSqlBenchPodProvider.class);
         }
         else
         {
@@ -174,8 +170,26 @@ public class NoSqlBenchModule extends Module
         boolean targetsServerGroup = hostParamSpec.optionalValue(getProperties()).isEmpty();
         if (targetsServerGroup)
         {
-            validator.nodeGroupRequiresProvider(serverGroupSpec, ServiceContactPointProvider.class);
+            validateServerGroup(validator);
         }
+    }
+
+    protected boolean validateKubernetesClients(EnsembleValidator validator)
+    {
+        // client pods and server pods have to run on the same k8s cluster nodegroup
+        Optional<NodeGroup> clientGroup = validator.getNodeGroup(clientGroupSpec);
+        Optional<NodeGroup> serverGroup = validator.getNodeGroup(serverGroupSpec);
+        if (clientGroup.isEmpty() || serverGroup.isEmpty() || !clientGroup.get().equals(serverGroup.get()))
+        {
+            validator.addValidationError("client and server groups must be the same nodegroup");
+        }
+        validator.nodeGroupRequiresProvider(clientGroupSpec, NoSqlBenchPodProvider.class);
+        return true;
+    }
+
+    protected void validateServerGroup(EnsembleValidator validator)
+    {
+        validator.nodeGroupRequiresProvider(serverGroupSpec, ServiceContactPointProvider.class);
     }
 
     @Override
@@ -225,6 +239,16 @@ public class NoSqlBenchModule extends Module
     private NodeGroup serverGroup;
     private NodeGroup clientGroup;
     private boolean clientsRunInKubernetes;
+
+    protected NodeGroup getServerGroup()
+    {
+        return serverGroup;
+    }
+
+    protected NodeGroup getClientGroup()
+    {
+        return clientGroup;
+    }
 
     @Override
     public void setup(Ensemble ensemble, PropertyGroup properties)
@@ -306,45 +330,24 @@ public class NoSqlBenchModule extends Module
         List<NodeResponse> nosqlBenchCommands = new ArrayList<>();
         for (int i = 0; i < numClients; i++)
         {
+            Node clientNode = nosqlBenchProviders.get(i).node();
             List<String> clientSpecificArgs = new ArrayList<>(args);
+
+            boolean graphiteExplicitlyConfigured =
+                argsListContains("--report-graphite-to");
+
+            if (!graphiteExplicitlyConfigured)
+            {
+                clientSpecificArgs.addAll(discoverClientGraphiteArgs(clientNode));
+            }
 
             if (cycleRanges.isPresent())
             {
                 clientSpecificArgs.add(String.format("cycles=%s", cycleRanges.get().get(i)));
             }
 
-            Optional<String> hostParam = hostParamSpec.optionalValue(properties);
-            // When scenario is set, host is optional and must be explicit to be set at all.
-            // Otherwise host param takes precedence over service contact points.
-            if (hostParam.isPresent())
-            {
-                clientSpecificArgs.add(hostParam.get().strip());
-            }
-            else if (scenarioParamSpec.optionalValue(properties).isPresent())
-            {
-                // Do nothing, allow the scenario to define the host parameters
-            }
-            else
-            {
-                List<ServiceContactPointProvider> contactPointProviders = getServiceContactPointProviders(ensemble,
-                    properties);
-
-                if (contactPointProviders.isEmpty())
-                {
-                    String error =
-                        String.format("No ServiceContactPointProvider matching the requested service \"%s\" was found",
-                            serviceTypeSpec.value(properties));
-                    logger().error(error);
-                    emitFail("nosqlbench failed: " + error);
-                    return;
-                }
-
-                List<String> contactPoints = contactPointProviders.stream()
-                    .map(ServiceContactPointProvider::getContactPoint)
-                    .toList();
-
-                clientSpecificArgs.add(String.format("host=%s", String.join(",", contactPoints)));
-            }
+            // determine appropriate server connection configs
+            clientSpecificArgs.addAll(getClientConnectionArgs(clientNode, ensemble, properties));
 
             // Property validation prevents this from being set when running named scenario
             workloadDurationSpec.optionalValue(properties).ifPresent(
@@ -370,6 +373,51 @@ public class NoSqlBenchModule extends Module
         }
     }
 
+    protected List<String> discoverClientGraphiteArgs(Node clientNode)
+    {
+        return List.of();
+    }
+
+    private List<String> getClientConnectionArgs(Node clientNode, Ensemble ensemble, PropertyGroup properties)
+    {
+        Optional<String> hostParam = hostParamSpec.optionalValue(properties);
+
+        // When scenario is set, host is optional and must be explicit to be set at all.
+        // Otherwise host param takes precedence over service contact points.
+        if (hostParam.isPresent())
+        {
+            return List.of(hostParam.get().strip());
+        }
+
+        if (scenarioParamSpec.optionalValue(properties).isPresent())
+        {
+            // Do nothing, allow the scenario to define the host parameters
+            return List.of();
+        }
+
+        List<String> dsClientConnectionArgs = getDsClientConnectionArgs(clientNode, ensemble, properties);
+        if (!dsClientConnectionArgs.isEmpty())
+        {
+            return dsClientConnectionArgs;
+        }
+
+        List<String> contactPoints = getServiceContactPointProviders(ensemble, properties).stream()
+            .map(ServiceContactPointProvider::getContactPoint)
+            .toList();
+        return List.of(String.format("host=%s", String.join(",", contactPoints)));
+    }
+
+    private boolean argsListContains(String subString)
+    {
+        return Stream.concat(options.stream(), args.stream())
+            .anyMatch(s -> s.contains(subString));
+    }
+
+    protected List<String> getDsClientConnectionArgs(Node client, Ensemble ensemble, PropertyGroup properties)
+    {
+        return List.of();
+    }
+
     private Duration workloadTimeout(PropertyGroup properties)
     {
         return workloadDurationSpec.optionalValue(properties)
@@ -386,7 +434,7 @@ public class NoSqlBenchModule extends Module
         }
     }
 
-    private List<ServiceContactPointProvider> getServiceContactPointProviders(Ensemble ensemble,
+    protected List<ServiceContactPointProvider> getServiceContactPointProviders(Ensemble ensemble,
         PropertyGroup properties)
     {
         String serviceType = serviceTypeSpec.value(properties);
@@ -407,6 +455,12 @@ public class NoSqlBenchModule extends Module
                 .flatMap(n -> n.maybeGetAllProviders(ServiceContactPointProvider.class))
                 .filter(p -> serviceType.equals(p.getServiceName()))
                 .toList();
+        }
+        if (contactPointProviders.isEmpty())
+        {
+            throw new RuntimeException(String.format(
+                "No ServiceContactPointProvider matching the requested service \"%s\" was found",
+                serviceType));
         }
         return contactPointProviders;
     }
