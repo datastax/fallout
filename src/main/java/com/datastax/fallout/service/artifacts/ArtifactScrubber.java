@@ -15,6 +15,7 @@
  */
 package com.datastax.fallout.service.artifacts;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
@@ -55,7 +56,8 @@ public class ArtifactScrubber extends PeriodicTask
     private void deleteOrphanedTestRunArtifacts(String email, String test, String testrunid)
     {
         final Path testrunidPath = rootArtifactPath.resolve(email).resolve(test).resolve(testrunid);
-        if (testrunidPath.toFile().isDirectory() && testRunDAO.get(email, test, UUID.fromString(testrunid)) == null)
+        final File testrunidDirectory = testrunidPath.toFile();
+        if (testrunidDirectory.isDirectory() && testRunDAO.get(email, test, UUID.fromString(testrunid)) == null)
         {
             try
             {
@@ -63,7 +65,12 @@ public class ArtifactScrubber extends PeriodicTask
                 {
                     logger.info("Found artifacts for test with owner: {}  test name: {}  testrunid: {}  " +
                         "but no matching database entry. Removing artifacts from disk ", email, test, testrunid);
-                    FileUtils.deleteDirectory(testrunidPath.toFile());
+                    if (!testrunidDirectory.setWritable(true))
+                    {
+                        logger.error("Failed to remove directory {}", testrunidDirectory.getAbsolutePath());
+                        return;
+                    }
+                    FileUtils.deleteDirectory(testrunidDirectory);
                 }
             }
             catch (Exception e)
