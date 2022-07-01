@@ -16,6 +16,8 @@
 package com.datastax.fallout.service.artifacts;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
@@ -32,6 +34,7 @@ import com.datastax.fallout.util.ScopedLogger;
 
 public class ArtifactScrubber extends PeriodicTask
 {
+    private static final int MAX_TRIES_TO_DELETE_DIRECTORY = 10;
     private static final ScopedLogger logger = ScopedLogger.getLogger("ArtifactScrubber");
     private TestRunDAO testRunDAO;
     private Path rootArtifactPath;
@@ -56,8 +59,7 @@ public class ArtifactScrubber extends PeriodicTask
     private void deleteOrphanedTestRunArtifacts(String email, String test, String testrunid)
     {
         final Path testrunidPath = rootArtifactPath.resolve(email).resolve(test).resolve(testrunid);
-        final File testrunidDirectory = testrunidPath.toFile();
-        if (testrunidDirectory.isDirectory() && testRunDAO.get(email, test, UUID.fromString(testrunid)) == null)
+        if (testrunidPath.toFile().isDirectory() && testRunDAO.get(email, test, UUID.fromString(testrunid)) == null)
         {
             try
             {
@@ -65,12 +67,7 @@ public class ArtifactScrubber extends PeriodicTask
                 {
                     logger.info("Found artifacts for test with owner: {}  test name: {}  testrunid: {}  " +
                         "but no matching database entry. Removing artifacts from disk ", email, test, testrunid);
-                    if (!testrunidDirectory.setWritable(true))
-                    {
-                        logger.error("Failed to remove directory {}", testrunidDirectory.getAbsolutePath());
-                        return;
-                    }
-                    FileUtils.deleteDirectory(testrunidDirectory);
+                    tryToDeleteDirectory(testrunidPath, MAX_TRIES_TO_DELETE_DIRECTORY);
                 }
             }
             catch (Exception e)
@@ -79,6 +76,42 @@ public class ArtifactScrubber extends PeriodicTask
             }
         }
 
+    }
+
+    private void tryToDeleteDirectory(Path directory, int remainingTries) throws IOException
+    {
+        if (remainingTries == 0)
+        {
+            logger.warn("Tried {} times to delete {} and still getting access denied. " +
+                    "Will traverse further the directory structure next time to not block this task.",
+                MAX_TRIES_TO_DELETE_DIRECTORY, directory);
+            return;
+        }
+        try
+        {
+            FileUtils.deleteDirectory(directory.toFile());
+        }
+        catch (IOException ioe)
+        {
+            if (ioe.getCause() != null && ioe.getCause().getCause() instanceof AccessDeniedException)
+            {
+                File affectedFile = new File(((AccessDeniedException) ioe.getCause().getCause()).getFile());
+                File affectedDirectory = new File(affectedFile.getParent());
+                logger.info("Could not delete {} because it is not writable. " +
+                    "Will adjust the write attribute and try again.", affectedDirectory);
+                if (affectedDirectory.setWritable(true))
+                {
+                    tryToDeleteDirectory(directory, remainingTries - 1);
+                }
+                else
+                {
+                    logger.error("Could not make {} writable. It has to be deleted manually.", affectedDirectory);
+                }
+            }
+            else {
+                throw ioe;
+            }
+        }
     }
 
     private void deleteOrphanedTestArtifacts(String email, String test)
