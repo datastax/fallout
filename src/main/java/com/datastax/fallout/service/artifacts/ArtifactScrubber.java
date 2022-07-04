@@ -83,7 +83,7 @@ public class ArtifactScrubber extends PeriodicTask
         if (remainingTries == 0)
         {
             logger.warn("Tried {} times to delete {} and still getting access denied. " +
-                    "Will traverse further the directory structure next time to not block this task.",
+                "Will traverse further the directory structure next time to not block this task.",
                 MAX_TRIES_TO_DELETE_DIRECTORY, directory);
             return;
         }
@@ -108,7 +108,8 @@ public class ArtifactScrubber extends PeriodicTask
                     logger.error("Could not make {} writable. It has to be deleted manually.", affectedDirectory);
                 }
             }
-            else {
+            else
+            {
                 throw ioe;
             }
         }
