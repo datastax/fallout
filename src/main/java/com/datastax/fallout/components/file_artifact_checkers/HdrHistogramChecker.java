@@ -158,7 +158,7 @@ public class HdrHistogramChecker extends ArtifactChecker
             {
                 cleanupTemporaryHdrFiles(allFilesToDeleteAfterwards);
                 throw new RuntimeException(
-                    "No HdrHistogram artifacts found for testrun: " + run.getTestName() + " " + run
+                    "No HdrHistogram artifacts found for test run: " + run.getTestName() + " " + run
                         .getTestRunId());
             }
             String displayName = testRunDisplayNames.get(run);
@@ -542,7 +542,7 @@ public class HdrHistogramChecker extends ArtifactChecker
             }
             printStream.printf("# Average throughput (ops/s) = %.0f%n", opRate);
             printStream.printf("# Start time = %d%n", MILLISECONDS.toSeconds(h.getStartTimeStamp()));
-            printStream.printf("#   End time = %d%n", MILLISECONDS.toSeconds(h.getEndTimeStamp()));
+            printStream.printf("# End time = %d%n", MILLISECONDS.toSeconds(h.getEndTimeStamp()));
             printStream.printf("# Period duration (ms) = %d%n", durationMillis);
         }
         catch (FileNotFoundException e)
@@ -564,11 +564,62 @@ public class HdrHistogramChecker extends ArtifactChecker
         }
     }
 
+    /**
+     * Computes the operation rate in ops/sec (the histogram throughput).
+     * @param   sum         An input HDR histogram (Histogram).
+     * @return  opsPerSec   The operations per second (long).
+     */
     private static long getHistogramThroughput(Histogram sum)
     {
         double intervalSec = ((double) (sum.getEndTimeStamp() - sum.getStartTimeStamp())) * .001;
         long opsPerSec = (long) ((((double) sum.getTotalCount()) / intervalSec));
         return opsPerSec;
+    }
+
+    /**
+     * Computes the Median Absolute Deviation (MAD) from the HDR histogram.
+     * @param   sum         An input HDR histogram (Histogram).
+     * @return  medianVal   The median (double) of the absolute differences between values from the HDR histogram and
+     *                      its median.
+     * Reference: Howell, D. C. (2005). Median absolute deviation. Encyclopedia of statistics in behavioral science.
+     */
+    private static double getMedianAbsoluteDeviation(Histogram sum) {
+        double medianOfHist = getMedian(sum);
+
+        List<Double> listOfVals = new ArrayList<>();
+
+        // Subtract the median from each value using the formula |val(i) – median|,
+        // assuming that getting a value at every 0.1th percentile would be
+        // enough for the expected precision.
+        double incrementIter = 0.1d;
+        for (double i=incrementIter; i<100.d; i+=incrementIter) {
+            listOfVals.add(Math.abs(convertUnit(sum.getValueAtPercentile(i)) - medianOfHist));
+        }
+
+        // Sort the list of values in increasing order (although decreasing would be fine too) to then
+        // compute the median.
+        List<Double> sortedListOfVals = listOfVals.stream().sorted().collect(Collectors.toList());
+
+        // Compute the median of the absolute differences found above further to sorting the list of values.
+        double medianVal = (sortedListOfVals.get(listOfVals.size()/2) + sortedListOfVals.get(listOfVals.size()/2 - 1))/2;
+        return medianVal;
+    }
+
+    /**
+     * Computes the median from an HDR histogram.
+     * @param   sum     An input HDR histogram (Histogram).
+     * @return  median  The computed median (double), which is equivalent to Q2 or the 50th percentile.
+     * @throws  IllegalArgumentException
+     * At least one element is required to compute the median.
+     */
+    private static double getMedian(Histogram sum) {
+        if (sum.getTotalCount()==0) {
+            throw new IllegalArgumentException("At least one element is required to compute the median.");
+        }
+
+        // median = Q2 = 50th percentile
+        double median = convertUnit(sum.getValueAtPercentile(50.D));
+        return median;
     }
 
     private List<Aggregate<Long>> getHistoryAggregates(String testPhase, List<Histogram> summaries)
@@ -613,7 +664,6 @@ public class HdrHistogramChecker extends ArtifactChecker
      */
     private static class TagOutput
     {
-        private static PrintStream writer;
         private final PrintStream out;
         private final Histogram aggregatedHistogram;
         private final long fileStartTimeMs;
@@ -638,10 +688,12 @@ public class HdrHistogramChecker extends ArtifactChecker
         {
             aggregatedHistogram.add(union);
 
-            double intervalLengthSec = ((double) (union.getEndTimeStamp() - union.getStartTimeStamp())) * 0.001d;
+            double factor = 0.001d;
+
+            double intervalLengthSec = ((double) (union.getEndTimeStamp() - union.getStartTimeStamp())) * factor;
 
             // json/html histogram timestamps are relative to the earliest file start time
-            double timestampSec = ((double) (union.getEndTimeStamp() - fileStartTimeMs) * 0.001d);
+            double timestampSec = ((double) (union.getEndTimeStamp() - fileStartTimeMs) * factor);
 
             writeJsonPercentilesLine(union, intervalLengthSec, timestampSec);
         }
@@ -710,8 +762,7 @@ public class HdrHistogramChecker extends ArtifactChecker
             out.printf(",\"Op Rate\": \"%d op/sec\"%n", getHistogramThroughput(aggregatedHistogram));
             out.printf(",\"Min Latency\": \"%.3f ms\"%n", convertUnit(aggregatedHistogram.getMinValue()));
             out.printf(",\"Avg Latency\": \"%.3f ms\"%n", convertUnit(aggregatedHistogram.getMean()));
-            out.printf(",\"Median Latency\": \"%.3f ms\"%n",
-                convertUnit(aggregatedHistogram.getValueAtPercentile(50.D)));
+            out.printf(",\"Median Latency\": \"%.3f ms\"%n", getMedian(aggregatedHistogram));
             out.printf(",\"95th Latency\": \"%.3f ms\"%n",
                 convertUnit(aggregatedHistogram.getValueAtPercentile(95.0D)));
             out.printf(",\"99th Latency\": \"%.3f ms\"%n",
@@ -719,6 +770,10 @@ public class HdrHistogramChecker extends ArtifactChecker
             out.printf(",\"99.9th Latency\": \"%.3f ms\"%n",
                 convertUnit(aggregatedHistogram.getValueAtPercentile(99.9D)));
             out.printf(",\"Max Latency\": \"%.3f ms\"%n", convertUnit(aggregatedHistogram.getMaxValue()));
+            out.printf(",\"Median Absolute Deviation\": \"%.3f ms\"%n", getMedianAbsoluteDeviation(aggregatedHistogram));
+            out.printf(",\"Interquartile range\": \"%.3f ms\"%n",
+                convertUnit(aggregatedHistogram.getValueAtPercentile(75.D)) -
+                    convertUnit(aggregatedHistogram.getValueAtPercentile(25.D)));
         }
 
         private void writeJsonTerminatorAndClose()
