@@ -771,7 +771,7 @@ public class HdrHistogramChecker extends ArtifactChecker
                 convertUnit(aggregatedHistogram.getValueAtPercentile(99.9D)));
             out.printf(",\"Max Latency\": \"%.3f ms\"%n", convertUnit(aggregatedHistogram.getMaxValue()));
             out.printf(",\"Median Absolute Deviation\": \"%.3f ms\"%n", getMedianAbsoluteDeviation(aggregatedHistogram));
-            out.printf(",\"Interquartile range\": \"%.3f ms\"%n",
+            out.printf(",\"Interquartile Range\": \"%.3f ms\"%n",
                 convertUnit(aggregatedHistogram.getValueAtPercentile(75.D)) -
                     convertUnit(aggregatedHistogram.getValueAtPercentile(25.D)));
         }
