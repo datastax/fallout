@@ -609,15 +609,8 @@ public class HdrHistogramChecker extends ArtifactChecker
      * Computes the median from an HDR histogram.
      * @param   sum     An input HDR histogram (Histogram).
      * @return  median  The computed median (double), which is equivalent to Q2 or the 50th percentile.
-     * @throws  IllegalArgumentException
-     * At least one element is required to compute the median.
      */
     private static double getMedian(Histogram sum) {
-        if (sum.getTotalCount()==0) {
-            throw new IllegalArgumentException("At least one element is required to compute the median.");
-        }
-
-        // median = Q2 = 50th percentile
         double median = convertUnit(sum.getValueAtPercentile(50.D));
         return median;
     }
