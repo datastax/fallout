@@ -583,7 +583,8 @@ public class HdrHistogramChecker extends ArtifactChecker
      *                      its median.
      * Reference: Howell, D. C. (2005). Median absolute deviation. Encyclopedia of statistics in behavioral science.
      */
-    private static double getMedianAbsoluteDeviation(Histogram sum) {
+    private static double getMedianAbsoluteDeviation(Histogram sum)
+    {
         double medianOfHist = getMedian(sum);
 
         List<Double> listOfVals = new ArrayList<>();
@@ -592,7 +593,8 @@ public class HdrHistogramChecker extends ArtifactChecker
         // assuming that getting a value at every 0.1th percentile would be
         // enough for the expected precision.
         double incrementIter = 0.1d;
-        for (double i=incrementIter; i<100.d; i+=incrementIter) {
+        for (double i = incrementIter; i < 100.d; i += incrementIter)
+        {
             listOfVals.add(Math.abs(convertUnit(sum.getValueAtPercentile(i)) - medianOfHist));
         }
 
@@ -601,7 +603,8 @@ public class HdrHistogramChecker extends ArtifactChecker
         List<Double> sortedListOfVals = listOfVals.stream().sorted().collect(Collectors.toList());
 
         // Compute the median of the absolute differences found above further to sorting the list of values.
-        double medianVal = (sortedListOfVals.get(listOfVals.size()/2) + sortedListOfVals.get(listOfVals.size()/2 - 1))/2;
+        double medianVal =
+            (sortedListOfVals.get(listOfVals.size() / 2) + sortedListOfVals.get(listOfVals.size() / 2 - 1)) / 2;
         return medianVal;
     }
 
@@ -610,7 +613,8 @@ public class HdrHistogramChecker extends ArtifactChecker
      * @param   sum     An input HDR histogram (Histogram).
      * @return  median  The computed median (double), which is equivalent to Q2 or the 50th percentile.
      */
-    private static double getMedian(Histogram sum) {
+    private static double getMedian(Histogram sum)
+    {
         double median = convertUnit(sum.getValueAtPercentile(50.D));
         return median;
     }
@@ -763,7 +767,8 @@ public class HdrHistogramChecker extends ArtifactChecker
             out.printf(",\"99.9th Latency\": \"%.3f ms\"%n",
                 convertUnit(aggregatedHistogram.getValueAtPercentile(99.9D)));
             out.printf(",\"Max Latency\": \"%.3f ms\"%n", convertUnit(aggregatedHistogram.getMaxValue()));
-            out.printf(",\"Median Absolute Deviation\": \"%.3f ms\"%n", getMedianAbsoluteDeviation(aggregatedHistogram));
+            out.printf(",\"Median Absolute Deviation\": \"%.3f ms\"%n",
+                getMedianAbsoluteDeviation(aggregatedHistogram));
             out.printf(",\"Interquartile Range\": \"%.3f ms\"%n",
                 convertUnit(aggregatedHistogram.getValueAtPercentile(75.D)) -
                     convertUnit(aggregatedHistogram.getValueAtPercentile(25.D)));
