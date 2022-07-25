@@ -15,10 +15,10 @@
  */
 package com.datastax.fallout.ops;
 
-import com.datastax.fallout.exceptions.InvalidConfigurationException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.datastax.fallout.exceptions.InvalidConfigurationException;
 
 /**
  * Add support for expanding the `provider` property, e.g. <<provider:source:0:node-info:publicNetworkAddress>>
