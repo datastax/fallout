@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -44,25 +45,32 @@ public class KubernetesManifestSpec
 
     public KubernetesManifestSpec(String prefix)
     {
-        this(prefix, Optional.empty(), true);
+        this(prefix, () -> prefix, Optional.empty(), true);
+    }
+
+    public KubernetesManifestSpec(String prefix, Supplier<String> runtimePrefix)
+    {
+        this(prefix, runtimePrefix, Optional.empty(), true);
     }
 
     public KubernetesManifestSpec(String prefix, String name, boolean required)
     {
-        this(prefix, Optional.of(name), required);
+        this(prefix, () -> prefix, Optional.of(name), required);
     }
 
-    private KubernetesManifestSpec(String prefix, Optional<String> name, boolean required)
+    private KubernetesManifestSpec(String prefix, Supplier<String> runtimePrefix, Optional<String> name,
+        boolean required)
     {
         manifestContentSpec = PropertySpecBuilder.createLocalManagedFileRef(prefix)
+            .runtimePrefix(runtimePrefix)
             .name(SpecUtils.buildFullName(name, "manifest"))
             .description("Entire manifest file to apply.  If this is a directory, then all the files in the " +
                 "directory are joined together to make a single manifest.")
             .required(required)
             .build();
 
-        manifestContentTemplateSpec = PropertySpecBuilder
-            .createMap(prefix)
+        manifestContentTemplateSpec = PropertySpecBuilder.createMap(prefix)
+            .runtimePrefix(runtimePrefix)
             .name(SpecUtils.buildFullName(name, "template_params"))
             .description("If set, then the manifest will be processed with Mustache using this map of template " +
                 "parameters to values.")
