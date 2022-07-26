@@ -75,15 +75,20 @@ public class KubernetesDeploymentManifestSpec extends KubernetesManifestSpec
 
     public KubernetesDeploymentManifestSpec(String prefix)
     {
-        super(prefix);
-        nameSpaceSpec = buildNameSpaceSpec(prefix);
-        waitStrategySpec = buildWaitStrategySpec(prefix, Optional.empty(), true);
-        waitConditionSpec = buildWaitConditionSpec(prefix, Optional.empty());
-        waitTimeoutSpec = buildWaitTimeoutSpec(prefix, Optional.empty());
-        podLabelSpec = buildPodLabelSpec(prefix, Optional.empty(), waitStrategySpec);
-        containerNameSpec = buildContainerNameSpec(prefix, Optional.empty(), waitStrategySpec);
-        expectedContainersSpec = buildExpectedContainersSpec(prefix, Optional.empty(), waitStrategySpec);
-        imageNameSpec = buildImageNameSpec(prefix, Optional.empty(), waitStrategySpec);
+        this(prefix, () -> prefix);
+    }
+
+    public KubernetesDeploymentManifestSpec(String prefix, Supplier<String> runtimePrefix)
+    {
+        super(prefix, runtimePrefix);
+        nameSpaceSpec = buildNameSpaceSpec(runtimePrefix);
+        waitStrategySpec = buildWaitStrategySpec(prefix, runtimePrefix, Optional.empty(), true);
+        waitConditionSpec = buildWaitConditionSpec(prefix, runtimePrefix, Optional.empty());
+        waitTimeoutSpec = buildWaitTimeoutSpec(prefix, runtimePrefix, Optional.empty());
+        podLabelSpec = buildPodLabelSpec(prefix, runtimePrefix, Optional.empty(), waitStrategySpec);
+        containerNameSpec = buildContainerNameSpec(prefix, runtimePrefix, Optional.empty(), waitStrategySpec);
+        expectedContainersSpec = buildExpectedContainersSpec(prefix, runtimePrefix, Optional.empty(), waitStrategySpec);
+        imageNameSpec = buildImageNameSpec(prefix, runtimePrefix, Optional.empty(), waitStrategySpec);
 
         waitOptions = null;
     }
@@ -283,10 +288,11 @@ public class KubernetesDeploymentManifestSpec extends KubernetesManifestSpec
             .description("Namespace to execute kubectl commands in.");
     }
 
-    private static PropertySpec<ManifestWaitStrategy> buildWaitStrategySpec(String prefix, Optional<String> name,
-        boolean required)
+    private static PropertySpec<ManifestWaitStrategy> buildWaitStrategySpec(String prefix,
+        Supplier<String> runtimePrefix, Optional<String> name, boolean required)
     {
         return PropertySpecBuilder.createEnum(prefix, ManifestWaitStrategy.class)
+            .runtimePrefix(runtimePrefix)
             .name(SpecUtils.buildFullName(name, "wait.strategy"))
             .description(
                 "Method of waiting for resources / deployment to be ready.  FIXED_DURATION will just pause until wait.timeout has passed; WAIT_ON_CONTAINERS will wait for wait.expected_containers of wait.container_name to appear with a timeout of wait.timeout; WAIT_ON_PODS will wait for the pods selected by wait.pod_label to satisfy wait.condition; WAIT_ON_IMAGE will wait for the pods running the image from the manifest to satisfy wait.condition; and WAIT_ON_MANIFEST will run kubectl wait --for=<wait.condition> --timeout=<wait.timeout> -f <fallout-internal-manifest-path>")
@@ -294,58 +300,66 @@ public class KubernetesDeploymentManifestSpec extends KubernetesManifestSpec
             .build();
     }
 
-    private static PropertySpec<String> buildWaitConditionSpec(String prefix, Optional<String> name)
+    private static PropertySpec<String> buildWaitConditionSpec(String prefix, Supplier<String> runtimePrefix,
+        Optional<String> name)
     {
         return PropertySpecBuilder.createStr(prefix)
+            .runtimePrefix(runtimePrefix)
             .name(SpecUtils.buildFullName(name, "wait.condition"))
             .description(
                 "Condition to wait for (e.g. condition=Ready); required for WAIT_ON_MANIFEST, WAIT_ON_PODS and WAIT_ON_IMAGE")
             .build();
     }
 
-    private static PropertySpec<Duration> buildWaitTimeoutSpec(String prefix, Optional<String> name)
+    private static PropertySpec<Duration> buildWaitTimeoutSpec(String prefix, Supplier<String> runtimePrefix,
+        Optional<String> name)
     {
         return PropertySpecBuilder.createDuration(prefix)
+            .runtimePrefix(runtimePrefix)
             .name(SpecUtils.buildFullName(name, "wait.timeout"))
             .description("Duration to wait for condition to be met.")
             .defaultOf(Duration.minutes(15))
             .build();
     }
 
-    private static PropertySpec<String> buildPodLabelSpec(String prefix, Optional<String> name,
-        PropertySpec<ManifestWaitStrategy> parent)
+    private static PropertySpec<String> buildPodLabelSpec(String prefix, Supplier<String> runtimePrefix,
+        Optional<String> name, PropertySpec<ManifestWaitStrategy> parent)
     {
         return PropertySpecBuilder.createStr(prefix)
+            .runtimePrefix(runtimePrefix)
             .name(SpecUtils.buildFullName(name, "wait.pod_label"))
             .description("Label selector, to identify the pod(s) to wait on.")
             .dependsOn(parent, ManifestWaitStrategy.WAIT_ON_PODS)
             .build();
     }
 
-    private static PropertySpec<String> buildImageNameSpec(String prefix, Optional<String> name,
-        PropertySpec<ManifestWaitStrategy> parent)
+    private static PropertySpec<String> buildImageNameSpec(String prefix, Supplier<String> runtimePrefix,
+        Optional<String> name, PropertySpec<ManifestWaitStrategy> parent)
     {
         return PropertySpecBuilder.createStr(prefix)
+            .runtimePrefix(runtimePrefix)
             .name(SpecUtils.buildFullName(name, "wait.image_name"))
             .description("Name of an image running in a container to identify the pod to wait on.")
             .dependsOn(parent, ManifestWaitStrategy.WAIT_ON_IMAGE)
             .build();
     }
 
-    private PropertySpec<String> buildContainerNameSpec(String prefix, Optional<String> name,
-        PropertySpec<ManifestWaitStrategy> parent)
+    private PropertySpec<String> buildContainerNameSpec(String prefix, Supplier<String> runtimePrefix,
+        Optional<String> name, PropertySpec<ManifestWaitStrategy> parent)
     {
         return PropertySpecBuilder.createStr(prefix)
+            .runtimePrefix(runtimePrefix)
             .name(SpecUtils.buildFullName(name, "wait.container_name"))
             .description("Name of container to wait for.")
             .dependsOn(parent, ManifestWaitStrategy.WAIT_ON_CONTAINERS)
             .build();
     }
 
-    private PropertySpec<Integer> buildExpectedContainersSpec(String prefix, Optional<String> name,
-        PropertySpec<ManifestWaitStrategy> parent)
+    private PropertySpec<Integer> buildExpectedContainersSpec(String prefix, Supplier<String> runtimePrefix,
+        Optional<String> name, PropertySpec<ManifestWaitStrategy> parent)
     {
         return PropertySpecBuilder.createInt(prefix)
+            .runtimePrefix(runtimePrefix)
             .name(SpecUtils.buildFullName(name, "wait.expected_containers"))
             .description("Number of containers to wait for.")
             .dependsOn(parent, ManifestWaitStrategy.WAIT_ON_CONTAINERS)
