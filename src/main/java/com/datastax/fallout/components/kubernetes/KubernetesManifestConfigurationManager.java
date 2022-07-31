@@ -40,15 +40,17 @@ public class KubernetesManifestConfigurationManager extends ConfigurationManager
 {
     private static final String prefix = "fallout.configuration.management.kubernetes.generic.";
 
-    private static final KubernetesDeploymentManifestSpec manifestSpec =
-        new KubernetesDeploymentManifestSpec(prefix);
+    private final KubernetesDeploymentManifestSpec manifestSpec =
+        new KubernetesDeploymentManifestSpec(prefix, this::prefix);
 
-    private static final ProviderUtil.DynamicProviderSpec providerSpec = new ProviderUtil.DynamicProviderSpec(prefix);
+    private final ProviderUtil.DynamicProviderSpec providerSpec =
+        new ProviderUtil.DynamicProviderSpec(prefix, this::prefix);
 
     @Override
     public String prefix()
     {
-        return prefix;
+        //Let's this CM be used multiple times in the same nodeGroup
+        return getInstanceName() != null ? prefix + getInstanceName() + "." : prefix;
     }
 
     @Override
