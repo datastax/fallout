@@ -29,12 +29,16 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -75,8 +79,12 @@ import static psy.lob.saw.HdrHistogramUtil.createLogWriter;
 public class HdrHistogramChecker extends ArtifactChecker
 {
     private static final double OUTPUT_VALUE_UNIT_RATIO = 0.000001d;
+    private static final double MAX_PERCENT = 100.d;
+    private static final double INCREMENT_PERCENT = 0.1d;
+
     private static final String prefix = "fallout.artifact_checkers.hdrhistogram.";
     private static final String UNION_FILE_EXT = ".union.hdr";
+
     private static final PropertySpec<String> clientGroupSpec = PropertySpecBuilder.clientGroup(prefix);
     private static final PropertySpec<String> reportNameSpec = PropertySpecBuilder.createStr(prefix, "[^\\/\\\\\\s]+")
         .name("report.prefix")
@@ -577,11 +585,99 @@ public class HdrHistogramChecker extends ArtifactChecker
     }
 
     /**
+     * Computes the frequencies of values from an HDR histogram based on a number of sorted buckets.
+     * @param   sum                 An HDR histogram (Histogram).
+     * @param   numOfBuckets        The number (int) of chosen buckets for which frequencies are computed.
+     * @return  listOfFrequencies   A list of frequencies of sorted buckets-related values (List<Integer>).
+     * @implNote The frequency is the number of occurrences of a value in the list.
+     */
+    private static List<Integer> getListOfFrequencies(Histogram sum, int numOfBuckets)
+    {
+        List<Integer> listOfFrequencies = new ArrayList<>();
+
+        List<Double> listOfVals = new ArrayList<>();
+
+        // The number of precision values (1000d = 3 precision values, e.g., 1.234) wherein values are represented.
+        double precisionVal = 1000d;
+
+        // Get a rounded value (e.g., a latency) at every 0.1th percentile of increment, assuming that it would be
+        // enough for the expected precision (of the increment).
+        for (double i = INCREMENT_PERCENT; i < MAX_PERCENT; i += INCREMENT_PERCENT)
+        {
+            listOfVals.add(Math.round(convertUnit(sum.getValueAtPercentile(i)) * precisionVal) / precisionVal);
+        }
+        
+        List<Double> listOfUniqueSortedVals = getUniqueValsList(listOfVals);
+
+        int bucketSize = Math.round(listOfVals.size() / numOfBuckets);
+
+        // Splits list of values into a list of lists (of values), wherein the number of sub-lists equals
+        // the 'numOfBuckets'.
+        List<List<Double>> listOfValuesInBuckets = splitListIntoBuckets(listOfUniqueSortedVals, bucketSize);
+
+        // Count frequencies per bucket from the 'listOfVals'.
+        for (List<Double> listOfBucket : listOfValuesInBuckets)
+        {
+            int totalFrequencyPerBucket = 0;
+            for (Double valueInBucket : listOfBucket)
+            {
+                totalFrequencyPerBucket += Collections.frequency(listOfVals, valueInBucket);
+            }
+            listOfFrequencies.add(totalFrequencyPerBucket);
+        }
+
+        return listOfFrequencies;
+    }
+
+    /**
+     * Splits a list of values into buckets of a given size.
+     * @param   listOfVals          A list of values to be split into buckets (List<Double>).
+     * @param   bucketSize          The number of values in each bucket (int).
+     * @return  bucketedListOfVals  A list of lists of values (List<List<Double>>), wherein each sub-list is a bucket.
+     */
+    private static List<List<Double>> splitListIntoBuckets(List<Double> listOfVals, int bucketSize)
+    {
+        List<Double> listOfSortedValues = getSortedValsList(listOfVals);
+
+        AtomicInteger counter = new AtomicInteger();
+        final Collection<List<Double>> groupedVals = listOfSortedValues.stream()
+            .collect(Collectors.groupingBy(it -> counter.getAndIncrement() / bucketSize))
+            .values();
+
+        List<List<Double>> bucketedListOfVals = new ArrayList(groupedVals);
+        return bucketedListOfVals;
+    }
+
+    /**
+     * Gets a list of sorted values (double) in increasing order from an initial list of unsorted values.
+     * @param   listOfVals          A list of unsorted values (List<Double>).
+     * @return  sortedListOfVals    A list of sorted values (List<Double>) in increasing order.
+     */
+    private static List<Double> getSortedValsList(List<Double> listOfVals)
+    {
+        List<Double> sortedListOfVals = listOfVals.stream().sorted().collect(Collectors.toList());
+        return sortedListOfVals;
+    }
+
+    /**
+     * Gets a list of unique values (double) from an initial list of values that may include duplicates.
+     * @param   listOfVals      A list of values, including any duplicates there may be (List<Double>).
+     * @return  uniqueValsList  A list of unique values (List<Double>).
+     */
+    private static List<Double> getUniqueValsList(List<Double> listOfVals)
+    {
+        Set<Double> uniqueValsSet = new HashSet<Double>(listOfVals);
+
+        List<Double> uniqueValsList = new ArrayList<>(uniqueValsSet);
+        return uniqueValsList;
+    }
+
+    /**
      * Computes the Median Absolute Deviation (MAD) from the HDR histogram.
      * @param   sum         An input HDR histogram (Histogram).
      * @return  medianVal   The median (double) of the absolute differences between values from the HDR histogram and
      *                      its median.
-     * Reference: Howell, D. C. (2005). Median absolute deviation. Encyclopedia of statistics in behavioral science.
+     * @see reference: Howell, D. C. (2005). Median absolute deviation. Encyclopedia of statistics in behavioral science.
      */
     private static double getMedianAbsoluteDeviation(Histogram sum)
     {
@@ -590,17 +686,16 @@ public class HdrHistogramChecker extends ArtifactChecker
         List<Double> listOfVals = new ArrayList<>();
 
         // Subtract the median from each value using the formula |val(i) – median|,
-        // assuming that getting a value at every 0.1th percentile would be
+        // assuming that getting a value at every 0.1th percentile ('INCREMENT_PERCENT') would be
         // enough for the expected precision.
-        double incrementIter = 0.1d;
-        for (double i = incrementIter; i < 100.d; i += incrementIter)
+        for (double i = INCREMENT_PERCENT; i < MAX_PERCENT; i += INCREMENT_PERCENT)
         {
             listOfVals.add(Math.abs(convertUnit(sum.getValueAtPercentile(i)) - medianOfHist));
         }
 
         // Sort the list of values in increasing order (although decreasing would be fine too) to then
         // compute the median.
-        List<Double> sortedListOfVals = listOfVals.stream().sorted().collect(Collectors.toList());
+        List<Double> sortedListOfVals = getSortedValsList(listOfVals);
 
         // Compute the median of the absolute differences found above further to sorting the list of values.
         double medianVal =
