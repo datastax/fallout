@@ -6,8 +6,11 @@ authors = []
 include = ["poetry.lock"]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.7.1"
 plotly = "^5.9.0"
+pandas = "1.3.5"
+pytest-cov = "^3.0.0"
+setuptools = "^65.0.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.2"

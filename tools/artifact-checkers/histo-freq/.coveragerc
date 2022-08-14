@@ -1,0 +1,11 @@
+[run]
+source = src/histo_freq
+
+[report]
+omit =
+    src/histo_freq/main.py
+    */__init__.py
+    */constants.py
+
+exclude_lines =
+    pragma: no cover
