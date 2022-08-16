@@ -1,4 +1,4 @@
-# This file contains the constants used to plot a histogram of frequencies for buckets of latencies.
+# This file contains the function used to plot a histogram of frequencies for buckets of latencies.
 
 import ast
 import sys
@@ -33,7 +33,7 @@ def plot_histogram(
     is_vertical: bool = IS_VERTICAL
 ) -> None:
     """
-    Generate a vertical or horizontal (by default) histogram graph and save it to a .html file.
+    Generate a vertical (by default) or horizontal histogram graph and save it to a .html file.
 
     Args:
         list_of_buckets: List[List[float]]
@@ -53,8 +53,8 @@ def plot_histogram(
                             by hovering the mouse over the bars, the x and y values corresponding to each bar can be
                             visualised interactively.
         is_vertical: bool
-                    a boolean indicating whether the histogram should be plotted vertically (if True) or horizontally
-                    (by default, as False).
+                    a boolean indicating whether the histogram should be plotted vertically (if True, by default) or
+                    horizontally (as False).
     """
 
     df_w_two_cols = create_df_w_lats_ranges_and_freqs(

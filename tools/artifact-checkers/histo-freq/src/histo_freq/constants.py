@@ -12,8 +12,8 @@ COL_NAME_FREQS = 'frequencies_of_latencies'
 HIST_FILENAME_W_EXT = 'hist_graph_latency_freqs.html'
 HIST_TITLE = "Latencies' buckets by frequency"
 
-# Boolean determining whether the histogram should be plotted vertically (False if horizontally, True if vertically).
-IS_VERTICAL = False
+# Boolean determining whether the histogram should be plotted vertically (True if vertically, False if horizontally).
+IS_VERTICAL = True
 
 LABEL_FREQ = 'Frequencies'
 LABEL_LAT_RANGES = 'Latency ranges (ms)'
@@ -24,4 +24,4 @@ ORIENTATION_VERT = 'v'
 
 # Precision to be used for rounding minima and maxima of latencies for showing them as buckets' ranges on the
 # histogram graph.
-PRECISION_VAL = 2
+PRECISION_VAL = 1
