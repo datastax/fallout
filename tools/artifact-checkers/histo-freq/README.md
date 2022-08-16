@@ -9,6 +9,8 @@ plot the histogram vertically and/or with bars of adjusted width based on the ra
 Please follow the instructions below to set up the required environment and run the tool via `poetry`, 
 and/or run the tests via `pytest` (with or without showing the test coverage).
 
+Please do not edit the `poetry.lock` file; should you wish to add any dependencies in the project's file, please edit the `pyproject.toml` file.
+
 <br />
 
 First, install `poetry`:
@@ -29,6 +31,11 @@ poetry shell
 To add a dependency:
 ```
 poetry add <library_name>
+```
+
+To update all dependencies to the latest possible versions:
+```
+poetry update
 ```
 
 To run the `histo-freq` tool to generate a histogram graph from the command line
