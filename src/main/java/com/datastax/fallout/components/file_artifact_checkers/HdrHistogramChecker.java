@@ -609,7 +609,7 @@ public class HdrHistogramChecker extends ArtifactChecker
      *                      values (List<Integer>).
      * @implNote The frequency is the number of occurrences of a value in the list.
      */
-    private static HistogramGraphInputs getListOfFrequencies(Histogram sum, int numOfBuckets)
+    private static HistogramGraphInputs getHistGraphInputs(Histogram sum, int numOfBuckets)
     {
         List<Integer> listOfFrequencies = new ArrayList<>();
 
