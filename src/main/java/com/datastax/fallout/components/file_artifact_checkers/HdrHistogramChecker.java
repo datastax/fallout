@@ -585,13 +585,31 @@ public class HdrHistogramChecker extends ArtifactChecker
     }
 
     /**
-     * Computes the frequencies of values from an HDR histogram based on a number of sorted buckets.
-     * @param   sum                 An HDR histogram (Histogram).
-     * @param   numOfBuckets        The number (int) of chosen buckets for which frequencies are computed.
-     * @return  listOfFrequencies   A list of frequencies of sorted buckets-related values (List<Integer>).
+     * Combines the two required input lists to plot a histogram into an object.
+     */
+    static final class HistogramGraphInputs
+    {
+        public List<List<Double>> listOfBuckets;
+        public List<Integer> listOfFrequencies;
+
+        public HistogramGraphInputs(List<List<Double>> listOfBuckets, List<Integer> listOfFrequencies)
+        {
+            this.listOfBuckets = listOfBuckets;
+            this.listOfFrequencies = listOfFrequencies;
+        }
+    }
+
+    /**
+     * Computes the frequencies of values and their buckets from an HDR histogram based on a number of sorted buckets.
+     *
+     * @param sum          An HDR histogram (Histogram).
+     * @param numOfBuckets The number (int) of chosen buckets for which frequencies are computed.
+     * @return             A 'HistogramGraphInputs' object containing a list of buckets of latencies
+     *                      (List<List<Double>>) and a list of frequencies of sorted buckets-related
+     *                      values (List<Integer>).
      * @implNote The frequency is the number of occurrences of a value in the list.
      */
-    private static List<Integer> getListOfFrequencies(Histogram sum, int numOfBuckets)
+    private static HistogramGraphInputs getListOfFrequencies(Histogram sum, int numOfBuckets)
     {
         List<Integer> listOfFrequencies = new ArrayList<>();
 
@@ -626,7 +644,7 @@ public class HdrHistogramChecker extends ArtifactChecker
             listOfFrequencies.add(totalFrequencyPerBucket);
         }
 
-        return listOfFrequencies;
+        return new HistogramGraphInputs(listOfValuesInBuckets, listOfFrequencies);
     }
 
     /**
