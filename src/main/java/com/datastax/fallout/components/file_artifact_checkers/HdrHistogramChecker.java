@@ -29,7 +29,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -38,7 +37,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -648,21 +646,29 @@ public class HdrHistogramChecker extends ArtifactChecker
     }
 
     /**
-     * Splits a list of values into buckets of a given size.
+     * Splits a list of values into n number of buckets of equal range.
      * @param   listOfVals          A list of values to be split into buckets (List<Double>).
-     * @param   bucketSize          The number of values in each bucket (int).
+     * @param   bucketSize          The number of buckets (int) of equal range.
      * @return  bucketedListOfVals  A list of lists of values (List<List<Double>>), wherein each sub-list is a bucket.
      */
-    private static List<List<Double>> splitListIntoBuckets(List<Double> listOfVals, int bucketSize)
+    @VisibleForTesting
+    public static List<List<Double>> splitListIntoBuckets(List<Double> listOfVals, int bucketSize)
     {
         List<Double> listOfSortedValues = getSortedValsList(listOfVals);
 
-        AtomicInteger counter = new AtomicInteger();
-        final Collection<List<Double>> groupedVals = listOfSortedValues.stream()
-            .collect(Collectors.groupingBy(it -> counter.getAndIncrement() / bucketSize))
-            .values();
+        double max = Collections.max(listOfSortedValues);
+        double min = Collections.min(listOfSortedValues);
+        double sizeOfRange = (max - min) / (bucketSize - 1);
 
-        List<List<Double>> bucketedListOfVals = new ArrayList(groupedVals);
+        List<List<Double>> bucketedListOfVals = new ArrayList<>();
+        for (int i = 0; i < bucketSize; i++){
+            int finalI = i;
+            List<Double> groupedVals = listOfSortedValues.stream()
+                .filter(val -> ((val >= sizeOfRange * finalI) && (val < sizeOfRange * (finalI + 1))))
+                .collect(Collectors.toList());
+            bucketedListOfVals.add(groupedVals);
+        }
+
         return bucketedListOfVals;
     }
 
@@ -671,7 +677,8 @@ public class HdrHistogramChecker extends ArtifactChecker
      * @param   listOfVals          A list of unsorted values (List<Double>).
      * @return  sortedListOfVals    A list of sorted values (List<Double>) in increasing order.
      */
-    private static List<Double> getSortedValsList(List<Double> listOfVals)
+    @VisibleForTesting
+    public static List<Double> getSortedValsList(List<Double> listOfVals)
     {
         List<Double> sortedListOfVals = listOfVals.stream().sorted().collect(Collectors.toList());
         return sortedListOfVals;
@@ -682,7 +689,8 @@ public class HdrHistogramChecker extends ArtifactChecker
      * @param   listOfVals      A list of values, including any duplicates there may be (List<Double>).
      * @return  uniqueValsList  A list of unique values (List<Double>).
      */
-    private static List<Double> getUniqueValsList(List<Double> listOfVals)
+    @VisibleForTesting
+    public static List<Double> getUniqueValsList(List<Double> listOfVals)
     {
         Set<Double> uniqueValsSet = new HashSet<Double>(listOfVals);
 
