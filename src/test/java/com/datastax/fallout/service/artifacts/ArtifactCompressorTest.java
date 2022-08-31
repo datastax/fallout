@@ -63,7 +63,6 @@ public class ArtifactCompressorTest extends ManagedArtifactServiceTest
     private static CassandraDriverManager driverManager;
 
     private static final String keyspace = "artifact_compressor_test";
-    private static final String testRunId = "69A38F36-8A91-4ABB-A2C8-B669189FEFD5";
     private static Session session;
 
     @BeforeAll

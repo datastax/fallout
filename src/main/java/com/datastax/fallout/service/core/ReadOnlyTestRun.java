@@ -121,4 +121,9 @@ public interface ReadOnlyTestRun extends HasPermissions
         return String.format("%s %s %s", getOwner(), getTestName(), getTestRunId());
     }
 
+    @JsonIgnore
+    default String getArchiveKey()
+    {
+        return String.format("%s/%s/%s", getOwner(), getTestName(), getTestRunId());
+    }
 }

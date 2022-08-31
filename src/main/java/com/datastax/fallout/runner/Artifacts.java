@@ -35,17 +35,12 @@ import com.datastax.fallout.service.core.TestRun;
 
 public class Artifacts
 {
-    public static Path buildTestArtifactPath(FalloutConfiguration configuration, ReadOnlyTestRun testRun)
-    {
-        return buildTestArtifactPath(configuration, testRun.getOwner(), testRun.getTestName());
-    }
-
-    public static Path buildTestArtifactPath(Path rootArtifactPath, ReadOnlyTestRun testRun)
+    private static Path buildTestArtifactPath(Path rootArtifactPath, ReadOnlyTestRun testRun)
     {
         return buildTestArtifactPath(rootArtifactPath, testRun.getOwner(), testRun.getTestName());
     }
 
-    public static Path buildTestArtifactPath(Path rootArtifactPath, String userEmail, String testName)
+    private static Path buildTestArtifactPath(Path rootArtifactPath, String userEmail, String testName)
     {
         return rootArtifactPath.resolve(Paths.get(userEmail, testName));
     }

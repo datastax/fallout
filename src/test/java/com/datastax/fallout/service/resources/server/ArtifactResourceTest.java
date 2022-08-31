@@ -57,6 +57,7 @@ import com.datastax.fallout.util.FileUtils;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.artifacts.ArtifactServlet.COMPRESSED_RANGE_REQUEST_ERROR_MESSAGE;
+import static com.datastax.fallout.service.cli.GenerateNginxConf.NginxConfParams.NGINX_ARTIFACT_ARCHIVE_DEFAULT_RESOLVER;
 import static com.datastax.fallout.service.cli.GenerateNginxConf.NginxConfParams.NGINX_GZIP_MIN_LENGTH;
 import static com.datastax.fallout.service.cli.GenerateNginxConf.generateNginxConf;
 import static com.datastax.fallout.service.cli.GenerateNginxConf.withWriterFromOutputString;
@@ -370,7 +371,8 @@ public class ArtifactResourceTest
 
             withWriterFromOutputString(nginxConf.toString(), writer -> generateNginxConf(
                 writer,
-                new NginxConfParams(true, NGINX_LISTEN_PORT, NGINX_ROOT),
+                new NginxConfParams(
+                    true, NGINX_LISTEN_PORT, NGINX_ROOT, NGINX_ARTIFACT_ARCHIVE_DEFAULT_RESOLVER),
                 FALLOUT_SERVICE.getConfiguration()));
 
             nginx = Optional.of(new ProcessBuilder(

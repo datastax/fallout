@@ -94,6 +94,12 @@ public class FalloutConfiguration extends Configuration
     @JsonProperty
     private boolean isSharedEndpoint = false;
 
+    /**
+     * Name of an AWS S3 bucket where archived artifacts persist.
+     */
+    @JsonProperty
+    private String artifactArchive;
+
     /** What mode the FalloutService will run in; defaults to {@link ServerMode#STANDALONE}, set to {@link ServerMode#RUNNER} by
      *  calling {@link #setRunnerMode} */
     public enum ServerMode
@@ -338,6 +344,16 @@ public class FalloutConfiguration extends Configuration
             input = input.replace(domain, "");
         }
         return input;
+    }
+
+    public String getArtifactArchive()
+    {
+        return artifactArchive;
+    }
+
+    public void setArtifactArchive(String artifactArchive)
+    {
+        this.artifactArchive = artifactArchive;
     }
 
     public boolean forceJava8ForLocalCommands()

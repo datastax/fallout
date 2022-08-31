@@ -34,7 +34,7 @@ import com.datastax.fallout.util.ScopedLogger;
 
 public class ArtifactScrubber extends PeriodicTask
 {
-    private static final int MAX_TRIES_TO_DELETE_DIRECTORY = 10;
+    protected static final int MAX_TRIES_TO_DELETE_DIRECTORY = 10;
     private static final ScopedLogger logger = ScopedLogger.getLogger("ArtifactScrubber");
     private TestRunDAO testRunDAO;
     private Path rootArtifactPath;
@@ -67,7 +67,7 @@ public class ArtifactScrubber extends PeriodicTask
                 {
                     logger.info("Found artifacts for test with owner: {}  test name: {}  testrunid: {}  " +
                         "but no matching database entry. Removing artifacts from disk ", email, test, testrunid);
-                    tryToDeleteDirectory(testrunidPath, MAX_TRIES_TO_DELETE_DIRECTORY);
+                    tryToDeleteDirectory(logger, testrunidPath, MAX_TRIES_TO_DELETE_DIRECTORY);
                 }
             }
             catch (Exception e)
@@ -78,7 +78,8 @@ public class ArtifactScrubber extends PeriodicTask
 
     }
 
-    private void tryToDeleteDirectory(Path directory, int remainingTries) throws IOException
+    protected static void tryToDeleteDirectory(ScopedLogger logger, Path directory, int remainingTries)
+        throws IOException
     {
         if (remainingTries == 0)
         {
@@ -101,7 +102,7 @@ public class ArtifactScrubber extends PeriodicTask
                     "Will adjust the write attribute and try again.", affectedDirectory);
                 if (affectedDirectory.setWritable(true))
                 {
-                    tryToDeleteDirectory(directory, remainingTries - 1);
+                    tryToDeleteDirectory(logger, directory, remainingTries - 1);
                 }
                 else
                 {

@@ -26,6 +26,8 @@ import static com.datastax.fallout.service.core.Fakes.TEST_USER_EMAIL;
 
 class ManagedArtifactServiceTest extends WithPersistentTestOutputDir
 {
+    protected static final String testRunId = "69A38F36-8A91-4ABB-A2C8-B669189FEFD5";
+
     TestRun createTestRun(String testName, String testRunId)
     {
         TestRun testRun = new TestRun();
