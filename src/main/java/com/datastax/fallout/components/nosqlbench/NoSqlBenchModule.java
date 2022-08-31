@@ -16,6 +16,7 @@
 package com.datastax.fallout.components.nosqlbench;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -83,6 +84,12 @@ public class NoSqlBenchModule extends Module
             "and the number of clients is 5, the resulting ranges would be [(10, 20), (20, 30), (30, 40), " +
             "(40, 50), (50, 60)].")
         .defaultOf(0L)
+        .build();
+
+    private PropertySpec<Boolean> equivalentCyclesSpec = PropertySpecBuilder.createBool(prefix, false)
+        .name("equivalent_cycles")
+        .description(
+            "When true, give each client the same cycle range. The entire cycle range will be given to each client")
         .build();
 
     private static final PropertySpec<List<String>> argsListSpec = PropertySpecBuilder.createStrList(prefix)
@@ -196,8 +203,9 @@ public class NoSqlBenchModule extends Module
     public List<PropertySpec<?>> getModulePropertySpecs()
     {
         return ImmutableList.<PropertySpec<?>>builder()
-            .add(numClientsSpecs, totalCyclesSpec, cycleOffsetSpec, argsListSpec, histogramFrequencySpec,
-                syncStartSpec, workloadDurationSpec, aliasSpec, hostParamSpec, serviceTypeSpec, scenarioParamSpec)
+            .add(numClientsSpecs, totalCyclesSpec, cycleOffsetSpec, equivalentCyclesSpec, argsListSpec,
+                histogramFrequencySpec, syncStartSpec, workloadDurationSpec, aliasSpec, hostParamSpec, serviceTypeSpec,
+                scenarioParamSpec)
             .addAll(serverGroupSpec.getSpecs())
             .addAll(clientGroupSpec.getSpecs())
             .addAll(timeoutSpec.getSpecs())
@@ -319,11 +327,13 @@ public class NoSqlBenchModule extends Module
 
         Long totalCycles = totalCyclesSpec.value(properties);
         Long cycleOffset = cycleOffsetSpec.value(properties);
+        boolean equivalentCycles = equivalentCyclesSpec.value(properties);
 
         Optional<List<String>> cycleRanges = Optional.empty();
         if (totalCycles != null)
         {
-            cycleRanges = Optional.of(buildCycleRangeByClientArgs(totalCycles, cycleOffset, numClients));
+            cycleRanges = Optional.of(
+                buildCycleRangeByClientArgs(totalCycles, cycleOffset, numClients, equivalentCycles));
         }
 
         emitInvoke("Starting nosqlbench");
@@ -465,8 +475,14 @@ public class NoSqlBenchModule extends Module
         return contactPointProviders;
     }
 
-    public static List<String> buildCycleRangeByClientArgs(long totalCycles, long cycleOffset, int numClients)
+    public static List<String> buildCycleRangeByClientArgs(long totalCycles, long cycleOffset, int numClients,
+        boolean equivalentCycles)
     {
+        if (equivalentCycles)
+        {
+            long cycleEnd = totalCycles + cycleOffset;
+            return new ArrayList<>(Collections.nCopies(numClients, String.format("%d..%d", cycleOffset, cycleEnd)));
+        }
         return distributeCycleRangeByClient(totalCycles, cycleOffset, numClients)
             .map(r -> String.format("%d..%d", r.lowerEndpoint(), r.upperEndpoint()))
             .toList();

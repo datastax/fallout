@@ -60,6 +60,7 @@ import com.datastax.fallout.ops.PropertyBasedComponent;
 import com.datastax.fallout.ops.PropertyRefExpander;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.Provider;
+import com.datastax.fallout.ops.ProviderPropertyRefHandler;
 import com.datastax.fallout.ops.Provisioner;
 import com.datastax.fallout.ops.TestRunScratchSpaceFactory.TestRunScratchSpace;
 import com.datastax.fallout.ops.UserSecretsPropertyRefHandler;
@@ -1117,6 +1118,7 @@ public class ActiveTestRunBuilder
             .build(testRunArtifactPath, testRunScratchSpace);
 
         propertyRefExpander.addHandler(ensemble.getLocalFilesHandler().createPropertyRefHandler());
+        propertyRefExpander.addHandler(new ProviderPropertyRefHandler(ensemble));
 
         validateEnsemblePropertySpecs(ensemble, validationResult);
 

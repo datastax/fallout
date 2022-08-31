@@ -330,6 +330,11 @@ public class Node implements HasProperties
         }
     }
 
+    public Provider getProviderByName(String name)
+    {
+        return providers.get(name);
+    }
+
     public <T extends Provider> T getProvider(Class<T> clazz)
     {
         return maybeGetProvider(clazz)
