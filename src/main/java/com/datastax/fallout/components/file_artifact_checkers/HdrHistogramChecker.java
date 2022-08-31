@@ -622,7 +622,7 @@ public class HdrHistogramChecker extends ArtifactChecker
         {
             listOfVals.add(Math.round(convertUnit(sum.getValueAtPercentile(i)) * precisionVal) / precisionVal);
         }
-        
+
         List<Double> listOfUniqueSortedVals = getUniqueValsList(listOfVals);
 
         int bucketSize = Math.round(listOfVals.size() / numOfBuckets);
@@ -661,7 +661,8 @@ public class HdrHistogramChecker extends ArtifactChecker
         double sizeOfRange = (max - min) / (bucketSize - 1);
 
         List<List<Double>> bucketedListOfVals = new ArrayList<>();
-        for (int i = 0; i < bucketSize; i++){
+        for (int i = 0; i < bucketSize; i++)
+        {
             int finalI = i;
             List<Double> groupedVals = listOfSortedValues.stream()
                 .filter(val -> ((val >= sizeOfRange * finalI) && (val < sizeOfRange * (finalI + 1))))
