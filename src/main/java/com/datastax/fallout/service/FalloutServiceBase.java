@@ -16,7 +16,6 @@
 package com.datastax.fallout.service;
 
 import javax.servlet.DispatcherType;
-import javax.servlet.Servlet;
 import javax.servlet.ServletRegistration;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.WebTarget;
@@ -92,9 +91,12 @@ import com.datastax.fallout.runner.UserCredentialsFactory;
 import com.datastax.fallout.runner.UserCredentialsFactory.UserCredentials;
 import com.datastax.fallout.runner.queue.PersistentPendingQueue;
 import com.datastax.fallout.service.FalloutConfiguration.ServerMode;
+import com.datastax.fallout.service.artifacts.ArchiveArtifactsTask;
+import com.datastax.fallout.service.artifacts.ArtifactArchive;
 import com.datastax.fallout.service.artifacts.ArtifactCompressor;
 import com.datastax.fallout.service.artifacts.ArtifactCompressorAdminTask;
 import com.datastax.fallout.service.artifacts.ArtifactScrubber;
+import com.datastax.fallout.service.artifacts.ArtifactServlet;
 import com.datastax.fallout.service.artifacts.ArtifactUsageAdminTask;
 import com.datastax.fallout.service.artifacts.ArtifactWatcher;
 import com.datastax.fallout.service.artifacts.JettyArtifactServlet;
@@ -268,16 +270,34 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
         conf.getServerFactory().insertHandler(rewriteHandler);
     }
 
-    private static void addArtifactServlet(FalloutConfiguration conf, Environment environment,
-        RewriteHandler rewriteHandler)
+    protected Optional<ArtifactArchive> maybeGetArtifactArchive(FalloutConfiguration conf)
     {
-        Function<Path, Servlet> createArtifactServlet =
-            conf.useNginxToServeArtifacts() ? NginxArtifactServlet::new : JettyArtifactServlet::new;
+        Optional<ArtifactArchive> artifactArchive = Optional.empty();
+        if (conf.getArtifactArchive() != null)
+        {
+            artifactArchive = Optional.of(
+                new ArtifactArchive.S3ArtifactArchive(conf.getArtifactPath(), conf.getArtifactArchive()));
+        }
+        return artifactArchive;
+    }
+
+    private static void addArtifactServlet(FalloutConfiguration conf, Environment environment,
+        RewriteHandler rewriteHandler, Optional<ArtifactArchive> artifactArchive)
+    {
+        ArtifactServlet artifactServlet;
+        logger.info("useNginxToServeArtifacts: {}", conf.useNginxToServeArtifacts());
+        var artifactPath = Paths.get(conf.getArtifactPath());
+        if (conf.useNginxToServeArtifacts())
+        {
+            artifactServlet = new NginxArtifactServlet(artifactPath, artifactArchive);
+        }
+        else
+        {
+            artifactServlet = new JettyArtifactServlet(artifactPath);
+        }
 
         final ServletRegistration.Dynamic registration = environment.servlets()
-            .addServlet("artifacts-servlet", createArtifactServlet.apply(
-                Paths.get(conf.getArtifactPath())
-            ));
+            .addServlet("artifacts-servlet", artifactServlet);
         registration.addMapping("/artifacts/*");
 
         // Redirect direct requests to the artifacts servlet URL to make sure users see (and share) the right path
@@ -671,14 +691,20 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
             runningTaskLock, Duration.hours(12), Duration.hours(24),
             artifactPath, testRunDAO, testDAO));
 
+        final var artifactArchive = maybeGetArtifactArchive(conf);
+        Optional<ArchiveArtifactsTask> archiveArtifactsTask = artifactArchive.map(_artifactArchive -> m.manage(
+            new ArchiveArtifactsTask(conf.getStartPaused(), timer, runningTaskLock, Duration.hours(12),
+                Duration.hours(24), _artifactArchive, testRunDAO, artifactPath)));
+
         TestRunReaper testRunReaper = m.manage(new TestRunReaper(conf.getStartPaused(), timer,
             runningTaskLock, Duration.hours(18), Duration.days(7),
             testRunDAO, reportDAO, testDAO, mailer, SlackUserMessenger.create(conf.getSlackToken(),
                 m.manage(FalloutClientBuilder.forComponent(SlackUserMessenger.class).build(), Client::close)),
             conf.getExternalUrl()));
 
-        QueueAdminTask queueAdminTask = new QueueAdminTask(testRunner,
-            List.of(artifactScrubber, artifactCompressor, testRunReaper));
+        var periodicQueuePauseTasks = new ArrayList<>(List.of(artifactScrubber, artifactCompressor, testRunReaper));
+        archiveArtifactsTask.ifPresent(periodicQueuePauseTasks::add);
+        QueueAdminTask queueAdminTask = new QueueAdminTask(testRunner, periodicQueuePauseTasks);
         environment.admin().addTask(queueAdminTask);
 
         final var artifactUsageAdminTask = new ArtifactUsageAdminTask(testRunDAO);
@@ -693,7 +719,7 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
         final RewriteHandler rewriteHandler = new RewriteHandler();
         conf.getServerFactory().insertHandler(rewriteHandler);
 
-        addArtifactServlet(conf, environment, rewriteHandler);
+        addArtifactServlet(conf, environment, rewriteHandler, artifactArchive);
 
         // Add CORS headers so that fallout API can be consumed from other than the main URL
         // The `CrossOriginFilter` comes with the required default settings: allow any origin
@@ -754,7 +780,7 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
         environment.jersey().register(componentResource);
         environment.jersey()
             .register(new PerformanceToolResource(testDAO, testRunDAO, reportDAO, conf.getArtifactPath(),
-                mainView, userGroupMapper));
+                mainView, userGroupMapper, artifactArchive));
 
         registerOptionalResources(conf, environment, testRunDAO, commandExecutor);
 

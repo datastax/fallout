@@ -54,7 +54,6 @@ public class ArtifactScrubberTest extends ManagedArtifactServiceTest
     private static Session session;
     private static CassandraDriverManager driverManager;
     private static final String keyspace = "artifact_scrubber_test";
-    static final String testRunId = "69A38F36-8A91-4ABB-A2C8-B669189FEFD5";
 
     @BeforeAll
     public static void startCassandra() throws Exception

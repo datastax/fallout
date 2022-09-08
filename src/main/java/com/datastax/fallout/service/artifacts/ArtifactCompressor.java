@@ -44,13 +44,19 @@ import com.datastax.fallout.util.ScopedLogger;
 
 public class ArtifactCompressor extends PeriodicTask
 {
-    private static final Set<String> INCOMPRESSIBLE_FILE_EXTENSIONS = Set
+    protected static final Set<String> INCOMPRESSIBLE_FILE_EXTENSIONS = Set
         .of("gz", "xz", "zip", "png", "gif", "jpg");
     private static final ScopedLogger logger = ScopedLogger.getLogger(ArtifactCompressor.class);
     private Path rootArtifactPath;
     private TestRunDAO testRunDAO;
     private TestDAO testDAO;
 
+    /**
+     * Artifacts should be compressed 1 day after the test run finishes. Two week grace period allows for errors during
+     * compression to be fixed and deployed, as well as some margin of error for scheduling.
+     *
+     * Second stage of artifact lifecycle, see third stage {@link ArchiveArtifactsTask#ARCHIVE_RANGE_DAYS}.
+     */
     public static final Range<java.time.Duration> COMPRESSION_RANGE_DAYS =
         Range.closedOpen(java.time.Duration.ofDays(1), java.time.Duration.ofDays(14));
 
@@ -70,6 +76,10 @@ public class ArtifactCompressor extends PeriodicTask
         return logger;
     }
 
+    /**
+     * Used in Admin task. When triggered via HTTP compresses all artifacts older than the maximum uncompressed window
+     * of one day.
+     */
     void checkAllFinishedTestRunsForUncompressedArtifacts()
     {
         runExclusively(() -> logger
@@ -88,6 +98,10 @@ public class ArtifactCompressor extends PeriodicTask
             }));
     }
 
+    /**
+     * Main compression task. Finds and compresses all test run artifacts created within the compressed artifact
+     * window of two weeks.
+     */
     @VisibleForTesting
     public static void checkRecentlyFinishedTestRunsForUncompressedArtifacts(Path rootArtifactPath,
         TestRunDAO testRunDAO, TestDAO testDAO, BooleanSupplier isPaused)
@@ -118,10 +132,16 @@ public class ArtifactCompressor extends PeriodicTask
             });
     }
 
-    private static String testRunInfo(ReadOnlyTestRun testRun)
+    protected static String testRunInfo(ReadOnlyTestRun testRun)
     {
         return String.format("%s %s %s", testRun.getClass().getSimpleName(),
             DateUtils.formatUTCDate(testRun.getFinishedAt()), testRun.getShortName());
+    }
+
+    protected static boolean isCompressibleArtifact(Path artifactPath)
+    {
+        return !INCOMPRESSIBLE_FILE_EXTENSIONS.contains(
+            com.google.common.io.Files.getFileExtension(artifactPath.toString()));
     }
 
     private static void checkForUncompressedArtifacts(Path rootArtifactPath, TestDAO testDAO, TestRun testRun,
@@ -139,9 +159,7 @@ public class ArtifactCompressor extends PeriodicTask
             }
             List<Path> uncompressedArtifacts;
             try (Stream<Path> pathStream = Files.find(artifactPath, 10,
-                (path, attr) -> attr.isRegularFile() &&
-                    !INCOMPRESSIBLE_FILE_EXTENSIONS
-                        .contains(com.google.common.io.Files.getFileExtension(path.toString()))))
+                (path, attr) -> attr.isRegularFile() && isCompressibleArtifact(path)))
             {
                 uncompressedArtifacts = pathStream.toList();
             }

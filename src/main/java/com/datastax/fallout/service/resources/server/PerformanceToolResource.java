@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
 import io.dropwizard.auth.Auth;
 
 import com.datastax.fallout.components.file_artifact_checkers.HdrHistogramChecker;
+import com.datastax.fallout.service.artifacts.ArtifactArchive;
 import com.datastax.fallout.service.core.PerformanceReport;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
@@ -72,10 +73,12 @@ public class PerformanceToolResource
     final String rootArtifactPath;
     private final MainView mainView;
     private final UserGroupMapper userGroupMapper;
+    private final Optional<ArtifactArchive> artifactArchive;
 
     public PerformanceToolResource(TestDAO testDAO, TestRunDAO testRunDAO, PerformanceReportDAO reportDAO,
         String rootArtifactPath,
-        MainView mainView, UserGroupMapper userGroupMapper)
+        MainView mainView, UserGroupMapper userGroupMapper,
+        Optional<ArtifactArchive> artifactArchive)
     {
         this.testDAO = testDAO;
         this.testRunDAO = testRunDAO;
@@ -83,6 +86,7 @@ public class PerformanceToolResource
         this.rootArtifactPath = rootArtifactPath;
         this.mainView = mainView;
         this.userGroupMapper = userGroupMapper;
+        this.artifactArchive = artifactArchive;
     }
 
     @GET
@@ -240,14 +244,22 @@ public class PerformanceToolResource
             throw new RuntimeException("Test Runs submitted for report contains duplicates");
         }
 
-        String fullReportName =
+        if (artifactArchive.isPresent())
+        {
+            for (var testRun : testRuns)
+            {
+                artifactArchive.get().ensureLocalArtifacts(testRun);
+            }
+        }
+
+        String reportArtifactPathWithoutExt =
             Paths.get("performance_reports", userEmail, reportGuid.toString(), "report").toString();
 
         java.nio.file.Path scratchDir =
             Files.createTempDirectory(String.format("performance-tool-report-%s", reportName));
         try
         {
-            checker.compareTests(testRuns, rootArtifactPath, fullReportName, reportName, scratchDir);
+            checker.compareTests(testRuns, rootArtifactPath, reportArtifactPathWithoutExt, reportName, scratchDir);
         }
         finally
         {
@@ -257,12 +269,18 @@ public class PerformanceToolResource
         PerformanceReport report = new PerformanceReport();
         report.setEmail(userEmail);
         report.setReportName(reportName);
-        report.setReportArtifact(fullReportName + ".html");
+        report.setReportArtifact(reportArtifactPathWithoutExt + ".html");
         report.setReportTestRuns(testRunIdentifiers);
         report.setReportDate(new Date());
         report.setReportGuid(reportGuid);
 
         reportDAO.add(report);
+
+        if (artifactArchive.isPresent())
+        {
+            artifactArchive.get().uploadReport(report);
+            FileUtils.deleteDir(Paths.get(rootArtifactPath, reportArtifactPathWithoutExt).getParent());
+        }
 
         return report;
     }

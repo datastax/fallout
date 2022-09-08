@@ -395,6 +395,16 @@ public class TestRun implements ReadOnlyTestRun
         return artifactsLastUpdated;
     }
 
+    /**
+     * Artifacts must be updated when:
+     * 1. Fallout has no information about the artifacts in the database; OR
+     * 2. The test run is active and has not been updated in the last 30 seconds.
+     *
+     * These two conditions exclude any situation where the artifacts are stored within the artifacts archive,
+     * because artifacts are only archived after a test run has finished and been compressed. Updating artifacts
+     * requires walking the filesystem, which is not supported by the
+     * {@link com.datastax.fallout.service.artifacts.ArtifactArchive}
+     */
     private boolean artifactsNeedUpdating()
     {
         Date thirtySecondsAgo = Date.from(Instant.now().minusSeconds(30));

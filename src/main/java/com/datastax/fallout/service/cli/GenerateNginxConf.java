@@ -44,16 +44,20 @@ public class GenerateNginxConf<FC extends FalloutConfiguration> extends FalloutC
     {
         public static final String NGINX_DIRECT_ARTIFACTS_LOCATION = "/artifacts_direct";
         public static final String NGINX_GZIP_ARTIFACTS_LOCATION = "/artifacts_gzip";
+        public static final String NGINX_ARTIFACT_ARCHIVE_LOCATION = "/artifacts_archive";
+        public static final String NGINX_ARTIFACT_ARCHIVE_DEFAULT_RESOLVER = "1.1.1.1";
         public static final int NGINX_GZIP_MIN_LENGTH = 512 * 1024;
         public final boolean standalone;
         public final int nginxListenPort;
         public final Path nginxRoot;
+        public final String archiveResolver;
 
-        public NginxConfParams(boolean standalone, int nginxListenPort, Path nginxRoot)
+        public NginxConfParams(boolean standalone, int nginxListenPort, Path nginxRoot, String archiveResolver)
         {
             this.standalone = standalone;
             this.nginxListenPort = nginxListenPort;
             this.nginxRoot = nginxRoot.toAbsolutePath();
+            this.archiveResolver = archiveResolver;
         }
 
         public NginxConfParams(Namespace namespace)
@@ -61,7 +65,8 @@ public class GenerateNginxConf<FC extends FalloutConfiguration> extends FalloutC
             this(
                 namespace.getBoolean("standalone"),
                 namespace.getInt("nginxListenPort"),
-                Paths.get(namespace.getString("nginxRoot")));
+                Paths.get(namespace.getString("nginxRoot")),
+                namespace.getString("archiveResolver"));
         }
     }
 
@@ -87,6 +92,10 @@ public class GenerateNginxConf<FC extends FalloutConfiguration> extends FalloutC
         subparser.addArgument("--output")
             .help("specify an output file; if omitted or '-', conf is generated to stdout")
             .setDefault("-");
+        subparser.addArgument("--archive-resolver")
+            .help("DNS server IP address which can act as an appropriate resolver for S3 buckets")
+            .dest("archiveResolver")
+            .setDefault(NginxConfParams.NGINX_ARTIFACT_ARCHIVE_DEFAULT_RESOLVER);
 
         subparser.addArgument("nginxRoot")
             .help("the root from which nginx should serve any requests not handled by fallout");

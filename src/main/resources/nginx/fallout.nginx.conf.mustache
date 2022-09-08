@@ -100,6 +100,47 @@ http {
 
             alias {{artifactPath}};
         }
+
+        # See: https://kovyrin.net/2010/07/24/nginx-fu-x-accel-redirect-remote/
+        # See: https://www.mediasuite.co.nz/blog/proxying-s3-downloads-nginx/
+        # Serve artifacts from the S3 artifacts archive.
+        # Debugging this can be tricky... In case you want to inspect the
+        location ~ ^{{NGINX_ARTIFACT_ARCHIVE_LOCATION}}/(.*?)/(.*) {
+            internal;
+
+            # resolver is required when proxy_pass contains variables and the domain is not in the
+            # "described server groups".
+            # See: https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass
+            # Prefer a VPC local DNS server in prod, use a public DNS server locally.
+            # For production in AWS this is 169.254.169.253
+            # See: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-dns.html#AmazonDNS
+            resolver {{archiveResolver}};
+
+            # Extract download url from the request
+            set $download_uri $2;
+            set $download_host $1;
+
+            # Compose download url
+            set $download_url https://$download_host/$download_uri;
+
+            # Set download request headers
+            proxy_set_header Host $download_host;
+            proxy_set_header Authorization '';
+
+            # Do not touch local disks when proxying
+            # content to clients
+            proxy_max_temp_file_size 0;
+
+            # !FOR DEBUGGING!
+            # add_header X-what-is $download_url;
+            # return 200
+
+            # Download the file and send it to client
+            # Query params are stripped from download_url, maybe because of this regex?
+            # The presigned urls rely on query params to pass auth.
+            # $is_args$args adds them back.
+            proxy_pass $download_url$is_args$args;
+        }
     }
 
 {{#standalone}}
