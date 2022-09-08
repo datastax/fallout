@@ -278,6 +278,23 @@ public class HdrHistogramChecker extends ArtifactChecker
                                 .getAggregatedHistogram())
                                 .toList();
                             historyAggregates.addAll(getHistoryAggregates(simpleFilename, summaries));
+                            // Create a new directory ('histogram-frequencies') inside the 'performance-report'
+                            // directory.
+                            Path histoFreqDir = reportPathWithoutExt.resolve("histogram-frequencies");
+                            reportPathWithoutExt.toFile().mkdirs();
+                            histoFreqDir.toFile().mkdirs();
+                            // Get aggregated histogram and extract the list of buckets and their computed frequencies.
+                            // Then, save the list of buckets and the list of their frequencies to a .json file.
+                            tagOutputMap.entrySet().forEach(tagOutputEntry -> {
+                                String tagname = tagOutputEntry.getKey();
+                                Histogram aggregate = tagOutputEntry.getValue().getAggregatedHistogram();
+
+                                HistogramGraphInputs histPojoObj = getHistGraphInputs(aggregate);
+                                Path histoFreqOutput = histoFreqDir.resolve(tagname + ".json");
+                                String content = JsonUtils.toJson(histPojoObj);
+                                FileUtils.writeString(histoFreqOutput, content);
+                            });
+
                         }
                         // auto close union output stream
                     }
@@ -598,16 +615,15 @@ public class HdrHistogramChecker extends ArtifactChecker
     }
 
     /**
-     * Computes the frequencies of values and their buckets from an HDR histogram based on a number of sorted buckets.
+     * Computes the frequencies of values and their buckets from an HDR histogram.
      *
      * @param sum          An HDR histogram (Histogram).
-     * @param numOfBuckets The number (int) of chosen buckets for which frequencies are computed.
      * @return             A 'HistogramGraphInputs' object containing a list of buckets of latencies
      *                      (List<List<Double>>) and a list of frequencies of sorted buckets-related
      *                      values (List<Integer>).
      * @implNote The frequency is the number of occurrences of a value in the list.
      */
-    private static HistogramGraphInputs getHistGraphInputs(Histogram sum, int numOfBuckets)
+    private static HistogramGraphInputs getHistGraphInputs(Histogram sum)
     {
         List<Integer> listOfFrequencies = new ArrayList<>();
 
@@ -625,10 +641,10 @@ public class HdrHistogramChecker extends ArtifactChecker
 
         List<Double> listOfUniqueSortedVals = getUniqueValsList(listOfVals);
 
-        int bucketSize = Math.round(listOfVals.size() / numOfBuckets);
+        int bucketDivisor = 5;
+        int bucketSize = Math.round(listOfVals.size() / bucketDivisor);
 
-        // Splits list of values into a list of lists (of values), wherein the number of sub-lists equals
-        // the 'numOfBuckets'.
+        // Splits list of values into a list of lists (of values) representing buckets.
         List<List<Double>> listOfValuesInBuckets = splitListIntoBuckets(listOfUniqueSortedVals, bucketSize);
 
         // Count frequencies per bucket from the 'listOfVals'.
