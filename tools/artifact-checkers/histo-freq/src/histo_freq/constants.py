@@ -9,7 +9,7 @@ BAR_GAP = 0.1
 COL_NAME_BUCKETS = 'buckets_ranges'
 COL_NAME_FREQS = 'frequencies_of_latencies'
 
-HIST_FILENAME_W_EXT = 'hist_graph_latency_freqs.html'
+HIST_FILE_EXT = '.html'
 HIST_TITLE = "Latencies' buckets by frequency"
 
 # Boolean determining whether the histogram should be plotted vertically (True if vertically, False if horizontally).
@@ -25,3 +25,5 @@ ORIENTATION_VERT = 'v'
 # Precision to be used for rounding minima and maxima of latencies for showing them as buckets' ranges on the
 # histogram graph.
 PRECISION_VAL = 1
+
+TICK_MODE = 'auto'

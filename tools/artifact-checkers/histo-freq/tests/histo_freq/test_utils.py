@@ -2,7 +2,6 @@ import sys
 import unittest
 
 import pandas as pd
-
 from pandas.testing import assert_frame_equal
 
 from src.histo_freq.utils import create_df_w_lats_ranges_and_freqs
