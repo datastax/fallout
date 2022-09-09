@@ -58,6 +58,11 @@ public class NginxArtifactServlet extends ArtifactServlet
         resp.setHeader(HttpHeader.CONTENT_ENCODING.asString(), "gzip");
     }
 
+    private void setContentType(HttpServletRequest req, HttpServletResponse resp)
+    {
+        resp.setContentType(getServletContext().getMimeType(req.getPathInfo()));
+    }
+
     @Override
     void getArtifact(HttpServletRequest req, HttpServletResponse resp,
         Path artifactPath, Path compressedArtifactPath, boolean rangeRequested) throws IOException
@@ -66,7 +71,7 @@ public class NginxArtifactServlet extends ArtifactServlet
         {
             setNginxRedirectHeader(resp, NGINX_DIRECT_ARTIFACTS_LOCATION + "/" + compressedArtifactPath.toString());
             setGzipContentEncoding(resp);
-            resp.setContentType(getServletContext().getMimeType(req.getPathInfo()));
+            setContentType(req, resp);
         }
         else if (Files.exists(resourceBase().resolve(artifactPath)))
         {
@@ -88,16 +93,12 @@ public class NginxArtifactServlet extends ArtifactServlet
         {
             // We have ruled out the possibility the artifact exists on the local filesystem.
             // Allow  remote artifact archive to return 404 if artifact does not exist.
-            String s3URL = artifactArchive.get().getArtifactUrl(artifactPath).toString()
+            Path archiveArtifactPath = isCompressibleArtifact(artifactPath) ? compressedArtifactPath : artifactPath;
+            String s3URL = artifactArchive.get().getArtifactUrl(archiveArtifactPath).toString()
                 .replace("https://", "");
             String internalRedirect = NGINX_ARTIFACT_ARCHIVE_LOCATION + "/" + s3URL;
             setNginxRedirectHeader(resp, internalRedirect);
-
-            if (isCompressibleArtifact(artifactPath))
-            {
-                // It is an error if a compressible artifact exists in the archive without first being gzipped.
-                setGzipContentEncoding(resp);
-            }
+            setContentType(req, resp);
         }
         else
         {

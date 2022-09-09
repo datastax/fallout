@@ -135,6 +135,14 @@ http {
             # add_header X-what-is $download_url;
             # return 200
 
+            # Replace content headers from S3 so browsers unzip compressed archived artifacts.
+            # Allows us to skip setting metadata on all S3 objects.
+            # see: https://stackoverflow.com/a/15117310
+            proxy_hide_header Content-Type; # Content-Type is set by Fallout
+            if ($download_uri ~ "^(.+)\.gz$"){
+                add_header Content-Encoding gzip;
+            }
+
             # Download the file and send it to client
             # Query params are stripped from download_url, maybe because of this regex?
             # The presigned urls rely on query params to pass auth.
