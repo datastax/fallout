@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.stream.StreamSupport;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import io.dropwizard.lifecycle.Managed;
 
 import com.datastax.driver.core.BatchStatement;
@@ -58,8 +59,8 @@ public class UserDAO implements Managed
     @Accessor
     private interface UserAccessor
     {
-        @Query("SELECT name, email FROM users")
-        ResultSet getAllNamesAndEmails();
+        @Query("SELECT name, email, group FROM users")
+        ResultSet getAllNamesEmailsAndGroups();
 
         @Query("SELECT email FROM users")
         ResultSet getAllEmails();
@@ -123,11 +124,27 @@ public class UserDAO implements Managed
         return userMapper.get(userId, Mapper.Option.consistencyLevel(ConsistencyLevel.SERIAL));
     }
 
-    /** Return a list of users as maps of <code>{"name": ..., "email": ...}</code>, sorted by name. */
     public List<Map<String, String>> getAllUsers()
     {
-        return userAccessor.getAllNamesAndEmails().all().stream()
-            .map(r -> Map.of("name", r.getString("name"), "email", r.getString("email")))
+        return getAllUsers(false);
+    }
+
+    /** Return a list of users as maps of <code>{"name": ..., "email": ...}</code>, sorted by name.
+     * Optionally includes the user's "group".
+     * */
+    public List<Map<String, String>> getAllUsers(boolean includeGroup)
+    {
+        return userAccessor.getAllNamesEmailsAndGroups().all().stream()
+            .map(r -> {
+                var user = ImmutableMap.<String, String>builder()
+                    .put("name", r.getString("name"))
+                    .put("email", r.getString("email"));
+                if (includeGroup)
+                {
+                    user.put("group", r.getString("group"));
+                }
+                return (Map<String, String>) user.build();
+            })
             .sorted(Comparator.comparing(userMap -> userMap.get("name")))
             .toList();
     }

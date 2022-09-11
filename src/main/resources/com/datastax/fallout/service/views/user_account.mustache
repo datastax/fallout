@@ -287,16 +287,6 @@
                     </div>
                     {{/user}}
 
-                    <div class="form-group">
-                        <label>User Group</label>
-                        <select id="usergroup-select" class="form-control" name="group" required>
-                            <option selected disabled>( Select your group )</option>
-                            {{#allUserGroups}}
-                                <option value="{{name}}" id="usergroup-select-option-{{name}}">{{prettyName}}</option>
-                            {{/allUserGroups}}
-                        </select>
-                        <p class="help-block">This group determines what Openstack / Ironic credentials and tenant are used for launching ctool clusters.</p>
-                    </div>
                     {{#user}}
                     <script>
                         $("#usergroup-select-option-{{group}}").prop("selected", true);

@@ -7,6 +7,49 @@
 <!-- Page Content -->
 <div id="page-wrapper">
     <div class="container-fluid">
+        <!-- Modals -->
+        <div class="modal fade" id="userGroupModal" role="dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <!-- Modal Header -->
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span aria-hidden="true">&times;</span>
+                            <span class="sr-only">Close</span>
+                        </button>
+                        <h4 class="modal-title" id="userGroupFormLabel">Set User Group</h4>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="modal-body">
+                        <form role="form" id="userGroupForm" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="userEmail">User Email</label>
+                                <input type="text" class="form-control" id="userEmail" name="userEmail"/>
+                            </div>
+                            <div class="form-group">
+                                <label>User Group</label>
+                                <select id="usergroup-select" class="form-control" name="groupName" required>
+                                    <option selected disabled>( Select your group )</option>
+                                    {{#allUserGroups}}
+                                        <option value="{{name}}" id="usergroup-select-option-{{name}}">{{prettyName}}</option>
+                                    {{/allUserGroups}}
+                                </select>
+                                <p class="help-block">This group determines what Openstack / Ironic & EC2 credentials and tenant are used for launching ctool clusters.</p>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="userGroupButton">Set</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- / Modals -->
+
         <h2>Administration</h2>
         {{> partials/message-area}}
 
@@ -40,7 +83,29 @@
             <i class="fa fa-files-o"></i>
             Download artifact usage CSV</a>
         <p>Warning: this could be large!  You may want to login to the server and use the equivalent task instead: <code>curl -X POST http://localhost:8081/tasks/{{artifactUsageTaskName}}</code>
+        <!-- /.row -->
 
+        <div class="row">
+            <h3>User Groups</h3>
+            <table class="table table-bordered table-striped">
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Group</th>
+                    <th>Performance Reports</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{#allUsers}}
+                <tr>
+                    <td>{{name}} ({{email}})</td>
+                    <td>{{group}}</td>
+                    <td><a id="set-user-group" href="#" class="btn btn-info btn-xs" type="button" onClick="openUserGroupModal('{{email}}')">Set User Group</a></td>
+                </tr>
+                {{/allUsers}}
+                </tbody>
+            </table>
+        </div>
         <!-- /.row -->
     </div>
     <!-- /.container-fluid -->
@@ -48,6 +113,25 @@
 <!-- /#page-wrapper -->
 
 <script>
+    function openUserGroupModal(userEmail) {
+        $("#userEmail").val(userEmail);
+        $("#userGroupModal").modal('show');
+    }
+
+    $("#userGroupButton").click(function() {
+        var form = $("#userGroupForm");
+        $.ajax({
+            url: "/admin/addToUserGroup",
+            type: "POST",
+            data: $(form).serialize(),
+            success: function (data) {
+                $("#userGroupModal").modal('hide');
+                window.location.replace("/admin");
+            },
+            error: showAjaxErrorMessage
+        });
+    });
+
     $(function () {
         $("#requestShutdown, #cancelShutdown, #abortAndRequeueRunningTestRuns").click(function(){
             $.ajax({

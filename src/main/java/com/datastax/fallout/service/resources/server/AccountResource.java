@@ -125,7 +125,7 @@ public class AccountResource
     @Timed
     @Produces(MediaType.APPLICATION_JSON)
     public Response doRegistration(@FormParam("name") @NotEmpty String name, @FormParam("email") @NotEmpty String email,
-        @FormParam("password") @NotEmpty String password, @FormParam("group") String group)
+        @FormParam("password") @NotEmpty String password)
     {
         validateEmail(email);
 
@@ -158,7 +158,7 @@ public class AccountResource
 
         try
         {
-            var user = userDAO.createUserIfNotExists(name, email, password, userGroupMapper.validGroupOrOther(group));
+            var user = userDAO.createUserIfNotExists(name, email, password, UserGroupMapper.UserGroup.OTHER);
             session = userDAO.addSession(user);
         }
         catch (Exception e)
@@ -574,7 +574,6 @@ public class AccountResource
     @Produces(MediaType.APPLICATION_JSON)
     public Response doProfile(@Auth User user,
         @FormParam("automatonSharedHandle") String automatonSharedHandle,
-        @FormParam("group") String group,
         @FormParam("emailPref") String emailPref,
         @FormParam("slackPref") String slackPref,
         @FormParam("publicSshKey") String sshKey,
@@ -591,7 +590,6 @@ public class AccountResource
             // FormParams will be set.  To make sure we don't overwrite anything that wasn't
             // specified, we only set things in user for which a non-null FormParam was supplied.
 
-            setIfNonNull(user::setGroup, userGroupMapper::validGroupOrOther, group);
             setIfNonNull(user::throwOrSetValidAutomatonSharedHandle, automatonSharedHandle);
             setIfNonNull(user::setPublicSshKey, sshKey);
             setIfNonNull(user::setEc2AccessKey, ec2AccessKey);

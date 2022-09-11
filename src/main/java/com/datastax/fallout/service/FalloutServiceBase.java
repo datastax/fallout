@@ -772,7 +772,7 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
         environment.jersey().register(new HomeResource(conf, userDAO, testRunDAO, testRunner,
             conf.getResourceLimits(), mainView, userGroupMapper));
         environment.jersey().register(new AdminResource(testRunner, queueAdminTask, artifactUsageAdminTask,
-            mainView));
+            mainView, userDAO, userGroupMapper));
         environment.jersey().register(new AccountResource(userDAO, conf, mailer, mainView, securityUtil,
             userGroupMapper));
         environment.jersey().register(new TestResource(conf, testDAO, testRunDAO, activeTestRunFactory,
