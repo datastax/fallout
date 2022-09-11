@@ -270,6 +270,11 @@ public class User implements Principal
         this.publicSshKey = publicSshKey;
     }
 
+    public boolean hasEc2Credentials()
+    {
+        return ec2AccessKey != null && !ec2AccessKey.isEmpty() && ec2SecretKey != null && !ec2SecretKey.isEmpty();
+    }
+
     public String getEc2AccessKey()
     {
         return ec2AccessKey;
