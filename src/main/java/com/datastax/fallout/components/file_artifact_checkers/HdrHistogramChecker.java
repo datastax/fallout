@@ -700,7 +700,7 @@ public class HdrHistogramChecker extends ArtifactChecker
      * @return  sortedListOfVals    A list of sorted values (List<Double>) in increasing order.
      */
     @VisibleForTesting
-    public static List<Double> getSortedValsList(List<Double> listOfVals)
+    protected static List<Double> getSortedValsList(List<Double> listOfVals)
     {
         List<Double> sortedListOfVals = listOfVals.stream().sorted().collect(Collectors.toList());
         return sortedListOfVals;
@@ -712,7 +712,7 @@ public class HdrHistogramChecker extends ArtifactChecker
      * @return  uniqueValsList  A list of unique values (List<Double>).
      */
     @VisibleForTesting
-    public static List<Double> getUniqueValsList(List<Double> listOfVals)
+    protected static List<Double> getUniqueValsList(List<Double> listOfVals)
     {
         Set<Double> uniqueValsSet = new HashSet<Double>(listOfVals);
 
