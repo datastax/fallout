@@ -16,6 +16,8 @@
 package com.datastax.fallout.service.resources.server;
 
 import javax.annotation.security.RolesAllowed;
+import javax.validation.constraints.NotEmpty;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -26,7 +28,9 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 
 import java.io.PrintStream;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
@@ -37,6 +41,8 @@ import com.datastax.fallout.service.QueueAdminTask;
 import com.datastax.fallout.service.artifacts.ArtifactUsageAdminTask;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.User;
+import com.datastax.fallout.service.db.UserDAO;
+import com.datastax.fallout.service.db.UserGroupMapper;
 import com.datastax.fallout.service.views.FalloutView;
 import com.datastax.fallout.service.views.MainView;
 
@@ -50,14 +56,19 @@ public class AdminResource
     private final QueueAdminTask queueAdminTask;
     private final MainView mainView;
     private final ArtifactUsageAdminTask artifactUsageAdminTask;
+    private final UserDAO userDAO;
+    private final UserGroupMapper userGroupMapper;
 
     public AdminResource(QueuingTestRunner testRunner, QueueAdminTask queueAdminTask,
-        ArtifactUsageAdminTask artifactUsageAdminTask, MainView mainView)
+        ArtifactUsageAdminTask artifactUsageAdminTask, MainView mainView, UserDAO userDAO,
+        UserGroupMapper userGroupMapper)
     {
         this.testRunner = testRunner;
         this.queueAdminTask = queueAdminTask;
         this.mainView = mainView;
         this.artifactUsageAdminTask = artifactUsageAdminTask;
+        this.userDAO = userDAO;
+        this.userGroupMapper = userGroupMapper;
     }
 
     @GET
@@ -110,6 +121,19 @@ public class AdminResource
         return output -> artifactUsageAdminTask.writeArtifactUsage(new PrintStream(output), false);
     }
 
+    @POST
+    @Path("/addToUserGroup")
+    @Timed
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response addUserToGroup(@Auth User admin, @FormParam("userEmail") @NotEmpty String userEmail,
+        @FormParam("groupName") @NotEmpty String groupName)
+    {
+        var user = userDAO.getUser(userEmail);
+        user.setGroup(userGroupMapper.validGroupOrOther(groupName));
+        userDAO.updateUserCredentials(user);
+        return Response.ok().build();
+    }
+
     public class TestAdminView extends FalloutView
     {
         public TestAdminView(User user)
@@ -120,6 +144,16 @@ public class AdminResource
         public String getArtifactUsageTaskName()
         {
             return artifactUsageAdminTask.getName();
+        }
+
+        public List<Map<String, String>> getAllUsers()
+        {
+            return userDAO.getAllUsers(true);
+        }
+
+        public Collection<UserGroupMapper.UserGroup> getAllUserGroups()
+        {
+            return userGroupMapper.getGroups();
         }
     }
 }
