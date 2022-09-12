@@ -668,7 +668,7 @@ public class HdrHistogramChecker extends ArtifactChecker
      * @return  bucketedListOfVals  A list of lists of values (List<List<Double>>), wherein each sub-list is a bucket.
      */
     @VisibleForTesting
-    public static List<List<Double>> splitListIntoBuckets(List<Double> listOfVals, int bucketSize)
+    protected static List<List<Double>> splitListIntoBuckets(List<Double> listOfVals, int bucketSize)
     {
         List<Double> listOfSortedValues = getSortedValsList(listOfVals);
 
