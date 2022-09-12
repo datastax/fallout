@@ -679,9 +679,14 @@ public class HdrHistogramChecker extends ArtifactChecker
         List<List<Double>> bucketedListOfVals = new ArrayList<>();
         for (int i = 0; i < bucketSize; i++)
         {
+            // 'i' has been reassigned to 'finalI' as local variables referenced in a lambda expression (below) must be
+            // either effectively final (as in this case) or final.
             int finalI = i;
-            List<Double> groupedVals = listOfSortedValues.stream()
-                .filter(val -> ((val >= sizeOfRange * finalI) && (val < sizeOfRange * (finalI + 1))))
+            double lowerBound = sizeOfRange * finalI;
+            double upperBound = sizeOfRange * (finalI + 1);
+            List<Double> groupedVals = listOfSortedValues
+                .stream()
+                .filter(val -> (val >= lowerBound && val < upperBound))
                 .collect(Collectors.toList());
             bucketedListOfVals.add(groupedVals);
         }
