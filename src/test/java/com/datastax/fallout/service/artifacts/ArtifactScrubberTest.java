@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import com.datastax.driver.core.Session;
 import com.datastax.fallout.TestHelpers;
 import com.datastax.fallout.service.auth.SecurityUtil;
+import com.datastax.fallout.service.core.CredentialStore;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.db.CassandraDriverManager;
 import com.datastax.fallout.service.db.TestRunDAO;
@@ -61,7 +62,8 @@ public class ArtifactScrubberTest extends ManagedArtifactServiceTest
         driverManager = createDriverManager(keyspace);
 
         testRunDAO = new TestRunDAO(driverManager);
-        userDAO = new UserDAO(driverManager, new SecurityUtil(), Optional.empty(), UserGroupMapper.empty());
+        userDAO = new UserDAO(driverManager, new SecurityUtil(), Optional.empty(), UserGroupMapper.empty(),
+            new CredentialStore.NoopCredentialStore());
 
         driverManager.start();
         testRunDAO.start();

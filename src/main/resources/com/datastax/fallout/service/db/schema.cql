@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS users (
     ec2SecretKey text,
     oauthId uuid,
     resetToken uuid,
+    credentialStoreKey text,
     openstackusername text,
     openstackpassword text,
     openstacktenantname text,

@@ -283,6 +283,7 @@ dependencies {
     integrationTestRuntimeOnly tasks.jar.outputs.files
 
     implementation 'software.amazon.awssdk:s3:2.17.259'
+    implementation 'software.amazon.awssdk:secretsmanager:2.17.259'
 }
 
 // ----------------------------------------------------------------------------

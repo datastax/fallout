@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import com.datastax.fallout.service.FalloutConfiguration.UserCreds;
 import com.datastax.fallout.service.auth.SecurityUtil;
+import com.datastax.fallout.service.core.CredentialStore;
 import com.datastax.fallout.test.utils.WithTestResources;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
@@ -41,7 +42,8 @@ public class UserDAOTest extends WithTestResources
         driverManager = createDriverManager(keyspace);
 
         securityUtil = new SecurityUtil();
-        userDAO = new UserDAO(driverManager, securityUtil, adminUserCreds, UserGroupMapper.empty());
+        userDAO = new UserDAO(driverManager, securityUtil, adminUserCreds, UserGroupMapper.empty(),
+            new CredentialStore.NoopCredentialStore());
 
         driverManager.start();
         userDAO.start();

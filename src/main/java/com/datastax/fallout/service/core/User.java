@@ -73,12 +73,6 @@ public class User implements Principal
     private String publicSshKey;
 
     @Column
-    private String ec2AccessKey;
-
-    @Column
-    private String ec2SecretKey;
-
-    @Column
     private UUID resetToken;
 
     @Column
@@ -94,47 +88,9 @@ public class User implements Principal
     private UUID oauthId;
 
     @Column
-    private String openstackUsername;
+    private String credentialStoreKey;
 
-    @Column
-    private String openstackPassword;
-
-    // TODO: delete + drop from db eventually
-    @Column
-    private String openstackTenantName;
-
-    @Column
-    private String nebulaProjectName;
-
-    @Column
-    private Set<NebulaAppCred> nebulaAppCreds = new HashSet<>();
-
-    @Column
-    private String defaultGoogleCloudServiceAccountEmail;
-
-    @Column
-    private Set<GoogleCloudServiceAccount> googleCloudServiceAccounts = new HashSet<>();
-
-    @Column
-    private String ironicTenantName;
-
-    @Column
-    private String defaultAstraServiceAccountName;
-
-    @Column
-    private Set<AstraServiceAccount> astraServiceAccounts = new HashSet<>();
-
-    @Column
-    private Set<BackupServiceCred> backupServiceCreds = new HashSet<>();
-
-    @Column
-    private String defaultBackupServiceCred;
-
-    @Column
-    private Set<DockerRegistryCredential> dockerRegistryCredentials = new HashSet<>();
-
-    @Column
-    private Map<String, String> genericSecrets = new HashMap<>();
+    private CredentialSet credentialsSet = new CredentialSet();
 
     public String getEmail()
     {
@@ -221,6 +177,26 @@ public class User implements Principal
         return automatonSharedHandle;
     }
 
+    public String getCredentialStoreKey()
+    {
+        return credentialStoreKey;
+    }
+
+    public void setCredentialStoreKey(String key)
+    {
+        this.credentialStoreKey = key;
+    }
+
+    public void setCredentialsSet(CredentialSet credentialSet)
+    {
+        this.credentialsSet = credentialSet;
+    }
+
+    protected CredentialSet getCredentialsSet()
+    {
+        return credentialsSet;
+    }
+
     private String defaultAutomatonSharedHandle()
     {
         // Create a valid automatonSharedHandle from an input email by stripping the domain and
@@ -270,31 +246,6 @@ public class User implements Principal
         this.publicSshKey = publicSshKey;
     }
 
-    public boolean hasEc2Credentials()
-    {
-        return ec2AccessKey != null && !ec2AccessKey.isEmpty() && ec2SecretKey != null && !ec2SecretKey.isEmpty();
-    }
-
-    public String getEc2AccessKey()
-    {
-        return ec2AccessKey;
-    }
-
-    public void setEc2AccessKey(String ec2AccessKey)
-    {
-        this.ec2AccessKey = ec2AccessKey;
-    }
-
-    public String getEc2SecretKey()
-    {
-        return ec2SecretKey;
-    }
-
-    public void setEc2SecretKey(String ec2SecretKey)
-    {
-        this.ec2SecretKey = ec2SecretKey;
-    }
-
     public UUID getOauthId()
     {
         return oauthId;
@@ -315,39 +266,65 @@ public class User implements Principal
         this.resetToken = resetToken;
     }
 
+    public boolean hasEc2Credentials()
+    {
+        return credentialsSet.ec2AccessKey != null && !credentialsSet.ec2AccessKey.isEmpty() &&
+            credentialsSet.ec2SecretKey != null && !credentialsSet.ec2SecretKey.isEmpty();
+    }
+
+    public String getEc2AccessKey()
+    {
+        return credentialsSet.ec2AccessKey;
+    }
+
+    public void setEc2AccessKey(String ec2AccessKey)
+    {
+        credentialsSet.ec2AccessKey = ec2AccessKey;
+    }
+
+    public String getEc2SecretKey()
+    {
+        return credentialsSet.ec2SecretKey;
+    }
+
+    public void setEc2SecretKey(String ec2SecretKey)
+    {
+        credentialsSet.ec2SecretKey = ec2SecretKey;
+    }
+
     public String getOpenstackUsername()
     {
-        return openstackUsername;
+        return credentialsSet.openstackUsername;
     }
 
     public void setOpenstackUsername(String openstackUsername)
     {
-        this.openstackUsername = openstackUsername;
+        credentialsSet.openstackUsername = openstackUsername;
     }
 
     public String getOpenstackPassword()
     {
-        return openstackPassword;
+        return credentialsSet.openstackPassword;
     }
 
     public void setOpenstackPassword(String openstackPassword)
     {
-        this.openstackPassword = openstackPassword;
+        credentialsSet.openstackPassword = openstackPassword;
     }
 
     public String getNebulaProjectName()
     {
-        return nebulaProjectName;
+        return credentialsSet.nebulaProjectName;
     }
 
     /**
-     * @see User#validateAndSetNebulaProjectName(String) use this method instead
+     * @see CredentialSet#validateAndSetNebulaProjectName(String) use this method instead
      * @deprecated this should be used by the entity mapper, use validateAndSetNebulaProjectName instead
      */
     @Deprecated
     public void setNebulaProjectName(String nebulaProjectName)
     {
-        this.nebulaProjectName = nebulaProjectName;
+        credentialsSet.nebulaProjectName = nebulaProjectName;
     }
 
     public void validateAndSetNebulaProjectName(String nebulaProjectName)
@@ -358,50 +335,50 @@ public class User implements Principal
 
     public Set<NebulaAppCred> getNebulaAppCreds()
     {
-        return nebulaAppCreds;
+        return credentialsSet.nebulaAppCreds;
     }
 
     public void setNebulaAppCreds(Set<NebulaAppCred> nebulaAppCreds)
     {
-        this.nebulaAppCreds = nebulaAppCreds;
+        credentialsSet.nebulaAppCreds = nebulaAppCreds;
     }
 
     public synchronized void addNebulaAppCred(NebulaAppCred appCred)
     {
-        if (nebulaAppCreds.stream().anyMatch(existingCred -> appCred.id.equals(existingCred.id)))
+        if (credentialsSet.nebulaAppCreds.stream().anyMatch(existingCred -> appCred.id.equals(existingCred.id)))
         {
             throw new IllegalArgumentException(
                 String.format("A Nebula application credential with ID (%s) already exists", appCred.id));
         }
-        nebulaAppCreds.add(appCred);
+        credentialsSet.nebulaAppCreds.add(appCred);
         ensureNebulaAppCreds();
     }
 
     public synchronized void dropNebulaAppCred(String appCredId)
     {
-        nebulaAppCreds.removeIf(appCred -> appCred.id.equals(appCredId));
+        credentialsSet.nebulaAppCreds.removeIf(appCred -> appCred.id.equals(appCredId));
         ensureNebulaAppCreds();
     }
 
     private void ensureNebulaAppCreds()
     {
-        ensureDefaultCreds(nebulaProjectName, nebulaAppCreds, (cred) -> cred.project,
+        ensureDefaultCreds(credentialsSet.nebulaProjectName, credentialsSet.nebulaAppCreds, (cred) -> cred.project,
             this::setNebulaProjectName);
     }
 
     public String getIronicTenantName()
     {
-        return ironicTenantName;
+        return credentialsSet.ironicTenantName;
     }
 
     public void setIronicTenantName(String ironicTenantName)
     {
-        this.ironicTenantName = ironicTenantName;
+        credentialsSet.ironicTenantName = ironicTenantName;
     }
 
     public String getDefaultGoogleCloudServiceAccountEmail()
     {
-        return defaultGoogleCloudServiceAccountEmail;
+        return credentialsSet.defaultGoogleCloudServiceAccountEmail;
     }
 
     /* @deprecated this should be used by the entity mapper, use
@@ -410,7 +387,7 @@ public class User implements Principal
     @Deprecated
     public void setDefaultGoogleCloudServiceAccountEmail(String accountEmail)
     {
-        defaultGoogleCloudServiceAccountEmail = accountEmail;
+        credentialsSet.defaultGoogleCloudServiceAccountEmail = accountEmail;
     }
 
     public void validateAndSetDefaultGoogleCloudServiceAccount(String accountEmail)
@@ -421,29 +398,29 @@ public class User implements Principal
 
     private void ensureDefaultGoogleCloudServiceAccount()
     {
-        ensureDefaultCreds(defaultGoogleCloudServiceAccountEmail, getGoogleCloudServiceAccounts(),
+        ensureDefaultCreds(credentialsSet.defaultGoogleCloudServiceAccountEmail, getGoogleCloudServiceAccounts(),
             sa -> sa.email, this::setDefaultGoogleCloudServiceAccountEmail);
     }
 
     public Set<GoogleCloudServiceAccount> getGoogleCloudServiceAccounts()
     {
-        return googleCloudServiceAccounts;
+        return credentialsSet.googleCloudServiceAccounts;
     }
 
     public void setGoogleCloudServiceAccounts(Set<GoogleCloudServiceAccount> googleCloudServiceAccounts)
     {
-        this.googleCloudServiceAccounts = googleCloudServiceAccounts;
+        credentialsSet.googleCloudServiceAccounts = googleCloudServiceAccounts;
     }
 
     public synchronized void addGoogleCloudServiceAccount(GoogleCloudServiceAccount googleCloudServiceAccount)
     {
-        googleCloudServiceAccounts.add(googleCloudServiceAccount);
+        credentialsSet.googleCloudServiceAccounts.add(googleCloudServiceAccount);
         ensureDefaultGoogleCloudServiceAccount();
     }
 
     public synchronized void dropGoogleCloudServiceAccount(String email)
     {
-        googleCloudServiceAccounts.removeIf((sa) -> sa.email.equals(email));
+        credentialsSet.googleCloudServiceAccounts.removeIf((sa) -> sa.email.equals(email));
         ensureDefaultGoogleCloudServiceAccount();
     }
 
@@ -452,7 +429,7 @@ public class User implements Principal
     {
         final String serviceAccountEmail_ = serviceAccountEmail
             .orElseGet(() -> Optional
-                .ofNullable(defaultGoogleCloudServiceAccountEmail)
+                .ofNullable(credentialsSet.defaultGoogleCloudServiceAccountEmail)
                 .orElseThrow(() -> new InvalidConfigurationException("No Google Service Account has been set")));
 
         return getGoogleCloudServiceAccounts().stream()
@@ -464,34 +441,34 @@ public class User implements Principal
 
     public String getDefaultAstraServiceAccountName()
     {
-        return defaultAstraServiceAccountName;
+        return credentialsSet.defaultAstraServiceAccountName;
     }
 
     public void setDefaultAstraServiceAccountName(String defaultAstraServiceAccountName)
     {
-        this.defaultAstraServiceAccountName = defaultAstraServiceAccountName;
+        credentialsSet.defaultAstraServiceAccountName = defaultAstraServiceAccountName;
     }
 
     public Set<AstraServiceAccount> getAstraServiceAccounts()
     {
-        return astraServiceAccounts;
+        return credentialsSet.astraServiceAccounts;
     }
 
     public void setAstraServiceAccounts(Set<AstraServiceAccount> astraServiceAccounts)
     {
-        this.astraServiceAccounts = astraServiceAccounts;
+        credentialsSet.astraServiceAccounts = astraServiceAccounts;
     }
 
     public synchronized void addAstraCred(AstraServiceAccount astraServiceAccount)
     {
         astraServiceAccount.validate();
-        astraServiceAccounts.add(astraServiceAccount);
+        credentialsSet.astraServiceAccounts.add(astraServiceAccount);
         ensureDefaultAstraServiceAccount();
     }
 
     public synchronized void dropAstraCred(String clientName)
     {
-        astraServiceAccounts.removeIf(credential -> credential.clientName.equals(clientName));
+        credentialsSet.astraServiceAccounts.removeIf(credential -> credential.clientName.equals(clientName));
         ensureDefaultAstraServiceAccount();
     }
 
@@ -503,7 +480,7 @@ public class User implements Principal
 
     public Optional<AstraServiceAccount> getAstraServiceAccount(String clientName)
     {
-        Optional<AstraServiceAccount> account = astraServiceAccounts.stream()
+        Optional<AstraServiceAccount> account = credentialsSet.astraServiceAccounts.stream()
             .filter(cred -> cred.clientName.equals(clientName)).findFirst();
         account.ifPresent(AstraServiceAccount::validate);
         return account;
@@ -511,7 +488,7 @@ public class User implements Principal
 
     private void ensureDefaultAstraServiceAccount()
     {
-        ensureDefaultCreds(defaultAstraServiceAccountName, getAstraServiceAccounts(), c -> c.clientName,
+        ensureDefaultCreds(credentialsSet.defaultAstraServiceAccountName, getAstraServiceAccounts(), c -> c.clientName,
             this::setDefaultAstraServiceAccountName);
     }
 
@@ -531,92 +508,102 @@ public class User implements Principal
 
     public Set<BackupServiceCred> getBackupServiceCreds()
     {
-        return backupServiceCreds;
+        return credentialsSet.backupServiceCreds;
+    }
+
+    public void setBackupServiceCreds(Set<BackupServiceCred> backupServiceCreds)
+    {
+        credentialsSet.backupServiceCreds = backupServiceCreds;
     }
 
     public Optional<BackupServiceCred> getBackupServiceCred(String name)
     {
-        return getBackupServiceCreds().stream()
-            .filter(cred -> cred.name.equals(name))
-            .findFirst();
+        if (credentialsSet.backupServiceCreds != null)
+        {
+            return credentialsSet.backupServiceCreds.stream()
+                .filter(cred -> cred.name.equals(name))
+                .findFirst();
+        }
+        return Optional.empty();
     }
 
     public String getDefaultBackupServiceCred()
     {
-        return defaultBackupServiceCred;
+        return credentialsSet.defaultBackupServiceCred;
     }
 
     public void validateAndSetDefaultBackupServiceCred(String name)
     {
-        this.defaultBackupServiceCred = name;
+        credentialsSet.defaultBackupServiceCred = name;
         ensureDefaultBackupServiceCredentials();
     }
 
     private void ensureDefaultBackupServiceCredentials()
     {
         ensureDefaultCreds(
-            defaultBackupServiceCred, getBackupServiceCreds(), c -> c.name, cred -> defaultBackupServiceCred = cred);
+            credentialsSet.defaultBackupServiceCred, getBackupServiceCreds(), c -> c.name,
+            cred -> credentialsSet.defaultBackupServiceCred = cred);
     }
 
     public synchronized void dropBackupServiceCred(String name)
     {
-        backupServiceCreds.removeIf(cred -> cred.name.equals(name));
+        credentialsSet.backupServiceCreds.removeIf(cred -> cred.name.equals(name));
         ensureDefaultBackupServiceCredentials();
     }
 
     public synchronized void addBackupServiceCred(BackupServiceCred cred)
     {
-        backupServiceCreds.add(cred);
+        credentialsSet.backupServiceCreds.add(cred);
         ensureDefaultBackupServiceCredentials();
     }
 
     public Set<DockerRegistryCredential> getDockerRegistryCredentials()
     {
-        return dockerRegistryCredentials;
+        return credentialsSet.dockerRegistryCredentials;
     }
 
     public void setDockerRegistryCredentials(
         Set<DockerRegistryCredential> dockerRegistryCredentials)
     {
-        this.dockerRegistryCredentials = dockerRegistryCredentials;
+        credentialsSet.dockerRegistryCredentials = dockerRegistryCredentials;
     }
 
     public Optional<DockerRegistryCredential> getDockerRegistryCredential(String dockerRegistry)
     {
-        return dockerRegistryCredentials.stream()
+        return credentialsSet.dockerRegistryCredentials.stream()
             .filter(cred -> cred.dockerRegistry.equals(dockerRegistry))
             .findFirst();
     }
 
     public synchronized void dropDockerRegistryCredential(String dockerRegistry)
     {
-        dockerRegistryCredentials.removeIf(cred -> cred.dockerRegistry.equals(dockerRegistry));
+        credentialsSet.dockerRegistryCredentials.removeIf(cred -> cred.dockerRegistry.equals(dockerRegistry));
     }
 
     public synchronized void addDockerRegistryCredential(DockerRegistryCredential cred)
     {
-        dockerRegistryCredentials.add(cred);
+        credentialsSet.dockerRegistryCredentials.add(cred);
         ensureDefaultBackupServiceCredentials();
     }
 
     public Map<String, String> getGenericSecrets()
     {
-        return genericSecrets;
+        return credentialsSet.genericSecrets;
     }
 
     public void setGenericSecrets(Map<String, String> genericSecrets)
     {
-        this.genericSecrets = genericSecrets;
+        credentialsSet.genericSecrets = genericSecrets;
     }
 
     public synchronized void addGenericSecret(String secretName, String secret)
     {
-        genericSecrets.put(secretName, secret);
+        credentialsSet.genericSecrets.put(secretName, secret);
     }
 
     public synchronized void dropGenericSecret(String name)
     {
-        genericSecrets.remove(name);
+        credentialsSet.genericSecrets.remove(name);
     }
 
     @Override
@@ -638,36 +625,19 @@ public class User implements Principal
             Objects.equals(salt, user.salt) &&
             Objects.equals(automatonSharedHandle, user.automatonSharedHandle) &&
             Objects.equals(publicSshKey, user.publicSshKey) &&
-            Objects.equals(ec2AccessKey, user.ec2AccessKey) &&
-            Objects.equals(ec2SecretKey, user.ec2SecretKey) &&
             Objects.equals(resetToken, user.resetToken) &&
             emailPref == user.emailPref &&
             slackPref == user.slackPref &&
             group == user.group &&
-            Objects.equals(oauthId, user.oauthId) &&
-            Objects.equals(openstackUsername, user.openstackUsername) &&
-            Objects.equals(openstackPassword, user.openstackPassword) &&
-            Objects.equals(nebulaProjectName, user.nebulaProjectName) &&
-            Objects.equals(nebulaAppCreds, user.nebulaAppCreds) &&
-            Objects.equals(ironicTenantName, user.ironicTenantName) &&
-            Objects.equals(defaultGoogleCloudServiceAccountEmail, user.defaultGoogleCloudServiceAccountEmail) &&
-            Objects.equals(googleCloudServiceAccounts, user.googleCloudServiceAccounts) &&
-            Objects.equals(defaultAstraServiceAccountName, user.defaultAstraServiceAccountName) &&
-            Objects.equals(astraServiceAccounts, user.astraServiceAccounts) &&
-            Objects.equals(backupServiceCreds, user.backupServiceCreds) &&
-            Objects.equals(defaultBackupServiceCred, user.defaultBackupServiceCred);
+            Objects.equals(oauthId, user.oauthId);
     }
 
     @Override
     public int hashCode()
     {
         return Objects
-            .hash(email, name, encryptedPassword, salt, admin, automatonSharedHandle, publicSshKey, ec2AccessKey,
-                ec2SecretKey, resetToken, emailPref, slackPref, group,
-                oauthId, openstackUsername, openstackPassword,
-                nebulaProjectName, nebulaAppCreds, ironicTenantName, defaultGoogleCloudServiceAccountEmail,
-                googleCloudServiceAccounts, defaultAstraServiceAccountName, astraServiceAccounts, backupServiceCreds,
-                defaultBackupServiceCred);
+            .hash(email, name, encryptedPassword, salt, admin, automatonSharedHandle, publicSshKey, resetToken,
+                emailPref, slackPref, group, oauthId);
     }
 
     @Override
@@ -680,16 +650,6 @@ public class User implements Principal
             ", group=" + group +
             ", admin=" + isAdmin() +
             ", automatonSharedHandle='" + automatonSharedHandle + "'" +
-            ", openstackUsername='" + openstackUsername + "'" +
-            ", ironicTenantName='" + ironicTenantName + "'" +
-            ", nebulaProjectName='" + nebulaProjectName + "'" +
-            ", nebulaAppCreds='" + nebulaAppCreds + "'" +
-            ", defaultGoogleCloudServiceAccount='" + defaultGoogleCloudServiceAccountEmail + "'" +
-            ", googleCloudServiceAccounts='" + googleCloudServiceAccounts + "'" +
-            ", defaultAstraServiceAccountId='" + defaultAstraServiceAccountName + "'" +
-            ", astraServiceAccounts='" + astraServiceAccounts + "'" +
-            ", s3fsCreds='" + backupServiceCreds + "'" +
-            ", defaultS3fsCred='" + defaultBackupServiceCred + "'" +
             '}';
     }
 
@@ -1004,5 +964,57 @@ public class User implements Principal
         {
             // needed for serialization
         }
+    }
+
+    protected static class CredentialSet
+    {
+        @JsonProperty
+        private String ec2AccessKey;
+
+        @JsonProperty
+        private String ec2SecretKey;
+
+        @JsonProperty
+        private String openstackUsername;
+
+        @JsonProperty
+        private String openstackPassword;
+
+        // TODO: delete + drop from db eventually
+        @JsonProperty
+        private String openstackTenantName;
+
+        @JsonProperty
+        private String nebulaProjectName;
+
+        @JsonProperty
+        private Set<NebulaAppCred> nebulaAppCreds = new HashSet<>();
+
+        @JsonProperty
+        private String defaultGoogleCloudServiceAccountEmail;
+
+        @JsonProperty
+        private Set<GoogleCloudServiceAccount> googleCloudServiceAccounts = new HashSet<>();
+
+        @JsonProperty
+        private String ironicTenantName;
+
+        @JsonProperty
+        private String defaultAstraServiceAccountName;
+
+        @JsonProperty
+        private Set<AstraServiceAccount> astraServiceAccounts = new HashSet<>();
+
+        @JsonProperty
+        private Set<BackupServiceCred> backupServiceCreds = new HashSet<>();
+
+        @JsonProperty
+        private String defaultBackupServiceCred;
+
+        @JsonProperty
+        private Set<DockerRegistryCredential> dockerRegistryCredentials = new HashSet<>();
+
+        @JsonProperty
+        private Map<String, String> genericSecrets = new HashMap<>();
     }
 }

@@ -100,6 +100,13 @@ public class FalloutConfiguration extends Configuration
     @JsonProperty
     private String artifactArchive;
 
+    /**
+     * ARN of the KMS key used to create new credentials in AWS Secrets Manager. When present, runs Fallout with an
+     * {@link com.datastax.fallout.service.core.CredentialStore.AwsSecretsManagerCredentialStore}.
+     */
+    @JsonProperty
+    private String awsKMSKeyId;
+
     /** What mode the FalloutService will run in; defaults to {@link ServerMode#STANDALONE}, set to {@link ServerMode#RUNNER} by
      *  calling {@link #setRunnerMode} */
     public enum ServerMode
@@ -354,6 +361,16 @@ public class FalloutConfiguration extends Configuration
     public void setArtifactArchive(String artifactArchive)
     {
         this.artifactArchive = artifactArchive;
+    }
+
+    public String getAwsKMSKeyId()
+    {
+        return awsKMSKeyId;
+    }
+
+    public void setAwsKMSKeyId(String awsKMSKeyId)
+    {
+        this.awsKMSKeyId = awsKMSKeyId;
     }
 
     public boolean forceJava8ForLocalCommands()

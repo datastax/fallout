@@ -112,6 +112,7 @@ import com.datastax.fallout.service.cli.FalloutRunnerCommand;
 import com.datastax.fallout.service.cli.FalloutStandaloneCommand;
 import com.datastax.fallout.service.cli.FalloutValidateCommand;
 import com.datastax.fallout.service.cli.GenerateNginxConf;
+import com.datastax.fallout.service.core.CredentialStore;
 import com.datastax.fallout.service.core.ReadOnlyTestRun;
 import com.datastax.fallout.service.core.TestRun;
 import com.datastax.fallout.service.core.TestRunReaper;
@@ -638,8 +639,11 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
 
         final var userGroupMapper = createUserGroupMapper();
 
+        final var credStore = conf.getAwsKMSKeyId() != null ?
+            new CredentialStore.AwsSecretsManagerCredentialStore(conf.getAwsKMSKeyId()) :
+            new CredentialStore.NoopCredentialStore();
         UserDAO userDAO = m.manage(new UserDAO(cassandraDriverManager, securityUtil, conf.getAdminUserCreds(),
-            userGroupMapper));
+            userGroupMapper, credStore));
         TestRunDAO testRunDAO = m.manage(new TestRunDAO(cassandraDriverManager));
         TestDAO testDAO = m.manage(new TestDAO(cassandraDriverManager, testRunDAO));
         PerformanceReportDAO reportDAO = m.manage(new PerformanceReportDAO(cassandraDriverManager));

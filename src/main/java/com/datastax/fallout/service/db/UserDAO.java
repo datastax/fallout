@@ -40,6 +40,7 @@ import com.datastax.driver.mapping.annotations.Query;
 import com.datastax.fallout.service.FalloutConfiguration;
 import com.datastax.fallout.service.FalloutService;
 import com.datastax.fallout.service.auth.SecurityUtil;
+import com.datastax.fallout.service.core.CredentialStore;
 import com.datastax.fallout.service.core.Session;
 import com.datastax.fallout.service.core.TestCompletionNotification;
 import com.datastax.fallout.service.core.User;
@@ -55,6 +56,7 @@ public class UserDAO implements Managed
     private UserAccessor userAccessor;
     private final SecurityUtil securityUtil;
     private final UserGroupMapper userGroupMapper;
+    private final CredentialStore credentialStore;
 
     @Accessor
     private interface UserAccessor
@@ -76,12 +78,13 @@ public class UserDAO implements Managed
 
     public UserDAO(CassandraDriverManager driverManager, SecurityUtil securityUtil,
         Optional<FalloutConfiguration.UserCreds> adminUserCreds,
-        UserGroupMapper userGroupMapper)
+        UserGroupMapper userGroupMapper, CredentialStore credentialStore)
     {
         this.driverManager = driverManager;
         this.securityUtil = securityUtil;
         this.adminUserCreds = adminUserCreds;
         this.userGroupMapper = userGroupMapper;
+        this.credentialStore = credentialStore;
     }
 
     public Session getSession(String token)
@@ -121,7 +124,12 @@ public class UserDAO implements Managed
 
     public User getUser(String userId)
     {
-        return userMapper.get(userId, Mapper.Option.consistencyLevel(ConsistencyLevel.SERIAL));
+        var user = userMapper.get(userId, Mapper.Option.consistencyLevel(ConsistencyLevel.SERIAL));
+        if (null != user && null != user.getCredentialStoreKey())
+        {
+            credentialStore.readUsersCredentialSet(user);
+        }
+        return user;
     }
 
     public List<Map<String, String>> getAllUsers()
@@ -159,6 +167,17 @@ public class UserDAO implements Managed
      *  then also create a new OAuth session */
     private void createUserIfNotExists(User user)
     {
+        try
+        {
+            credentialStore.createNewUserCredentialSet(user);
+        }
+        catch (Exception e)
+        {
+            logger.error("Exception while creating user credential store", e);
+            userMapper.delete(user);
+            // throw exception to propagate to UI
+            throw new RuntimeException("Could not create user credential store");
+        }
         var create = userAccessor.createUserIfNotExists(user.getEmail(), user.getName(),
             user.getEncryptedPassword(), user.getSalt(), user.isAdmin(), user.getOauthId());
 
@@ -192,6 +211,7 @@ public class UserDAO implements Managed
 
     public void updateUserCredentials(User user)
     {
+        credentialStore.updateUserCredentialsSet(user);
         userMapper.save(user);
     }
 

@@ -66,7 +66,8 @@ public class TestRunReaperTest
         testRunDAO = new TestRunDAO(driverManager);
         testDAO = new TestDAO(driverManager, testRunDAO);
         reportDAO = new PerformanceReportDAO(driverManager);
-        UserDAO userDAO = new UserDAO(driverManager, new SecurityUtil(), Optional.empty(), UserGroupMapper.empty());
+        UserDAO userDAO = new UserDAO(driverManager, new SecurityUtil(), Optional.empty(), UserGroupMapper.empty(),
+            new CredentialStore.NoopCredentialStore());
         userMessenger = new NullUserMessenger();
 
         driverManager.start();
