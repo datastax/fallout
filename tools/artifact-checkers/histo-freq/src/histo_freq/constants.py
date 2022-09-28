@@ -6,24 +6,24 @@ ADJUST_HIST_BAR_WIDTHS = False
 
 BAR_GAP = 0.1
 
-COL_NAME_BUCKETS = 'buckets_ranges'
-COL_NAME_FREQS = 'frequencies_of_latencies'
+COL_NAME_BUCKETS = "buckets_ranges"
+COL_NAME_FREQS = "frequencies_of_latencies"
 
-HIST_FILE_EXT = '.html'
+HIST_FILE_EXT = ".html"
 HIST_TITLE = "Latencies' buckets by frequency"
 
 # Boolean determining whether the histogram should be plotted vertically (True if vertically, False if horizontally).
 IS_VERTICAL = True
 
-LABEL_FREQ = 'Frequencies'
-LABEL_LAT_RANGES = 'Latency ranges (ms)'
+LABEL_FREQ = "Frequencies"
+LABEL_LAT_RANGES = "Latency ranges (ms)"
 
 # Orientation of the histogram as per plotly's nomenclature ('h' for horizontal, 'v' for vertical)
-ORIENTATION_HORIZ = 'h'
-ORIENTATION_VERT = 'v'
+ORIENTATION_HORIZ = "h"
+ORIENTATION_VERT = "v"
 
 # Precision to be used for rounding minima and maxima of latencies for showing them as buckets' ranges on the
 # histogram graph.
 PRECISION_VAL = 1
 
-TICK_MODE = 'auto'
+TICK_MODE = "auto"

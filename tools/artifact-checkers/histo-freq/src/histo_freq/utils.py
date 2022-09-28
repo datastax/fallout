@@ -9,8 +9,7 @@ from .constants import COL_NAME_BUCKETS, COL_NAME_FREQS, PRECISION_VAL
 
 
 def create_df_w_lats_ranges_and_freqs(
-    list_of_buckets: List[List[float]],
-    list_of_frequencies: List[int]
+    list_of_buckets: List[List[float]], list_of_frequencies: List[int]
 ) -> pd.DataFrame:
     """
     Create a dataframe of latency buckets' ranges and frequencies given two lists containing a list of buckets of
@@ -32,9 +31,8 @@ def create_df_w_lats_ranges_and_freqs(
             f"{str(round(min(bucket), PRECISION_VAL))}{'-'}{str(round(max(bucket), PRECISION_VAL))}"
         )
 
-    df_w_lats_ranges_and_freqs = pd.DataFrame({
-        COL_NAME_BUCKETS: list_of_min_and_max,
-        COL_NAME_FREQS: list_of_frequencies
-    })
+    df_w_lats_ranges_and_freqs = pd.DataFrame(
+        {COL_NAME_BUCKETS: list_of_min_and_max, COL_NAME_FREQS: list_of_frequencies}
+    )
 
     return df_w_lats_ranges_and_freqs

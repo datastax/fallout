@@ -6,10 +6,20 @@ from typing import List
 
 import plotly.express as px
 
-from .constants import (ADJUST_HIST_BAR_WIDTHS, BAR_GAP, COL_NAME_BUCKETS,
-                        COL_NAME_FREQS, HIST_FILE_EXT, HIST_TITLE, IS_VERTICAL,
-                        LABEL_FREQ, LABEL_LAT_RANGES, ORIENTATION_HORIZ,
-                        ORIENTATION_VERT, TICK_MODE)
+from .constants import (
+    ADJUST_HIST_BAR_WIDTHS,
+    BAR_GAP,
+    COL_NAME_BUCKETS,
+    COL_NAME_FREQS,
+    HIST_FILE_EXT,
+    HIST_TITLE,
+    IS_VERTICAL,
+    LABEL_FREQ,
+    LABEL_LAT_RANGES,
+    ORIENTATION_HORIZ,
+    ORIENTATION_VERT,
+    TICK_MODE,
+)
 from .utils import create_df_w_lats_ranges_and_freqs
 
 
@@ -20,7 +30,7 @@ def plot_histogram(
     adjust_hist_bar_widths: bool = ADJUST_HIST_BAR_WIDTHS,
     bar_gap: float = BAR_GAP,
     file_ext: str = HIST_FILE_EXT,
-    is_vertical: bool = IS_VERTICAL
+    is_vertical: bool = IS_VERTICAL,
 ) -> None:
     """
     Generate a vertical (by default) or horizontal histogram graph and save it to a .html file.
@@ -50,8 +60,7 @@ def plot_histogram(
     """
 
     df_w_two_cols = create_df_w_lats_ranges_and_freqs(
-        list_of_buckets=list_of_buckets,
-        list_of_frequencies=list_of_frequencies
+        list_of_buckets=list_of_buckets, list_of_frequencies=list_of_frequencies
     )
 
     if is_vertical:
@@ -76,17 +85,18 @@ def plot_histogram(
         df_w_two_cols,
         y=y_axis,
         x=x_axis,
-        labels=
-        {
-            COL_NAME_BUCKETS: LABEL_LAT_RANGES,
-            COL_NAME_FREQS: LABEL_FREQ
-        },
-        orientation=orientation).update_layout(
+        labels={COL_NAME_BUCKETS: LABEL_LAT_RANGES, COL_NAME_FREQS: LABEL_FREQ},
+        orientation=orientation,
+    ).update_layout(
         bargap=bar_gap,
-        title={'text': HIST_TITLE},
+        title={"text": HIST_TITLE},
         yaxis_title=y_label,
-        yaxis=dict(title=y_label, tickmode=tickmode, tickvals=ticktext, ticktext=ticktext),
-        xaxis=dict(title=x_label, tickmode=tickmode, tickvals=ticktext, ticktext=ticktext)
+        yaxis=dict(
+            title=y_label, tickmode=tickmode, tickvals=ticktext, ticktext=ticktext
+        ),
+        xaxis=dict(
+            title=x_label, tickmode=tickmode, tickvals=ticktext, ticktext=ticktext
+        ),
     )
 
     if adjust_hist_bar_widths:
@@ -100,7 +110,9 @@ def plot_histogram(
     # the line below overwrites the default 'sum of' shown by plotly when hovering the mouse on each bar
     # in the histogram, in this case with nothing (an empty string), as not needed, so that the y-axis label
     # defined above is kept as is.
-    fig.for_each_trace(lambda t: t.update(hovertemplate=t.hovertemplate.replace("sum of", "")))
+    fig.for_each_trace(
+        lambda t: t.update(hovertemplate=t.hovertemplate.replace("sum of", ""))
+    )
 
     # The filename and the .html extension are passed to export a html file with the histogram graph on it.
     fig.write_html(f"{file_name_wo_ext}{file_ext}")
@@ -121,19 +133,21 @@ def run():
         with open(file_name_w_ext_str) as file:
             json_dict = json.load(file)
 
-            list_of_buckets = json_dict.get('listOfBuckets')
-            list_of_frequencies = json_dict.get('listOfFrequencies')
+            list_of_buckets = json_dict.get("listOfBuckets")
+            list_of_frequencies = json_dict.get("listOfFrequencies")
 
             # Remove empty lists and zero frequencies from the json files as they were mostly created
             # due to the aggregated histograms being passed.
             list_of_buckets = [bucket for bucket in list_of_buckets if len(bucket) > 0]
-            list_of_frequencies = [frequency for frequency in list_of_frequencies if frequency != 0]
+            list_of_frequencies = [
+                frequency for frequency in list_of_frequencies if frequency != 0
+            ]
 
-            file_name_wo_ext = file_name_w_ext[0].split('.json')[0]
+            file_name_wo_ext = file_name_w_ext[0].split(".json")[0]
             plot_histogram(
                 list_of_buckets=list_of_buckets,
                 list_of_frequencies=list_of_frequencies,
-                file_name_wo_ext=file_name_wo_ext
+                file_name_wo_ext=file_name_wo_ext,
             )
 
 
