@@ -93,7 +93,10 @@ public class NginxArtifactServlet extends ArtifactServlet
         {
             // We have ruled out the possibility the artifact exists on the local filesystem.
             // Allow  remote artifact archive to return 404 if artifact does not exist.
-            Path archiveArtifactPath = isCompressibleArtifact(artifactPath) ? compressedArtifactPath : artifactPath;
+
+            // First make sure it's not a perf report which is currently not zipped in S3 - see FAL-1871
+            Path archiveArtifactPath = artifactPath.toString().contains("performance_reports") ? artifactPath :
+                isCompressibleArtifact(artifactPath) ? compressedArtifactPath : artifactPath;
             String s3URL = artifactArchive.get().getArtifactUrl(archiveArtifactPath).toString()
                 .replace("https://", "");
             String internalRedirect = NGINX_ARTIFACT_ARCHIVE_LOCATION + "/" + s3URL;
