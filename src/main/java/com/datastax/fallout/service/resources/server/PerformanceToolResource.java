@@ -30,6 +30,7 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -44,6 +45,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import io.dropwizard.auth.Auth;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.components.file_artifact_checkers.HdrHistogramChecker;
 import com.datastax.fallout.service.artifacts.ArtifactArchive;
@@ -67,6 +70,8 @@ import static com.datastax.fallout.service.views.LinkedTestRuns.TableDisplayOpti
 @Path("/performance")
 public class PerformanceToolResource
 {
+    private static final Logger logger = LoggerFactory.getLogger(PerformanceToolResource.class);
+
     final TestDAO testDAO;
     final TestRunDAO testRunDAO;
     final PerformanceReportDAO reportDAO;
@@ -278,6 +283,22 @@ public class PerformanceToolResource
 
         if (artifactArchive.isPresent())
         {
+            logger.info("Compressing performance report {}.html", reportArtifactPathWithoutExt);
+            try
+            {
+                java.nio.file.Path reportArtifactPath =
+                    Paths.get(rootArtifactPath, reportArtifactPathWithoutExt + ".html");
+                java.nio.file.Path compressedReportPath =
+                    Paths.get(rootArtifactPath, reportArtifactPathWithoutExt + ".html.gz");
+                FileUtils.compressGZIP(reportArtifactPath, compressedReportPath);
+                Files.delete(reportArtifactPath);
+            }
+            catch (IOException ioe)
+            {
+                logger.error(
+                    String.format("Unexpected exception while compressing %s", reportArtifactPathWithoutExt), ioe);
+            }
+
             artifactArchive.get().uploadReport(report);
             FileUtils.deleteDir(Paths.get(rootArtifactPath, reportArtifactPathWithoutExt).getParent());
         }
