@@ -195,10 +195,9 @@ public abstract class ArtifactArchive
         @Override
         public void uploadTestRun(TestRun testRun) throws IOException
         {
-            testRun.updateArtifactsIfNeeded(
-                () -> Exceptions.getUncheckedIO(() -> Artifacts.findTestRunArtifacts(rootArtifactLocation, testRun)));
+            Map<String, Long> artifacts = Artifacts.findTestRunArtifacts(rootArtifactLocation, testRun);
+            testRun.updateArtifactsIfNeeded(() -> Exceptions.getUncheckedIO(() -> artifacts));
 
-            Map<String, Long> artifacts = testRun.getArtifacts();
             logger.info(
                 "Uploading test run to archive: {} - {} artifacts - {}", testRun.getShortName(), artifacts.size(),
                 testRun.getSizeOnDisk());
