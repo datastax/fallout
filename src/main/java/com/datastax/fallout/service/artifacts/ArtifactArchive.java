@@ -19,6 +19,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -171,22 +172,22 @@ public abstract class ArtifactArchive
                 Long size = entry.getValue();
                 Path localArtifactPath = localArtifactPathProducer.apply(artifact);
                 String artifactKey = artifactKeyProducer.apply(artifact);
-                if (size >= MULTIPART_UPLOAD_THRESHOLD)
+                try
                 {
-                    try
+                    if (size >= MULTIPART_UPLOAD_THRESHOLD)
                     {
                         multipartObjectUpload(localArtifactPath, artifactKey);
                     }
-                    catch (IOException e)
+                    else
                     {
-                        logger.error("IOException while archiving artifact: {} - {}\n",
-                            artifactSetName, artifact, e);
-                        throw e;
+                        objectUpload(localArtifactPath, artifactKey);
                     }
                 }
-                else
+                catch (IOException e)
                 {
-                    objectUpload(localArtifactPath, artifactKey);
+                    logger.error("IOException while archiving artifact: {} - {}\n",
+                        artifactSetName, artifact, e);
+                    throw e;
                 }
             }
         }
@@ -271,7 +272,11 @@ public abstract class ArtifactArchive
             s3Client.completeMultipartUpload(completeMultipartUploadRequest);
         }
 
-        private void objectUpload(Path localArtifactPath, String artifactKey)
+        /**
+         * RequestBody#fromFile does not declare the fact it can throw an NoSuchFileException.
+         * Experience tells us it can.
+         */
+        private void objectUpload(Path localArtifactPath, String artifactKey) throws NoSuchFileException
         {
             PutObjectRequest objectRequest = PutObjectRequest.builder()
                 .bucket(bucket)
