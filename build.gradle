@@ -50,19 +50,19 @@ version = '0.1.0-SNAPSHOT'
 mainClassName = 'com.datastax.fallout.service.FalloutService'
 
 def javaModuleJvmArgs = [
-    // Handle jackson reflection under Java 9+ (see
-    // https://github.com/FasterXML/jackson-modules-base/issues/37#issuecomment-389581245)
-    '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
-    '--add-opens', 'java.base/java.nio=ALL-UNNAMED'
+        // Handle jackson reflection under Java 9+ (see
+        // https://github.com/FasterXML/jackson-modules-base/issues/37#issuecomment-389581245)
+        '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.nio=ALL-UNNAMED'
 ]
 
 // This will be inserted into the fallout wrapper script
 applicationDefaultJvmArgs = [
-    '-XX:+HeapDumpOnOutOfMemoryError',
-    '-XX:-OmitStackTraceInFastThrow',
-    '-server',
-    '-ea',
-    '-Djava.util.concurrent.ForkJoinPool.common.parallelism=1024'
+        '-XX:+HeapDumpOnOutOfMemoryError',
+        '-XX:-OmitStackTraceInFastThrow',
+        '-server',
+        '-ea',
+        '-Djava.util.concurrent.ForkJoinPool.common.parallelism=1024'
 ] + javaModuleJvmArgs
 
 // In production, falloutctl sets heap sizes; when running within gradle
@@ -111,9 +111,7 @@ allprojects {
 
 def dropwizardVersion = '2.0.+'
 
-// Used by jepsen as well, so we define this at the project level
-ext.jschVersion = "0.1.55"
-def jschAgentProxyVersion = "0.0.9"
+ext.jschVersion = "0.2.4"
 
 defaultTasks ':shadowJar'
 
@@ -191,11 +189,7 @@ dependencies {
     api "com.github.spullara.mustache.java:compiler"
 
     implementation "org.eclipse.jetty:jetty-rewrite"
-
-    implementation "com.jcraft:jsch:${jschVersion}"
-    implementation "com.jcraft:jsch.agentproxy.jsch:${jschAgentProxyVersion}"
-    implementation "com.jcraft:jsch.agentproxy.sshagent:${jschAgentProxyVersion}"
-    implementation "com.jcraft:jsch.agentproxy.usocket-jna:${jschAgentProxyVersion}"
+    implementation "com.github.mwiede:jsch:${jschVersion}"
 
     api "commons-io:commons-io:2.+"
     api "org.yaml:snakeyaml:1.+"
@@ -227,7 +221,7 @@ dependencies {
     // https://github.com/smoketurner/dropwizard-swagger/issues/210 to be
     // released in an official version.  Once that has
     // been done, we can use that instead of this jitpack dependency,
-    implementation ("com.github.smoketurner:dropwizard-swagger:661c79d")
+    implementation("com.github.smoketurner:dropwizard-swagger:661c79d")
 
     // Server-Sent Events
     implementation "org.glassfish.jersey.media:jersey-media-sse"
@@ -273,7 +267,7 @@ dependencies {
     testApi "org.mockito:mockito-core:4.+"
     testApi 'org.mockito:mockito-junit-jupiter:4.+'
     testApi "org.quicktheories:quicktheories:0.+"
-    testImplementation('com.github.tomakehurst:wiremock-jre8:2.+'){
+    testImplementation('com.github.tomakehurst:wiremock-jre8:2.+') {
         exclude group: 'com.fasterxml.jackson'
     }
     // Needed for ClojureShutdownListener
@@ -291,8 +285,8 @@ dependencies {
 
 task setupGit {
     def config = [
-        "core.hooksPath": "git-hooks" ,
-        "core.whitespace": "blank-at-eol,space-before-tab,tab-in-indent,trailing-space"
+            "core.hooksPath" : "git-hooks",
+            "core.whitespace": "blank-at-eol,space-before-tab,tab-in-indent,trailing-space"
     ]
     doLast {
         config.each { key, value ->
@@ -305,7 +299,7 @@ task setupGit {
         }
         exec {
             commandLine("git", "secrets", "--add-provider", "--",
-                "grep", "-E", "-v", "^[[:space:]]*(#.*)?\$", ".gitforbidden")
+                    "grep", "-E", "-v", "^[[:space:]]*(#.*)?\$", ".gitforbidden")
         }
     }
 }
@@ -329,13 +323,13 @@ idea {
         // automatic, but it isn't: see
         // https://youtrack.jetbrains.com/issue/IDEA-140714
         excludeDirs += [
-            // Ignore files created by running fallout/cassandra in
-            // the current directory
-            file('tests'), file('cassandra'), file('run'), file('logs'),
+                // Ignore files created by running fallout/cassandra in
+                // the current directory
+                file('tests'), file('cassandra'), file('run'), file('logs'),
 
-            // Nothing creates tmp, but it's a convenient place to keep
-            // temporary things
-            file('tmp')
+                // Nothing creates tmp, but it's a convenient place to keep
+                // temporary things
+                file('tmp')
         ]
     }
 }
@@ -425,13 +419,13 @@ task startCassandra(type: Fork) {
 
     workingDir "${project.rootDir}"
     commandLine "${java8Home}/bin/java",
-        "-classpath", classPath,
-        "-XX:+HeapDumpOnOutOfMemoryError", "-Xms8G", "-Xmx8G", "-server", "-ea",
-        "-Dcassandra.config=file://${cassandraYaml}",
-        "-Dcassandra-pidfile=${pidFile}",
-        "-Dcassandra.logdir=${logDir}",
-        "-Dlogback.configurationFile=${logbackXml}",
-        "org.apache.cassandra.service.CassandraDaemon"
+            "-classpath", classPath,
+            "-XX:+HeapDumpOnOutOfMemoryError", "-Xms8G", "-Xmx8G", "-server", "-ea",
+            "-Dcassandra.config=file://${cassandraYaml}",
+            "-Dcassandra-pidfile=${pidFile}",
+            "-Dcassandra.logdir=${logDir}",
+            "-Dlogback.configurationFile=${logbackXml}",
+            "org.apache.cassandra.service.CassandraDaemon"
 
     doLast {
         def waitSeconds = 60
@@ -588,7 +582,7 @@ sourceSets.each { sourceSet ->
     if (sourceSet.compileJavaTaskName != null) {
         tasks[sourceSet.compileJavaTaskName].configure {
             options.annotationProcessorGeneratedSourcesDirectory =
-                file("${buildDir}/src/${sourceSet.name}/java-annotation-processors")
+                    file("${buildDir}/src/${sourceSet.name}/java-annotation-processors")
         }
     }
 }
@@ -622,15 +616,15 @@ compileJava.dependsOn(generateVersionJavaFile)
 
 assertjGenerator {
     classOrPackageNames = [
-        'com.datastax.fallout.harness.TestResult',
-        'com.datastax.fallout.ops.NodeGroup',
-        'com.datastax.fallout.ops.commands.NodeResponse',
-        'com.datastax.fallout.runner.CheckResourcesResult',
-        'com.datastax.fallout.service.core.Test',
-        'com.datastax.fallout.service.core.TestRun',
-        'com.datastax.fallout.service.core.User',
-        'javax.ws.rs.core.Response',
-        'javax.ws.rs.core.Response$StatusType']
+            'com.datastax.fallout.harness.TestResult',
+            'com.datastax.fallout.ops.NodeGroup',
+            'com.datastax.fallout.ops.commands.NodeResponse',
+            'com.datastax.fallout.runner.CheckResourcesResult',
+            'com.datastax.fallout.service.core.Test',
+            'com.datastax.fallout.service.core.TestRun',
+            'com.datastax.fallout.service.core.User',
+            'javax.ws.rs.core.Response',
+            'javax.ws.rs.core.Response$StatusType']
 
     entryPointPackage = "com.datastax.fallout.assertj"
     outputDir = file("${buildDir}/src/testBase/java")
@@ -641,23 +635,23 @@ assertjGenerator {
 // Distribution and packaging
 
 ["startScripts", "startShadowScripts"]
-    .collect { tasks[it] }
-    *.configure {
+        .collect { tasks[it] }
+        *.configure {
 
-        // Insert FALLOUT_HOME and PATH into the default start script before
-        // the final "exec" line that runs java.  It's _possible_ to work out
-        // where the java executable is running from within the code, but it's more
-        // involved and less reliable than doing it from the wrapper.
-        doLast {
-            unixScript.text = unixScript.text.replaceFirst(~'(\nexec .*\\s*$)', {
-                '''
+            // Insert FALLOUT_HOME and PATH into the default start script before
+            // the final "exec" line that runs java.  It's _possible_ to work out
+            // where the java executable is running from within the code, but it's more
+            // involved and less reliable than doing it from the wrapper.
+            doLast {
+                unixScript.text = unixScript.text.replaceFirst(~'(\nexec .*\\s*$)', {
+                    '''
     export FALLOUT_DIST="$APP_HOME"
     export FALLOUT_HOME="${FALLOUT_HOME:-$FALLOUT_DIST}"
     export PATH="$FALLOUT_DIST/bin:$PATH"
     ''' + it[0]
-            })
+                })
+            }
         }
-    }
 
 // External tools
 
@@ -704,7 +698,7 @@ externalTools {
 
             platforms(["linux", "darwin"]) {
                 source.set("https://dl.google.com/dl/cloudsdk/channels/rapid/" +
-                    "downloads/google-cloud-sdk-369.0.0-${platform}-x86_64.tar.gz")
+                        "downloads/google-cloud-sdk-369.0.0-${platform}-x86_64.tar.gz")
                 unpackedBinDir.set("google-cloud-sdk/bin")
             }
 
@@ -772,45 +766,46 @@ distributions.create("shadowNative") {
 }
 
 distributions.matching { dist ->
-    dist.name == "main" || dist.name == "shadow"  }
-    *.contents {
+    dist.name == "main" || dist.name == "shadow"
+}
+        *.contents {
 
-        // Cassandra standalone support
-        from(configurations.cassandraStandalone) {
-            into('lib/cassandra-standalone')
-        }
-        from("etc/cassandra") {
-            into('lib/cassandra-standalone')
-        }
-        from("src/main/resources") {
-            include "cassandra.yaml"
-            into('lib/cassandra-standalone')
-        }
+            // Cassandra standalone support
+            from(configurations.cassandraStandalone) {
+                into('lib/cassandra-standalone')
+            }
+            from("etc/cassandra") {
+                into('lib/cassandra-standalone')
+            }
+            from("src/main/resources") {
+                include "cassandra.yaml"
+                into('lib/cassandra-standalone')
+            }
 
-        // Include the nginx config support files
-        from('etc/nginx') {
-            into('nginx')
-        }
+            // Include the nginx config support files
+            from('etc/nginx') {
+                into('nginx')
+            }
 
-        // Include tool support scripts
-        from('tools/support') {
-            into('lib/tools/support')
+            // Include tool support scripts
+            from('tools/support') {
+                into('lib/tools/support')
+            }
         }
-    }
 
 // Include python sources for tools
 subprojects { subproject ->
     subproject.afterEvaluate {
         if (subproject.ext.has('isPythonTool')) {
             distributions
-                .matching { dist ->
-                    dist.name == "main" || dist.name == "shadow"
-                }
-                *.contents {
-                    from(subproject.toolContents) {
-                        into "lib/tools/${subproject.toolCategory}/${subproject.toolName}"
+                    .matching { dist ->
+                        dist.name == "main" || dist.name == "shadow"
                     }
-                }
+                    *.contents {
+                        from(subproject.toolContents) {
+                            into "lib/tools/${subproject.toolCategory}/${subproject.toolName}"
+                        }
+                    }
         }
     }
 }
@@ -885,9 +880,9 @@ allprojects {
         jvmArgs = project.applicationGradleJvmArgs
 
         [
-            "runExpensiveTests",
-            "runTestsThatCostMoney",
-            "skipCCMTests"
+                "runExpensiveTests",
+                "runTestsThatCostMoney",
+                "skipCCMTests"
         ].each { property ->
             if (rootProject.hasProperty(property)) {
                 systemProperty property, true
@@ -907,8 +902,8 @@ allprojects {
         // be a period of time where the java.util.logging framework is used
         // before gradle manually installs the slf4j bridge
         systemProperties += [
-            'java.util.logging.config.file':
-                "${project.rootDir}/src/testBase/resources/java.util.logging.properties"
+                'java.util.logging.config.file':
+                        "${project.rootDir}/src/testBase/resources/java.util.logging.properties"
         ]
 
         def jacocoPluginApplied = extensions.findByType(JacocoTaskExtension)
@@ -936,7 +931,7 @@ test {
     }
 
     testClassesDirs = testClassesDirs.plus(
-        sourceSets.testBase.output.classesDirs)
+            sourceSets.testBase.output.classesDirs)
 
     finalizedBy allTestsFinished
 }
@@ -995,10 +990,10 @@ task generateStandaloneNginxConf(type: JavaExec, dependsOn: [compileJava, genera
     main run.main
     classpath run.classpath
     args 'generate-nginx-conf',
-        '--standalone',
-        '--nginx-listen-port', '8090',
-        '--output', nginxConf,
-        generateStandaloneNginxFalloutYml.generatedFalloutYml, nginxHtml
+            '--standalone',
+            '--nginx-listen-port', '8090',
+            '--output', nginxConf,
+            generateStandaloneNginxFalloutYml.generatedFalloutYml, nginxHtml
 }
 
 task startStandaloneNginx(type: Fork, dependsOn: generateStandaloneNginxConf) {
@@ -1031,7 +1026,7 @@ class RunServer extends JavaExec {
 
 task runServerWithNginx(type: RunServer) {
     description "Run the fallout server and nginx, " +
-        "using nginx to serve artifacts"
+            "using nginx to serve artifacts"
 
     dependsOn startStandaloneNginx, startCassandra
     finalizedBy stopCassandra, stopStandaloneNginx
@@ -1050,8 +1045,7 @@ task runServer(type: RunServer) {
 
     if (falloutYml.exists()) {
         args 'standalone', falloutYml
-    }
-    else {
+    } else {
         args 'standalone'
     }
 }
@@ -1140,8 +1134,8 @@ task integrationTest(type: Test, dependsOn: [dockerBuild]) {
     classpath = sourceSets.integrationTest.runtimeClasspath
 
     systemProperties([
-        dockerLatestTag: docker.latestTag.get(),
-        falloutVersion: git.describe
+            dockerLatestTag: docker.latestTag.get(),
+            falloutVersion : git.describe
     ])
 
     mustRunAfter(test, dbTest, stopCassandra)
@@ -1155,7 +1149,7 @@ spotless {
     java {
         custom 'prefer generated assertj entry point', { str ->
             str.replace('import static org.assertj.core.api.Assertions.',
-                'import static com.datastax.fallout.assertj.Assertions. ')
+                    'import static com.datastax.fallout.assertj.Assertions. ')
         }
 
         // The spotless import ordering plugin is based on the eclipse one;
@@ -1172,7 +1166,7 @@ spotless {
         // the ordering that most of the codebase already had before we started
         // enforcing it.
         importOrder(
-            'javax.', 'java.', '', 'com.datastax.', 'org.apache.cassandra.', '\\#')
+                'javax.', 'java.', '', 'com.datastax.', 'org.apache.cassandra.', '\\#')
         removeUnusedImports()
 
         endWithNewline()
@@ -1225,7 +1219,7 @@ task dumpNodeGroupStatesToPng {
     outputs.file file("docs/node-group-states.png")
 
     description "Create a PNG diagram of node states in " +
-        "${outputs.files.singleFile}"
+            "${outputs.files.singleFile}"
 
     doLast {
         renderDotFile(inputs.files.singleFile, outputs.files.singleFile)
@@ -1255,7 +1249,7 @@ import net.sourceforge.plantuml.FileFormat
 def renderPlantUmlFile(plantUmlFile, pngFile) {
     pngFile.withOutputStream { out ->
         new SourceStringReader(plantUmlFile.text)
-            .outputImage(out, new FileFormatOption(FileFormat.PNG, true))
+                .outputImage(out, new FileFormatOption(FileFormat.PNG, true))
     }
 }
 

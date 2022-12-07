@@ -44,7 +44,7 @@ dependencies {
     // the dependency nor rename it, since clojure will attempt to compile
     // it at runtime)
     constraints {
-        implementation "com.jcraft:jsch:${jschVersion}"
+        implementation "com.github.mwiede:jsch:${jschVersion}"
     }
 }
 
