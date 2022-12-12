@@ -35,12 +35,16 @@ public class ClusterNames
         // utility class
     }
 
-    /** Make a valid cluster name for GCE, which doesn't allow underscores or uppercase */
+    /** Make a valid cluster name for GCE, which doesn't allow underscores, uppercase, or names longer than 40 chars */
     public static String generateGCEClusterName(NodeGroup nodeGroup, TestRunIdentifier testRunIdentifier)
     {
+        // limit of 40 required by the GKE API:
+        // https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.zones.clusters
+        int MAX_NUM_CHARS_ALLOWED_FOR_GCE_CLUSTER_NAME = 40;
         return generateClusterName(nodeGroup, Optional.empty(), testRunIdentifier)
             .replace("_", "-")
-            .toLowerCase();
+            .toLowerCase()
+            .substring(0, MAX_NUM_CHARS_ALLOWED_FOR_GCE_CLUSTER_NAME);
     }
 
     public static String generateClusterName(NodeGroup nodeGroup, Optional<User> user,
