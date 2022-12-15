@@ -40,11 +40,14 @@ public class ClusterNames
     {
         // limit of 40 required by the GKE API:
         // https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.zones.clusters
-        int MAX_NUM_CHARS_ALLOWED_FOR_GCE_CLUSTER_NAME = 40;
-        return generateClusterName(nodeGroup, Optional.empty(), testRunIdentifier)
+        int MAX_NUM_CHARS_ALLOWED_FOR_GCE_CLUSTER_NAME = 39;
+        String clusterName = generateClusterName(nodeGroup, Optional.empty(), testRunIdentifier)
             .replace("_", "-")
-            .toLowerCase()
-            .substring(0, MAX_NUM_CHARS_ALLOWED_FOR_GCE_CLUSTER_NAME);
+            .toLowerCase();
+
+        return clusterName.substring(
+            0,
+            Math.min(clusterName.length(), MAX_NUM_CHARS_ALLOWED_FOR_GCE_CLUSTER_NAME));
     }
 
     public static String generateClusterName(NodeGroup nodeGroup, Optional<User> user,
