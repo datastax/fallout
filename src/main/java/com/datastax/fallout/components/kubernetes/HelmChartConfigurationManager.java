@@ -84,6 +84,20 @@ public class HelmChartConfigurationManager extends ConfigurationManager
         .name("helm.chart.name")
         .build();
 
+    private final PropertySpec<String> helmRepoUsernameSpec = PropertySpecBuilder.createStr(prefix)
+        .runtimePrefix(this::prefix)
+        .dependsOn(helmChartTypeSpec, "repo")
+        .description("Username required for accessing a private helm repo")
+        .name("helm.repo.username")
+        .build();
+
+    private final PropertySpec<String> helmRepoPasswordSpec = PropertySpecBuilder.createStr(prefix)
+        .runtimePrefix(this::prefix)
+        .dependsOn(helmChartTypeSpec, "repo")
+        .description("Password required for accessing a private helm repo")
+        .name("helm.repo.password")
+        .build();
+
     private final GitClone gitClone = new GitClone(this::prefix, "", null, "master", helmChartTypeSpec, "git");
 
     private final PropertySpec<String> chartLocationInRepoSpec = PropertySpecBuilder.createStr(prefix)
@@ -163,7 +177,7 @@ public class HelmChartConfigurationManager extends ConfigurationManager
             .add(installDebugSpec)
             .add(installTimeoutSpec)
             .add(installDependencyUpdateSpec)
-            .add(helmRepoUrlSpec, helmRepoNameSpec, helmChartNameSpec)
+            .add(helmRepoUrlSpec, helmRepoNameSpec, helmChartNameSpec, helmRepoUsernameSpec, helmRepoPasswordSpec)
             .add(chartLocationInRepoSpec)
             .addAll(gitClone.getSpecs())
             .add(namespaceSpec, helmValuesFileSpec, helmValuesFilesSpec, helmSetValuesSpec, helmSetStringValuesSpec)
@@ -239,10 +253,19 @@ public class HelmChartConfigurationManager extends ConfigurationManager
             String repoName = helmRepoNameSpec.value(nodeGroup);
             String chartName = helmChartNameSpec.value(nodeGroup);
             String repoUrl = helmRepoUrlSpec.value(nodeGroup);
+            String helmRepoUsername = helmRepoUsernameSpec.value(nodeGroup);
+            String helmRepoPassword = helmRepoPasswordSpec.value(nodeGroup);
 
             if (repoName != null)
             {
-                if (!inNamespace(namespacedKubeCtl -> namespacedKubeCtl.addHelmRepo(repoName, repoUrl)))
+                boolean addHelmRepoCommandResultIsSuccessful =
+                    helmRepoUsername != null && helmRepoPassword != null
+                    ? inNamespace(namespacedKubeCtl -> namespacedKubeCtl.addHelmRepoWithAuthentication(
+                        repoName, repoUrl, helmRepoUsername, helmRepoPassword
+                    ))
+                    : inNamespace(namespacedKubeCtl -> namespacedKubeCtl.addHelmRepo(repoName, repoUrl));
+
+                if (!addHelmRepoCommandResultIsSuccessful)
                 {
                     logger().error("Could not add helm repo {}", repoName);
                     return false;

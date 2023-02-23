@@ -570,6 +570,15 @@ public class KubeControlProvider extends Provider
             return kubernetesProvisioner.executeInKubernetesEnv(addRepoCommand).waitForSuccess();
         }
 
+        public boolean addHelmRepoWithAuthentication(String name, String repoUrl, String username, String password)
+        {
+            String addRepoCommand = String.format(
+                "helm repo add %s --username %s --password %s %s",
+                name, username, password, repoUrl
+            );
+            return kubernetesProvisioner.executeInKubernetesEnv(addRepoCommand).waitForSuccess();
+        }
+
         private void validateConfigMapName(String name)
         {
             if (!DNS1123.matcher(name).matches())
