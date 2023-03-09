@@ -259,11 +259,10 @@ public class HelmChartConfigurationManager extends ConfigurationManager
             if (repoName != null)
             {
                 boolean addHelmRepoCommandResultIsSuccessful =
-                    helmRepoUsername != null && helmRepoPassword != null
-                    ? inNamespace(namespacedKubeCtl -> namespacedKubeCtl.addHelmRepoWithAuthentication(
-                        repoName, repoUrl, helmRepoUsername, helmRepoPassword
-                    ))
-                    : inNamespace(namespacedKubeCtl -> namespacedKubeCtl.addHelmRepo(repoName, repoUrl));
+                    helmRepoUsername != null && helmRepoPassword != null ?
+                        inNamespace(namespacedKubeCtl -> namespacedKubeCtl.addHelmRepoWithAuthentication(
+                            repoName, repoUrl, helmRepoUsername, helmRepoPassword
+                        )) : inNamespace(namespacedKubeCtl -> namespacedKubeCtl.addHelmRepo(repoName, repoUrl));
 
                 if (!addHelmRepoCommandResultIsSuccessful)
                 {
@@ -348,8 +347,8 @@ public class HelmChartConfigurationManager extends ConfigurationManager
         return PropertySpecBuilder.createStr(prefix.get())
             .name("helm.install.values.file")
             .runtimePrefix(prefix)
-            .description(
-                "values.yaml file to pass to helm install (see https://helm.sh/docs/chart_template_guide/values_files)")
+            .description("values.yaml file to pass to helm install " +
+                "(see https://helm.sh/docs/chart_template_guide/values_files)")
             .build();
     }
 
