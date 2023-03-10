@@ -37,8 +37,7 @@ def create_df_w_lats_ranges_and_freqs(
         )
 
     df_w_lats_ranges_and_freqs = pd.DataFrame(
-        {COL_NAME_BUCKETS: list_of_min_and_max,
-         COL_NAME_FREQS: list_of_frequencies}
+        {COL_NAME_BUCKETS: list_of_min_and_max, COL_NAME_FREQS: list_of_frequencies}
     )
 
     return df_w_lats_ranges_and_freqs
