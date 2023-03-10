@@ -71,8 +71,7 @@ def plot_histogram(
     """
 
     df_w_two_cols = create_df_w_lats_ranges_and_freqs(
-        list_of_buckets=list_of_buckets,
-        list_of_frequencies=list_of_frequencies
+        list_of_buckets=list_of_buckets, list_of_frequencies=list_of_frequencies
     )
 
     if is_vertical:
@@ -97,20 +96,17 @@ def plot_histogram(
         df_w_two_cols,
         y=y_axis,
         x=x_axis,
-        labels={COL_NAME_BUCKETS: LABEL_LAT_RANGES,
-                COL_NAME_FREQS: LABEL_FREQ},
+        labels={COL_NAME_BUCKETS: LABEL_LAT_RANGES, COL_NAME_FREQS: LABEL_FREQ},
         orientation=orientation,
     ).update_layout(
         bargap=bar_gap,
         title={"text": HIST_TITLE},
         yaxis_title=y_label,
         yaxis=dict(
-            title=y_label, tickmode=tickmode, tickvals=ticktext,
-            ticktext=ticktext
+            title=y_label, tickmode=tickmode, tickvals=ticktext, ticktext=ticktext
         ),
         xaxis=dict(
-            title=x_label, tickmode=tickmode, tickvals=ticktext,
-            ticktext=ticktext
+            title=x_label, tickmode=tickmode, tickvals=ticktext, ticktext=ticktext
         ),
     )
 
@@ -159,11 +155,9 @@ def run():
             # Remove empty lists and zero frequencies from the json files as
             # they were mostly created
             # due to the aggregated histograms being passed.
-            list_of_buckets = [bucket for bucket in list_of_buckets if
-                               len(bucket) > 0]
+            list_of_buckets = [bucket for bucket in list_of_buckets if len(bucket) > 0]
             list_of_frequencies = [
-                frequency for frequency in list_of_frequencies
-                if frequency != 0
+                frequency for frequency in list_of_frequencies if frequency != 0
             ]
 
             file_name_wo_ext = file_name_w_ext[0].split(".json")[0]
