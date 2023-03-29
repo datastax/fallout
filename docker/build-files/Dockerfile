@@ -30,7 +30,7 @@ RUN touch ~/.ssh/known_hosts
 RUN chmod 0600 ~/.ssh/known_hosts
 
 # Taken from https://help.github.com/en/github/authenticating-to-github/testing-your-ssh-connection
-ARG github_host_key_fingerprint="SHA256:nThbg6kXUpJWGl7E1IGOCspRomTxdCARLviKw6E5SY8"
+ARG github_host_key_fingerprint="SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s"
 
 # Mostly copied from https://serverfault.com/a/971922/41102
 RUN if [ "$(ssh-keyscan -H -t rsa github.com 2>/dev/null | \
