@@ -55,7 +55,6 @@ public class KubeControlProvider extends Provider
 {
     private static final HashedWheelTimer timer =
         new HashedWheelTimer(new NamedThreadFactory("KubernetesReadyTimer"));
-    private static final Duration podCreationTimeout = Duration.seconds(30);
     public static final Duration PORT_FORWARDING_WAIT = Duration.seconds(10);
     private static final int KUBECTL_CP_RETRIES = 10;
 
@@ -441,26 +440,28 @@ public class KubeControlProvider extends Provider
                         manifest.toAbsolutePath());
                     return execute(waitOnManifestCmd).waitForSuccess();
                 case WAIT_ON_PODS:
-                    return waitOnPods(() -> findPodNames(waitOptions.getPodLabel()), conditionAndTimeout);
+                    return waitOnPods(() -> findPodNames(waitOptions.getPodLabel()), waitOptions.getTimeout(),
+                        conditionAndTimeout);
                 case FIXED_DURATION:
                     Exceptions.runUninterruptibly(() -> Thread.sleep(waitOptions.getTimeout().toMillis()));
                     return true;
                 case WAIT_ON_IMAGE:
                     return waitOnPods(() -> findPodNamesRunningImage(waitOptions.getImageName(manifestContent)),
+                        waitOptions.getTimeout(),
                         conditionAndTimeout);
             }
             return false;
         }
 
-        private boolean waitOnPods(Supplier<List<String>> podNameSupplier, String conditionAndTimeout)
+        private boolean waitOnPods(Supplier<List<String>> podNameSupplier, Duration timeout, String conditionAndTimeout)
         {
             Utils.AwaitConditionOptions podsAreCreated = new Utils.AwaitConditionOptions(logger(),
-                () -> !podNameSupplier.get().isEmpty(), podCreationTimeout, timer, Duration.seconds(5));
+                () -> !podNameSupplier.get().isEmpty(), timeout, timer, Duration.seconds(5));
             podsAreCreated.addTestRunAbortTimeout(node());
 
             if (!Utils.awaitConditionAsync(podsAreCreated).join())
             {
-                logger().error("Pods were not created within {}", podCreationTimeout);
+                logger().error("Pods were not created within {}", timeout);
                 return false;
             }
 
