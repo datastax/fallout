@@ -854,25 +854,32 @@ public class HdrHistogramChecker extends ArtifactChecker
         public static String timeConverter(Histogram h)
         {
             long durationMillis = h.getEndTimeStamp() - h.getStartTimeStamp();
-            long durationSecs = (durationMillis / 1000);
-            if (durationSecs / 60 == 0)
+            if (durationMillis > 0)
             {
-                return durationSecs + "s";
-            }
-            else
-            {
-                int durationMins = (int)durationSecs / 60;
-                durationSecs = durationSecs % 60;
-                if (durationMins / 60 == 0)
+                long durationSecs = (durationMillis / 1000);
+                if (durationSecs / 60 == 0)
                 {
-                    return durationMins + "m " + durationSecs + "s";
+                    return durationSecs + "s";
                 }
                 else
                 {
-                    int durationHours = durationMins / 60;
-                    durationMins = durationMins % 60;
-                    return durationHours + "hr " + durationMins + "m " + durationSecs + "s";
+                    int durationMins = (int) durationSecs / 60;
+                    durationSecs = durationSecs % 60;
+                    if (durationMins / 60 == 0)
+                    {
+                        return durationMins + "m " + durationSecs + "s";
+                    }
+                    else
+                    {
+                        int durationHours = durationMins / 60;
+                        durationMins = durationMins % 60;
+                        return durationHours + "hr " + durationMins + "m " + durationSecs + "s";
+                    }
                 }
+            }
+            else
+            {
+                return "N/A";
             }
         }
 
@@ -923,7 +930,7 @@ public class HdrHistogramChecker extends ArtifactChecker
 
         private void writeJsonSummary()
         {
-            out.println(",\"Duration\": " + timeConverter(aggregatedHistogram));
+            out.println(",\"Test Duration\": " + timeConverter(aggregatedHistogram));
             out.println(",\"Total Operations\": " + aggregatedHistogram.getTotalCount());
             out.printf(",\"Op Rate\": \"%d op/sec\"%n", getHistogramThroughput(aggregatedHistogram));
             out.printf(",\"Min Latency\": \"%.3f ms\"%n", convertUnit(aggregatedHistogram.getMinValue()));
