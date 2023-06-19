@@ -338,6 +338,37 @@ public class HdrHistogramChecker extends ArtifactChecker
         return !encounteredTooLargeHDR;
     }
 
+    public static String timeConverter(long durationMillis)
+    {
+        if (durationMillis >= 0)
+        {
+            long durationSecs = (durationMillis / 1000);
+            if (durationSecs / 60 == 0)
+            {
+                return durationSecs + "s";
+            }
+            else
+            {
+                int durationMins = (int) durationSecs / 60;
+                durationSecs = durationSecs % 60;
+                if (durationMins / 60 == 0)
+                {
+                    return durationMins + "m " + durationSecs + "s";
+                }
+                else
+                {
+                    int durationHours = durationMins / 60;
+                    durationMins = durationMins % 60;
+                    return durationHours + "hr " + durationMins + "m " + durationSecs + "s";
+                }
+            }
+        }
+        else
+        {
+            return "N/A";
+        }
+    }
+
     private boolean outputMoreThanOneSeparator(PrintStream htmlOutput, PrintStream jsonOutput, boolean moreThanOne)
     {
         if (moreThanOne)
@@ -850,39 +881,6 @@ public class HdrHistogramChecker extends ArtifactChecker
                 .replace(':', '.')
                 .replace('/', '.');
         }
-
-        public static String timeConverter(Histogram h)
-        {
-            long durationMillis = h.getEndTimeStamp() - h.getStartTimeStamp();
-            if (durationMillis > 0)
-            {
-                long durationSecs = (durationMillis / 1000);
-                if (durationSecs / 60 == 0)
-                {
-                    return durationSecs + "s";
-                }
-                else
-                {
-                    int durationMins = (int) durationSecs / 60;
-                    durationSecs = durationSecs % 60;
-                    if (durationMins / 60 == 0)
-                    {
-                        return durationMins + "m " + durationSecs + "s";
-                    }
-                    else
-                    {
-                        int durationHours = durationMins / 60;
-                        durationMins = durationMins % 60;
-                        return durationHours + "hr " + durationMins + "m " + durationSecs + "s";
-                    }
-                }
-            }
-            else
-            {
-                return "N/A";
-            }
-        }
-
         public void writeJsonDataTo(PrintStream... outputs)
         {
             writeJsonTerminatorAndClose();
@@ -930,7 +928,7 @@ public class HdrHistogramChecker extends ArtifactChecker
 
         private void writeJsonSummary()
         {
-            out.println(",\"Test Duration\": " + timeConverter(aggregatedHistogram));
+            out.printf(",\"Test Duration\": \"%s\"%n", HdrHistogramChecker.timeConverter(aggregatedHistogram.getEndTimeStamp() - aggregatedHistogram.getStartTimeStamp()));
             out.println(",\"Total Operations\": " + aggregatedHistogram.getTotalCount());
             out.printf(",\"Op Rate\": \"%d op/sec\"%n", getHistogramThroughput(aggregatedHistogram));
             out.printf(",\"Min Latency\": \"%.3f ms\"%n", convertUnit(aggregatedHistogram.getMinValue()));
