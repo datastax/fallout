@@ -344,13 +344,12 @@ public class HdrHistogramChecker extends ArtifactChecker
         if (durationMillis >= 0)
         {
             long totalSecs = durationMillis / 1000;
-            Duration duration = Duration.ofSeconds(totalSecs);
 
+            Duration duration = Duration.ofSeconds(totalSecs);
             long durationHours = duration.toHours();
             totalSecs -= duration.toHours() * 3600;
 
             duration = Duration.ofSeconds(totalSecs);
-
             long durationMins = duration.toMinutes();
             totalSecs -= duration.toMinutes() * 60;
 
