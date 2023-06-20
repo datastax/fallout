@@ -934,7 +934,9 @@ public class HdrHistogramChecker extends ArtifactChecker
 
         private void writeJsonSummary()
         {
-            out.printf(",\"Test Duration\": \"%s\"%n", HdrHistogramChecker.timeConverter(aggregatedHistogram.getEndTimeStamp() - aggregatedHistogram.getStartTimeStamp()));
+            out.printf(",\"Test Duration\": \"%s\"%n",
+                HdrHistogramChecker.timeConverter(aggregatedHistogram.getEndTimeStamp() -
+                    aggregatedHistogram.getStartTimeStamp()));
             out.println(",\"Total Operations\": " + aggregatedHistogram.getTotalCount());
             out.printf(",\"Op Rate\": \"%d op/sec\"%n", getHistogramThroughput(aggregatedHistogram));
             out.printf(",\"Min Latency\": \"%.3f ms\"%n", convertUnit(aggregatedHistogram.getMinValue()));
