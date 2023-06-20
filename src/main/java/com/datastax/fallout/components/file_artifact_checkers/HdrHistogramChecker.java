@@ -27,6 +27,7 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -342,25 +343,31 @@ public class HdrHistogramChecker extends ArtifactChecker
     {
         if (durationMillis >= 0)
         {
-            long durationSecs = (durationMillis / 1000);
-            if (durationSecs / 60 == 0)
+            long totalSecs = durationMillis / 1000;
+            System.out.println(totalSecs);
+            Duration duration = Duration.ofSeconds(totalSecs);
+
+            long durationHours = duration.toHours();
+            totalSecs -= duration.toHours() * 3600;
+
+            duration = Duration.ofSeconds(totalSecs);
+
+            long durationMins = duration.toMinutes();
+            totalSecs -= duration.toMinutes() * 60;
+
+            long durationSecs = totalSecs;
+
+            if (durationHours == 0 && durationMins == 0)
             {
                 return durationSecs + "s";
             }
+            else if (durationHours == 0)
+            {
+                return durationMins + "m " + durationSecs + "s";
+            }
             else
             {
-                int durationMins = (int) durationSecs / 60;
-                durationSecs = durationSecs % 60;
-                if (durationMins / 60 == 0)
-                {
-                    return durationMins + "m " + durationSecs + "s";
-                }
-                else
-                {
-                    int durationHours = durationMins / 60;
-                    durationMins = durationMins % 60;
-                    return durationHours + "hr " + durationMins + "m " + durationSecs + "s";
-                }
+                return durationHours + "hr " + durationMins + "m " + durationSecs + "s";
             }
         }
         else
