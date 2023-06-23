@@ -365,7 +365,7 @@ public class HdrHistogramChecker extends ArtifactChecker
             }
             else
             {
-                return durationHours + "hr " + durationMins + "m " + durationSecs + "s";
+                return durationHours + "h " + durationMins + "m " + durationSecs + "s";
             }
         }
         else
