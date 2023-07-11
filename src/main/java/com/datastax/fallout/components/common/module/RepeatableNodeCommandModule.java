@@ -94,7 +94,7 @@ public abstract class RepeatableNodeCommandModule<CP extends Provider> extends M
             .name("no_output_timeout")
             .defaultOf(NodeResponse.WaitOptions.DEFAULT_NO_OUTPUT_TIMEOUT)
             .description(
-                "Length of time this command is allowed to remain silent before it's timed out. A value <= 0 results in no timeout.")
+                "Length of time this command is allowed to remain silent before it's timed out. A value = 0 results in no timeout.")
             .build();
     }
 
