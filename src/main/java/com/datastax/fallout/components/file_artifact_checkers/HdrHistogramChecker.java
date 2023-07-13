@@ -886,6 +886,7 @@ public class HdrHistogramChecker extends ArtifactChecker
                 .replace(':', '.')
                 .replace('/', '.');
         }
+
         public void writeJsonDataTo(PrintStream... outputs)
         {
             writeJsonTerminatorAndClose();
