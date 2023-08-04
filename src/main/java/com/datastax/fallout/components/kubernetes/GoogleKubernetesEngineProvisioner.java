@@ -23,6 +23,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -33,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.rpc.ResourceExhaustedException;
 import com.google.auth.oauth2.GoogleCredentials;
@@ -603,36 +606,37 @@ public class GoogleKubernetesEngineProvisioner extends AbstractKubernetesProvisi
         return Utils.waitForSuccess(getNodeGroup().logger(), deleteDiskCommands) && gCloudListDisksJsonSucceeded;
     }
 
+    /**
+     * Obtain a list of provisioners from storage class to identify if dynamic storage
+     * is being used for PVs.  Otherwise, static storage will be left for these PVs.
+     *
+     * @param pvJson persistent volume(s) in json format from k8s
+     * @param gceDisks a set of disks managed by the caller.
+     * @return status of obtaining gce disks for target deletion.
+     */
     private boolean getGCEDisksFromPVJson(String pvJson, Set<GCEDisk> gceDisks)
     {
         try
         {
             final var rootNode = JsonUtils.getJsonNode(pvJson);
 
+            final List<String> provisioners = lookupDynamicProvisioners();
             for (final var item : rootNode.at("/items").require())
             {
-                // Ignore PVs that are not dynamic (https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/),
-                // operating under the assumption that static PVs will be backed by disks containing
-                // data that should not be deleted between testruns (for example, test data).
-                final var createdBy = item.at("/metadata/annotations").get("kubernetes.io/createdby");
-                if (createdBy != null && createdBy.asText().equals("gce-pd-dynamic-provisioner"))
+
+                final var k8sCreatedBy = item.at("/metadata/annotations").get("kubernetes.io/createdby");
+                final var gkeCreatedBy = item.at("/metadata/annotations").get("storage.gke.io/createdby");
+                final var k8sProvisionedBy = item.at("/metadata/annotations").get("pv.kubernetes.io/provisioned-by");
+
+                if (k8sCreatedBy != null && provisioners.contains(k8sCreatedBy.asText()) ||
+                    gkeCreatedBy != null && provisioners.contains(gkeCreatedBy.asText()) ||
+                    k8sProvisionedBy != null && provisioners.contains(k8sProvisionedBy.asText()))
                 {
-                    final var labels = item.at("/metadata/labels");
-                    var zone = labels.get("topology.kubernetes.io/zone");
-                    if (zone == null)
-                    {
-                        // Try the deprecated zone label
-                        zone = labels.get("failure-domain.beta.kubernetes.io/zone");
-                    }
-                    if (zone == null)
-                    {
-                        throw new RuntimeException("Could not extract zone from PV list");
-                    }
-                    gceDisks.add(new GCEDisk(zone.asText(),
-                        item.at("/spec/gcePersistentDisk/pdName").require().asText()));
+                    applyZoneAndDiskNameFromItem(item, gceDisks);
                 }
             }
         }
+
         catch (Throwable ex)
         {
             getNodeGroup().logger().error("Could not read all PVs from cluster", ex);
@@ -708,5 +712,110 @@ public class GoogleKubernetesEngineProvisioner extends AbstractKubernetesProvisi
         env.put(CLOUD_SDK_CONFIG_ENV_VAR, cloudSdkConfigPath.toString());
         env.put("CLOUDSDK_CORE_DISABLE_PROMPTS", "1");
         return env;
+    }
+
+    /**
+     *
+     * @return string representation of k8s sc (dynamic) provisioners registered.
+     */
+    private List<String> lookupDynamicProvisioners()
+    {
+
+        final List<String> provisioners = new ArrayList<>();
+        try
+        {
+            final var lookupProvisioners =
+                executeInKubernetesEnv(
+                    "kubectl get sc -o=jsonpath='{range .items[*]}{.provisioner}{\";\"}'").buffered();
+
+            if (lookupProvisioners.doWait().forSuccess())
+            {
+                provisioners.addAll(Arrays.stream(lookupProvisioners.getStdout().split(";")).toList());
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new RuntimeException("Failed to retrieve list of storage class provisioners due to exception.", ex);
+        }
+
+        // Add legacy dynamic provisioner for allowing older versions.
+        provisioners.add("gce-pd-dynamic-provisioner");
+
+        return provisioners;
+    }
+
+    protected void applyZoneAndDiskNameFromItem(JsonNode item, Set<GCEDisk> gceDisks)
+    {
+        final String name = fetchNameFrom(item);
+
+        if (name == null)
+        {
+            throw new RuntimeException("Unable to obtain name for PV");
+        }
+
+        final String zone = fetchZonesFromUsingLegacy(item);
+
+        if (zone == null)
+        {
+            final Set<String> zones = fetchZonesFrom(item);
+
+            for (var zn : zones)
+            {
+                gceDisks.add(new GCEDisk(zn, name));
+            }
+        }
+    }
+
+    protected String fetchNameFrom(JsonNode item)
+    {
+        var pdName = item.at("/metadata/name");
+        if (pdName == null)
+        {
+            // This gcePersistentDisk was deprecated, here for backward compat.
+            pdName = item.at("/spec/gcePersistentDisk/pdName");
+        }
+        if (pdName == null)
+        {
+            throw new RuntimeException("Could not extract name for PV");
+        }
+        return pdName.asText();
+    }
+
+    // Supports the deprecated zone label
+    protected String fetchZonesFromUsingLegacy(JsonNode item)
+    {
+        final var labels = item.at("/metadata/labels");
+        var zone = labels.get("failure-domain.beta.kubernetes.io/zone");
+
+        if (zone != null)
+        {
+            return zone.asText();
+        }
+        return null;
+    }
+
+    protected Set<String> fetchZonesFrom(JsonNode item)
+    {
+        final Set<String> zones = new HashSet<>();
+        var terms = item.at("/spec/nodeAffinity/required/nodeSelectorTerms");
+
+        for (var term : terms)
+        {
+            var expressions = term.at("/matchExpressions");
+            for (var expression : expressions)
+            {
+                var keyValue = expression.findValue("key").asText();
+
+                if (keyValue.equals("topology.gke.io/zone") || keyValue.equals("topology.kubernetes.io/zone"))
+                {
+                    var listOfZones = expression.findValue("values");
+                    for (var v : listOfZones)
+                    {
+                        zones.add(v.asText());
+                    }
+                }
+            }
+        }
+        return zones;
     }
 }
