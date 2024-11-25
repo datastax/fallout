@@ -106,6 +106,8 @@ public class WritablePropertyGroup implements PropertyGroup
             propNamesToIgnore.add(FalloutPropertySpecs.launchRunLevelPropertySpec.name());
             propNamesToIgnore.add(FalloutPropertySpecs.testRunUrl.name());
             propNamesToIgnore.add(FalloutPropertySpecs.testRunId.name());
+            propNamesToIgnore.add(FalloutPropertySpecs.testName.name());
+            propNamesToIgnore.add(FalloutPropertySpecs.testOwner.name());
 
             Set<String> unknownPropNames = new HashSet<>();
             unknownPropNames.addAll(this.properties.keySet());

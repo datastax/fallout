@@ -64,4 +64,16 @@ public class FalloutPropertySpecs
         .description("ID of the testrun")
         .internal()
         .build();
+
+    public static final PropertySpec<String> testOwner = PropertySpecBuilder.createStr(prefix)
+        .name("test.owner")
+        .description("Owner of the test")
+        .internal()
+        .build();
+
+    public static final PropertySpec<String> testName = PropertySpecBuilder.createStr(prefix)
+        .name("test.name")
+        .description("Name of the test")
+        .internal()
+        .build();
 }

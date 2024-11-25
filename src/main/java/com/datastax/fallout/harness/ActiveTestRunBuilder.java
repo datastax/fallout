@@ -341,6 +341,8 @@ public class ActiveTestRunBuilder
                 .resolve(TestResource.uriForShowTestRunArtifactsById(testRun));
             propertyGroup.put(FalloutPropertySpecs.testRunUrl.name(), testRunUrl.toString());
             propertyGroup.put(FalloutPropertySpecs.testRunId.name(), testRun.getTestRunId().toString());
+            propertyGroup.put(FalloutPropertySpecs.testName.name(), testRun.getTestName());
+            propertyGroup.put(FalloutPropertySpecs.testOwner.name(), testRun.getOwner());
         }
 
         List<Map<String, Object>> localFiles = (List<Map<String, Object>>) config.get("local_files");
