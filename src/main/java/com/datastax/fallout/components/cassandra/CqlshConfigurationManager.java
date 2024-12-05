@@ -18,6 +18,14 @@ package com.datastax.fallout.components.cassandra;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+
+import com.datastax.fallout.harness.EnsembleValidator;
+import com.datastax.fallout.ops.Node;
+
+import com.datastax.fallout.ops.PropertyGroup;
+import com.datastax.fallout.ops.Provider;
+import com.datastax.fallout.ops.provisioner.NoRemoteAccessProvisioner;
 
 import com.google.auto.service.AutoService;
 
@@ -34,7 +42,7 @@ public class CqlshConfigurationManager extends ConfigurationManager
     private static final String name = "cqlsh";
     private static final String description = "Configure cqlsh on client nodes";
 
-    static private PropertySpec<String> versionSpec = PropertySpecBuilder.createStr(prefix)
+    private static final PropertySpec<String> versionSpec = PropertySpecBuilder.createStr(prefix)
         .name("version")
         .description("The version of Cqlsh to install")
         .options("cqlsh-6.8", "cqlsh-6.7", "cqlsh-6.0", "cqlsh-5.1", "cqlsh-astra")
@@ -62,7 +70,7 @@ public class CqlshConfigurationManager extends ConfigurationManager
     @Override
     public Optional<String> exampleUsage()
     {
-        return Optional.of("workloads/nosqlbench/nosqlbench-example.yaml");
+        return Optional.of("astra/cqlsh-astra.yaml");
     }
 
     static public String buildCqlshUrl(String version)
@@ -74,6 +82,45 @@ public class CqlshConfigurationManager extends ConfigurationManager
     public void doSummarizeInfo(InfoConsumer infoConsumer)
     {
         infoConsumer.accept("version", versionSpec.value(getNodeGroup()));
+    }
+
+    @Override
+    public void validateEnsemble(EnsembleValidator validator)
+    {
+        NodeGroup nodeGroup = getNodeGroup();
+        if (getNodeGroup().getProvisioner() instanceof NoRemoteAccessProvisioner)
+        {
+            validator.addValidationError("NodeGroup '" + nodeGroup.getId() +
+                "' cannot be used since no downloads allowed for provisioner: " +
+                nodeGroup.getProvisioner().name());
+        }
+    }
+
+    @Override
+    public Set<Class<? extends Provider>> getAvailableProviders(PropertyGroup nodeGroupProperties)
+    {
+        return Set.of(RemoteCqlshProvider.class);
+    }
+
+    @Override
+    public boolean registerProviders(Node node)
+    {
+        // See configureImpl for this path: we untar to fallout_library/cqlsh/<version>
+        String cqlshPath = String.join(
+            "/",
+            node.getRemoteLibraryPath(), "cqlsh", versionSpec.value(node.getProperties()), "bin" , "cqlsh");
+        new RemoteCqlshProvider(
+            node,
+            cqlshPath,
+            versionSpec.value(node.getProperties()));
+        return true;
+    }
+
+    @Override
+    public boolean unregisterProviders(Node node)
+    {
+        node.maybeUnregister(RemoteCqlshProvider.class);
+        return true;
     }
 
     @Override
