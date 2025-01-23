@@ -16,18 +16,16 @@
 package com.datastax.fallout.components.cassandra;
 
 import java.nio.file.Path;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import com.google.auto.service.AutoService;
 
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.Provider;
 import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
 import com.datastax.fallout.ops.commands.NodeResponse;
-
-import com.google.auto.service.AutoService;
-
 
 @AutoService(Provider.class)
 public class RemoteCqlshProvider extends Provider
@@ -58,17 +56,19 @@ public class RemoteCqlshProvider extends Provider
         return cqlsh(cql, null, null, Collections.emptyList(), Optional.empty());
     }
 
-    public NodeResponse cqlsh (String cql, String username, String password, Optional<Path> outputFilePath)
+    public NodeResponse cqlsh(String cql, String username, String password, Optional<Path> outputFilePath)
     {
         return cqlsh(cql, username, password, Collections.emptyList(), outputFilePath);
     }
 
-    public NodeResponse cqlsh(String cql, String username, String password, List<String> extraParams, Optional<Path> outputFilePath)
+    public NodeResponse cqlsh(String cql, String username, String password, List<String> extraParams,
+        Optional<Path> outputFilePath)
     {
         return cqlsh(cql, username, password, extraParams, false, outputFilePath);
     }
 
-    public NodeResponse cqlsh(String cqlOrScript, String username, String password, List<String> extraParams, boolean runScript, Optional<Path> outputFilePath)
+    public NodeResponse cqlsh(String cqlOrScript, String username, String password, List<String> extraParams,
+        boolean runScript, Optional<Path> outputFilePath)
     {
 
         String fullCqlParams = "--request-timeout=60"; // default is 10s, 60s as we usually run DDL operations
@@ -76,9 +76,9 @@ public class RemoteCqlshProvider extends Provider
         {
             fullCqlParams = fullCqlParams.concat(String.format(" -u %s -p %s", username, password));
         }
-        for (String param: extraParams)
+        for (String param : extraParams)
         {
-            fullCqlParams = fullCqlParams.concat(String.format(" %s",param));
+            fullCqlParams = fullCqlParams.concat(String.format(" %s", param));
         }
         if (outputFilePath.isPresent())
         {

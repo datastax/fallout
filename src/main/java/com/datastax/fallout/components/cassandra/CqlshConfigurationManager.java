@@ -20,19 +20,17 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import com.datastax.fallout.harness.EnsembleValidator;
-import com.datastax.fallout.ops.Node;
-
-import com.datastax.fallout.ops.PropertyGroup;
-import com.datastax.fallout.ops.Provider;
-import com.datastax.fallout.ops.provisioner.NoRemoteAccessProvisioner;
-
 import com.google.auto.service.AutoService;
 
+import com.datastax.fallout.harness.EnsembleValidator;
 import com.datastax.fallout.ops.ConfigurationManager;
+import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.NodeGroup;
+import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.PropertySpecBuilder;
+import com.datastax.fallout.ops.Provider;
+import com.datastax.fallout.ops.provisioner.NoRemoteAccessProvisioner;
 import com.datastax.fallout.ops.utils.ScriptUtils;
 
 @AutoService(ConfigurationManager.class)
@@ -108,7 +106,7 @@ public class CqlshConfigurationManager extends ConfigurationManager
         // See configureImpl for this path: we untar to fallout_library/cqlsh/<version>
         String cqlshPath = String.join(
             "/",
-            node.getRemoteLibraryPath(), "cqlsh", versionSpec.value(node.getProperties()), "bin" , "cqlsh");
+            node.getRemoteLibraryPath(), "cqlsh", versionSpec.value(node.getProperties()), "bin", "cqlsh");
         new RemoteCqlshProvider(
             node,
             cqlshPath,
