@@ -639,9 +639,22 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
 
         final var userGroupMapper = createUserGroupMapper();
 
-        final var credStore = conf.getAwsKMSKeyId() != null ?
-            new CredentialStore.AwsSecretsManagerCredentialStore(conf.getAwsKMSKeyId()) :
-            new CredentialStore.NoopCredentialStore();
+        final CredentialStore credStore;
+        if (conf.getAwsKMSKeyId() != null)
+        {
+            logger.withScopedInfo("Using CredentialStore {}", CredentialStore.AwsSecretsManagerCredentialStore.class);
+            credStore = new CredentialStore.AwsSecretsManagerCredentialStore(conf.getAwsKMSKeyId());
+        }
+        else if (conf.getLocalCredentialStoreDirectory() != null)
+        {
+            logger.withScopedInfo("Using CredentialStore {}", CredentialStore.LocalCredentialStore.class);
+            credStore = new CredentialStore.LocalCredentialStore(conf.getLocalCredentialStoreDirectory());
+        }
+        else
+        {
+            logger.withScopedInfo("Using CredentialStore {}", CredentialStore.NoopCredentialStore.class);
+            credStore = new CredentialStore.NoopCredentialStore();
+        }
         UserDAO userDAO = m.manage(new UserDAO(cassandraDriverManager, securityUtil, conf.getAdminUserCreds(),
             userGroupMapper, credStore));
         TestRunDAO testRunDAO = m.manage(new TestRunDAO(cassandraDriverManager));

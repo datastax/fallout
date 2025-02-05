@@ -15,6 +15,11 @@
  */
 package com.datastax.fallout.service.core;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,6 +29,7 @@ import software.amazon.awssdk.services.secretsmanager.model.CreateSecretRequest;
 import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest;
 import software.amazon.awssdk.services.secretsmanager.model.UpdateSecretRequest;
 
+import com.datastax.fallout.cassandra.shaded.org.codehaus.jackson.map.ObjectMapper;
 import com.datastax.fallout.util.JsonUtils;
 
 public abstract class CredentialStore
@@ -126,6 +132,89 @@ public abstract class CredentialStore
                 .secretString(JsonUtils.toJson(user.getCredentialsSet()))
                 .build();
             client.updateSecret(req);
+        }
+    }
+
+    public static class LocalCredentialStore extends CredentialStore
+    {
+        private final Path storeDirectory;
+        private final ObjectMapper objectMapper = new ObjectMapper();
+
+        public LocalCredentialStore(String directoryPath)
+        {
+            this.storeDirectory = Paths.get(directoryPath);
+            try
+            {
+                Files.createDirectories(storeDirectory);
+            }
+            catch (IOException e)
+            {
+                throw new RuntimeException("Failed to create credential store directory", e);
+            }
+        }
+
+        @Override
+        public void createNewCredentialsInStore(User user)
+        {
+            String filename = getCredentialFileName(user);
+            Path filePath = storeDirectory.resolve(filename);
+            try
+            {
+                Files.writeString(
+                    filePath,
+                    objectMapper.writeValueAsString(
+                        user.getCredentialsSet()),
+                    StandardOpenOption.CREATE_NEW
+                );
+            }
+            catch (IOException e)
+            {
+                throw new RuntimeException("Failed to save credentials", e);
+            }
+        }
+
+        @Override
+        public User.CredentialSet getCredentialsFromStore(User user)
+        {
+            String filename = getCredentialFileName(user);
+            Path filePath = storeDirectory.resolve(filename);
+            try
+            {
+                if (Files.notExists(filePath))
+                {
+                    Files.writeString(filePath, "{}");
+                }
+                String content = Files.readString(filePath);
+                return objectMapper.readValue(content, User.CredentialSet.class);
+            }
+            catch (IOException e)
+            {
+                throw new RuntimeException("Failed to retrieve credentials", e);
+            }
+        }
+
+        @Override
+        public void updateCredentialsInStore(User user)
+        {
+            String filename = getCredentialFileName(user);
+            Path filePath = storeDirectory.resolve(filename);
+            try
+            {
+                Files.writeString(
+                    filePath,
+                    objectMapper.writeValueAsString(user.getCredentialsSet()),
+                    StandardOpenOption.TRUNCATE_EXISTING
+                );
+            }
+            catch (IOException e)
+            {
+                throw new RuntimeException("Failed to update credentials", e);
+            }
+        }
+
+        private String getCredentialFileName(User user)
+        {
+            return user.getEmail().replace("@", "_at_") + "_user_credentials.json";
         }
     }
 }

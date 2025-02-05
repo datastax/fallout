@@ -40,6 +40,7 @@ import com.datastax.driver.mapping.annotations.Field;
 import com.datastax.driver.mapping.annotations.PartitionKey;
 import com.datastax.driver.mapping.annotations.Table;
 import com.datastax.driver.mapping.annotations.UDT;
+import com.datastax.fallout.cassandra.shaded.org.codehaus.jackson.annotate.JsonAutoDetect;
 import com.datastax.fallout.exceptions.InvalidConfigurationException;
 import com.datastax.fallout.service.resources.server.AccountResource;
 import com.datastax.fallout.service.resources.server.TestResource;
@@ -966,6 +967,7 @@ public class User implements Principal
         }
     }
 
+    @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
     protected static class CredentialSet
     {
         @JsonProperty

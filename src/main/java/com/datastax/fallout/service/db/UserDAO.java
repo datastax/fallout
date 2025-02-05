@@ -125,9 +125,13 @@ public class UserDAO implements Managed
     public User getUser(String userId)
     {
         var user = userMapper.get(userId, Mapper.Option.consistencyLevel(ConsistencyLevel.SERIAL));
-        if (null != user && null != user.getCredentialStoreKey())
+        if (null != user)
         {
-            credentialStore.readUsersCredentialSet(user);
+            // we don't require a credential store key for user if using LocalCredentialStore
+            if (credentialStore instanceof CredentialStore.LocalCredentialStore)
+                credentialStore.readUsersCredentialSet(user);
+            else if (null != user.getCredentialStoreKey())
+                credentialStore.readUsersCredentialSet(user);
         }
         return user;
     }
