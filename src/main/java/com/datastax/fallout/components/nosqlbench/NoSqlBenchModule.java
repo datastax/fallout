@@ -359,9 +359,23 @@ public class NoSqlBenchModule extends Module
             // determine appropriate server connection configs
             clientSpecificArgs.addAll(getClientConnectionArgs(clientNode, ensemble, properties));
 
-            // Property validation prevents this from being set when running named scenario
-            workloadDurationSpec.optionalValue(properties).ifPresent(
-                duration -> clientSpecificArgs.add(String.format("waitmillis %s stop %s", duration.toMillis(), alias)));
+            if (workloadDurationSpec.optionalValue(properties).isPresent())
+            {
+                Duration duration = workloadDurationSpec.value(properties);
+                String nbVersionStr = nosqlBenchProviders.get(i).fetchVersionInfo();
+                if (!nbVersionStr.equals("unknown"))
+                {
+                    NoSqlBenchProvider.Version nbVersion = new NoSqlBenchProvider.Version(nbVersionStr);
+                    if (nbVersion.isGTE(5, 21))
+                        clientSpecificArgs.add(String.format("wait ms=%s stop activity=%s", duration.toMillis(), alias));
+                    else
+                        clientSpecificArgs.add(String.format("waitmillis %s stop %s", duration.toMillis(), alias));
+                }
+                else
+                {
+                    clientSpecificArgs.add(String.format("waitmillis %s stop %s", duration.toMillis(), alias));
+                }
+            }
 
             List<String> orderedCommandParameters =
                 Stream.concat(clientSpecificArgs.stream(), options.stream()).toList();

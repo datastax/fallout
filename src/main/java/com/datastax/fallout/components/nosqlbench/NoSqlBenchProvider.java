@@ -18,11 +18,14 @@ package com.datastax.fallout.components.nosqlbench;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.Provider;
 import com.datastax.fallout.ops.commands.NodeResponse;
 import com.datastax.fallout.util.Duration;
+
+import com.google.common.base.Preconditions;
 
 public abstract class NoSqlBenchProvider extends Provider
 {
@@ -60,4 +63,100 @@ public abstract class NoSqlBenchProvider extends Provider
         String nosqlBenchArgs = String.join(" ", argsCopy);
         return String.format("%s 2>&1 | tee %s", nosqlBenchArgs, logFile);
     }
+
+    protected abstract String fetchVersionInfo();
+
+
+    public static class Version
+    {
+
+        public static Optional<Version> maybeOf(String versionStr)
+        {
+            try
+            {
+                return Optional.of(new Version(versionStr));
+            }
+            catch (IllegalArgumentException e)
+            {
+                // NumberFormatException extends IllegalArgumentException
+                return Optional.empty();
+            }
+        }
+
+        public final String versionStr;
+
+        public final int major;
+        public final int minor;
+        public final int patch;
+        public final String tag;
+
+        public Version(String vString)
+        {
+            Preconditions.checkArgument(vString != null);
+            vString = vString.replaceAll("[\\n\\t\\r\\s]+", "");
+
+            versionStr = vString;
+
+            int dashOffset = vString.indexOf("-");
+            if (dashOffset != -1)
+            {
+                tag = vString.substring(dashOffset + 1);
+                vString = vString.substring(0, dashOffset);
+            }
+            else
+            {
+                tag = "";
+            }
+
+            String[] parts = vString.split("\\.");
+
+            major = Integer.valueOf(parts[0]);
+            minor = parts.length > 1 ? Integer.valueOf(parts[1]) : -1;
+            patch = parts.length > 2 ? Integer.valueOf(parts[2]) : -1;
+        }
+
+        public boolean isGTE(int major, int minor)
+        {
+            Preconditions.checkArgument(major > 0);
+            Preconditions.checkArgument(minor >= 0);
+
+            if (this.major < major)
+                return false;
+
+            if (this.major > major)
+                return true;
+
+            //Same major
+            return this.minor >= minor;
+        }
+
+        public boolean isLTE(int major, int minor)
+        {
+            Preconditions.checkArgument(major > 0);
+            Preconditions.checkArgument(minor >= 0);
+
+            if (this.major > major)
+                return false;
+
+            if (this.major < major)
+                return true;
+
+            //Same major
+            return this.minor <= minor;
+        }
+
+        public boolean isEquals(int major, int minor)
+        {
+            Preconditions.checkArgument(major > 0);
+            Preconditions.checkArgument(minor >= 0);
+
+            return this.major == major && this.minor == minor;
+        }
+
+        public String toString()
+        {
+            return versionStr;
+        }
+    }
+
 }

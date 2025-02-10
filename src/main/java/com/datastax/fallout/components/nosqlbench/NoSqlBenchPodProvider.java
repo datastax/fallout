@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import com.datastax.fallout.components.kubernetes.KubeControlProvider;
 import com.datastax.fallout.ops.Node;
+import com.datastax.fallout.ops.commands.FullyBufferedNodeResponse;
 import com.datastax.fallout.ops.commands.NodeResponse;
 import com.datastax.fallout.util.Duration;
 
@@ -66,5 +67,11 @@ public class NoSqlBenchPodProvider extends NoSqlBenchProvider
                 .format("exec --container=nosqlbench %s -- ash -o pipefail -c '%s java -jar nb.jar %s'", podName,
                     prepareScript, nosqlbenchArgs));
         });
+    }
+
+    // TODO: Actually implement this!
+    protected String fetchVersionInfo()
+    {
+        return "unknown";
     }
 }
