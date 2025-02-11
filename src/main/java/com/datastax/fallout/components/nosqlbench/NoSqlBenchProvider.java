@@ -20,12 +20,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import com.google.common.base.Preconditions;
+
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.Provider;
 import com.datastax.fallout.ops.commands.NodeResponse;
 import com.datastax.fallout.util.Duration;
-
-import com.google.common.base.Preconditions;
 
 public abstract class NoSqlBenchProvider extends Provider
 {
@@ -65,7 +65,6 @@ public abstract class NoSqlBenchProvider extends Provider
     }
 
     protected abstract String fetchVersionInfo();
-
 
     public static class Version
     {

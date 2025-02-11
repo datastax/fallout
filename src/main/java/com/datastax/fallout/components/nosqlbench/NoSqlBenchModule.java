@@ -367,7 +367,8 @@ public class NoSqlBenchModule extends Module
                 {
                     NoSqlBenchProvider.Version nbVersion = new NoSqlBenchProvider.Version(nbVersionStr);
                     if (nbVersion.isGTE(5, 21))
-                        clientSpecificArgs.add(String.format("wait ms=%s stop activity=%s", duration.toMillis(), alias));
+                        clientSpecificArgs
+                            .add(String.format("wait ms=%s stop activity=%s", duration.toMillis(), alias));
                     else
                         clientSpecificArgs.add(String.format("waitmillis %s stop %s", duration.toMillis(), alias));
                 }
