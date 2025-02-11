@@ -15,7 +15,7 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout
@@ -46,9 +46,9 @@ jobs:
           distribution: temurin
 
       - name: Setup Python
-        uses: actions/setup-python@v2.2.2
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.7.x
+          python-version: 3.7.17
 
       - name: Install poetry
         run: |
@@ -89,7 +89,7 @@ jobs:
 
       - name: Archive JUnit XML Artifacts
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           # Artifact name
           name: junit-xml
