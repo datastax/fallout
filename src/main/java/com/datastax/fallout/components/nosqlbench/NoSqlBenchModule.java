@@ -291,8 +291,8 @@ public class NoSqlBenchModule extends Module
     public void run(Ensemble ensemble, PropertyGroup properties)
     {
         List<NoSqlBenchProvider> nosqlBenchProviders = null;
+        List<String> clientPrepareScripts = null;
         int numClients = -1;
-        String clientPrepareScript = "";
         if (clientsRunInKubernetes)
         {
             nosqlBenchProviders = clientGroup.getNodes().stream()
@@ -305,7 +305,14 @@ public class NoSqlBenchModule extends Module
             if (syncStart)
             {
                 String syncId = UUID.randomUUID().toString();
-                clientPrepareScript = String.format("curl -sf http://countdownlatch.org/%d/%s && ", numClients, syncId);
+                clientPrepareScripts = Collections.nCopies(
+                    numClients,
+                    String.format("curl -sf http://countdownlatch.org/%d/%s && ", numClients, syncId)
+                );
+            }
+            else
+            {
+                clientPrepareScripts = Collections.nCopies(numClients, "");
             }
         }
         else
@@ -316,6 +323,12 @@ public class NoSqlBenchModule extends Module
                 .map(n -> n.getProvider(NoSqlBenchProvider.class))
                 .toList();
             numClients = nosqlBenchProviders.size();
+            clientPrepareScripts = new ArrayList<>();
+            for (int i = 0; i < numClients; i++)
+            {
+                String nbStateDir = clientNodes.get(i).getRemoteLibraryPath();
+                clientPrepareScripts.add(String.format("export NBSTATEDIR=%s && ", nbStateDir));
+            }
         }
 
         // TODO: add whitelist param if contactPoints.size() < serverGroup.size() ?
@@ -351,6 +364,34 @@ public class NoSqlBenchModule extends Module
                 clientSpecificArgs.addAll(discoverClientGraphiteArgs(clientNode));
             }
 
+            boolean promPushExplicitlyConfigured =
+                argsListContains("--report-prompush-to");
+
+            if (!promPushExplicitlyConfigured)
+            {
+                boolean setPromPushArgs = false;
+                String nbVersionStr = nosqlBenchProviders.get(i).fetchVersionInfo();
+                // assume user knows what they're doing in this case (child class will check for PromPushProvider)
+                if (nbVersionStr.equals("unknown"))
+                {
+                    setPromPushArgs = true;
+                }
+                else
+                {
+                    NoSqlBenchProvider.Version nbVersion = new NoSqlBenchProvider.Version(nbVersionStr);
+                    if (nbVersion.isGTE(5, 21))
+                        setPromPushArgs = true;
+                }
+                if (setPromPushArgs)
+                {
+                    if (!maybeSetupPromPushApiKey(ensemble, clientNode))
+                    {
+                        logger().error("Unable to properly set Prometheus PushGateway API key");
+                    }
+                    clientSpecificArgs.addAll(discoverClientPromPushArgs(clientNode));
+                }
+            }
+
             if (cycleRanges.isPresent())
             {
                 clientSpecificArgs.add(String.format("cycles=%s", cycleRanges.get().get(i)));
@@ -381,6 +422,7 @@ public class NoSqlBenchModule extends Module
             List<String> orderedCommandParameters =
                 Stream.concat(clientSpecificArgs.stream(), options.stream()).toList();
             NoSqlBenchProvider nbProvider = nosqlBenchProviders.get(i);
+            String clientPrepareScript = clientPrepareScripts.get(i);
             NodeResponse response = nbProvider
                 .nosqlbench(getInstanceName(), clientPrepareScript, orderedCommandParameters, histogramFrequency);
             nosqlBenchCommands.add(response);
@@ -401,6 +443,16 @@ public class NoSqlBenchModule extends Module
     protected List<String> discoverClientGraphiteArgs(Node clientNode)
     {
         return List.of();
+    }
+
+    protected List<String> discoverClientPromPushArgs(Node clientNode)
+    {
+        return List.of();
+    }
+
+    protected boolean maybeSetupPromPushApiKey(Ensemble ensemble, Node clientNode)
+    {
+        return true;
     }
 
     private List<String> getClientConnectionArgs(Node clientNode, Ensemble ensemble, PropertyGroup properties)
@@ -430,6 +482,16 @@ public class NoSqlBenchModule extends Module
             .map(ServiceContactPointProvider::getContactPoint)
             .toList();
         return List.of(String.format("host=%s", String.join(",", contactPoints)));
+    }
+
+    protected List<String> getOptions()
+    {
+        return options;
+    }
+
+    protected void setOptions(List<String> options)
+    {
+        this.options = options;
     }
 
     private boolean argsListContains(String subString)

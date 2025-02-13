@@ -54,11 +54,16 @@ public class HttpUtils
 
     public static Optional<JsonNode> httpGetJson(String uri, Optional<Logger> opLogger)
     {
+        return httpGetJson(uri, opLogger, Optional.empty());
+    }
+
+    public static Optional<JsonNode> httpGetJson(String uri, Optional<Logger> opLogger, Optional<String> authToken)
+    {
         Logger logger = opLogger.orElse(log);
         String jsonStr = "";
         try
         {
-            jsonStr = httpGetString(uri);
+            jsonStr = httpGetString(uri, authToken);
         }
         catch (IOException e)
         {
@@ -78,9 +83,13 @@ public class HttpUtils
         }
     }
 
-    public static String httpGetString(String uri) throws IOException
+    public static String httpGetString(String uri, Optional<String> authToken) throws IOException
     {
         HttpGet postGetRequest = new HttpGet(uri);
+        if (!authToken.isEmpty())
+        {
+            postGetRequest.setHeader("Authorization", "Bearer " + authToken);
+        }
         try (CloseableHttpClient httpClient = HttpClientBuilder.create().build();
             CloseableHttpResponse rawResponse = httpClient.execute(postGetRequest))
         {
