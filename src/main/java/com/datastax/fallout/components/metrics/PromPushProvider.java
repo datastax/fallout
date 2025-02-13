@@ -15,6 +15,8 @@
  */
 package com.datastax.fallout.components.metrics;
 
+import java.util.Map;
+
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.Provider;
 
@@ -52,6 +54,15 @@ public class PromPushProvider extends Provider
     public String getApiKey()
     {
         return apiKey;
+    }
+
+    @Override
+    public Map<String, String> toInfoMap()
+    {
+        return Map.of(
+            "host_uri", hostUri,
+            "prompush_port", String.valueOf(promPushPort)
+        );
     }
 
     @Override
