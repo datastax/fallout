@@ -33,19 +33,19 @@ public class ExistingPromPushProvisioner extends NoRemoteAccessProvisioner
 {
     private static final String PREFIX = "fallout.configuration.management.existing_prompush.";
     private static final String NAME = "existing_prompush";
-    private static final String DESCRIPTION = "For exporting metrics to an existing Prometheus PushGateway";
+    private static final String DESCRIPTION = "For exporting metrics to an existing Prometheus server";
 
     static final PropertySpec<String> hostUriSpec = PropertySpecBuilder
         .createStr(PREFIX)
         .name("host")
-        .description("Host URI for the existing Prometheus PushGateway API")
+        .description("Host URI for the existing Prometheus server")
         .required()
         .build();
 
     static final PropertySpec<Integer> portSpec = PropertySpecBuilder
         .createInt(PREFIX)
         .name("port")
-        .description("The port for the existing Prometheus PushGateway API")
+        .description("The port for the existing Prometheus server")
         .required()
         .build();
 
@@ -104,17 +104,17 @@ public class ExistingPromPushProvisioner extends NoRemoteAccessProvisioner
     @Override
     public void doSummarizeInfo(InfoConsumer infoConsumer)
     {
-        getNodeGroup().findFirstProvider(PromPushProvider.class)
+        getNodeGroup().findFirstProvider(PrometheusServerPushProvider.class)
             .ifPresent(p -> {
-                infoConsumer.accept("host_uri", p.getHostUri());
-                infoConsumer.accept("prompush_port", p.getPort());
+                infoConsumer.accept("host", p.getHost());
+                infoConsumer.accept("port", p.getPort());
             });
     }
 
     @Override
     public Set<Class<? extends Provider>> getAvailableProviders(PropertyGroup properties)
     {
-        return Set.of(PromPushProvider.class);
+        return Set.of(PrometheusServerPushProvider.class);
     }
 
     @Override
@@ -140,21 +140,18 @@ public class ExistingPromPushProvisioner extends NoRemoteAccessProvisioner
     {
         if (!createProviders(nodeGroup))
             return NodeGroup.State.FAILED;
-        PromPushProvider provider = nodeGroup.findFirstRequiredProvider(PromPushProvider.class);
+        PrometheusServerPushProvider provider = nodeGroup.findFirstRequiredProvider(PrometheusServerPushProvider.class);
         // fail fast if issues connecting to prom pushgateway
-        String uri = String.format("%s:%d/metrics", provider.getHostUri(), provider.getPort());
+        String uri = provider.getMetricsEndpoint();
         try
         {
-            HttpUtils.httpGetString(
-                uri,
-                Optional.ofNullable(provider.getApiKey())
-            );
-            nodeGroup.logger().info("Successfully verified existing Prometheus PushGateway API");
+            HttpUtils.httpGetString(uri, provider.getApiKey());
+            nodeGroup.logger().info("Successfully verified existing Prometheus server");
             return NodeGroup.State.STARTED_SERVICES_CONFIGURED;
         }
         catch (IOException e)
         {
-            nodeGroup.logger().error("Failed to connect to existing Prometheus PushGateway API");
+            nodeGroup.logger().error("Failed to connect to existing Prometheus server");
             return NodeGroup.State.FAILED;
         }
     }
@@ -163,8 +160,8 @@ public class ExistingPromPushProvisioner extends NoRemoteAccessProvisioner
     {
         String hostUri = hostUriSpec.value(nodeGroup.getProperties());
         Integer promPushPort = portSpec.value(nodeGroup.getProperties());
-        String apiKey = apiKeySpec.value(nodeGroup.getProperties());
-        new PromPushProvider(
+        Optional<String> apiKey = apiKeySpec.optionalValue(nodeGroup.getProperties());
+        new PrometheusServerPushProvider(
             getNodeGroup().getNodes().get(0),
             hostUri,
             promPushPort,
@@ -188,7 +185,7 @@ public class ExistingPromPushProvisioner extends NoRemoteAccessProvisioner
     @Override
     protected boolean destroyImpl(NodeGroup nodeGroup)
     {
-        nodeGroup.getNodes().get(0).maybeUnregister(PromPushProvider.class);
+        nodeGroup.getNodes().get(0).maybeUnregister(PrometheusServerPushProvider.class);
         return true;
     }
 

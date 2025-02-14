@@ -20,54 +20,30 @@ import java.util.Map;
 import com.datastax.fallout.ops.Node;
 import com.datastax.fallout.ops.Provider;
 
-public class PromPushProvider extends Provider
+public class PrometheusExporterPortProvider extends Provider
 {
-    public static final String prompushKeySubdir = "prompush";
-    private final String hostUri;
-    private final Integer promPushPort;
-    private final String apiKey;
+    final int port;
 
-    public PromPushProvider(Node node, String hostUri, Integer promPushPort, String apiKey)
+    public PrometheusExporterPortProvider(Node node, int port)
     {
         super(node);
-        this.hostUri = hostUri;
-        this.promPushPort = promPushPort;
-        this.apiKey = apiKey;
+        this.port = port;
     }
 
     @Override
     public String name()
     {
-        return "prompush";
+        return "PrometheusExporterPortProvider";
     }
 
-    public String getHostUri()
+    public int getPort()
     {
-        return hostUri;
-    }
-
-    public Integer getPort()
-    {
-        return promPushPort;
-    }
-
-    public String getApiKey()
-    {
-        return apiKey;
+        return port;
     }
 
     @Override
     public Map<String, String> toInfoMap()
     {
-        return Map.of(
-            "host_uri", hostUri,
-            "prompush_port", String.valueOf(promPushPort)
-        );
-    }
-
-    @Override
-    public boolean isNodeGroupProvider()
-    {
-        return true;
+        return Map.of("port", "" + port);
     }
 }
