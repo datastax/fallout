@@ -17,16 +17,12 @@ package com.datastax.fallout.util;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.Scanner;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.FileUtils;
 
 public class NetworkUtils
@@ -66,75 +62,6 @@ public class NetworkUtils
         catch (MalformedURLException e)
         {
             throw new IllegalArgumentException("Not a valid url: " + url, e);
-        }
-    }
-
-    private static final int TIMEOUT_MILLIS = 60_000;
-
-    public static String getAstraBundleUrl(String token, String dbID, String env) throws IOException
-    {
-        if (dbID.isEmpty() || env.isEmpty() || token.isEmpty())
-        {
-            throw new IllegalArgumentException("dbID, env, and token must all be set together");
-        }
-
-        // Convert env to uppercase
-        String envValue = env.toUpperCase();
-        String apiUrl;
-
-        // Determine API base URL based on environment
-        switch (envValue)
-        {
-            case "PROD":
-                apiUrl = "https://api.astra.datastax.com";
-                break;
-            case "TEST":
-                apiUrl = "https://api.test.cloud.datastax.com";
-                break;
-            case "DEV":
-                apiUrl = "https://api.dev.cloud.datastax.com";
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown environment: " + env);
-        }
-
-        // Construct the API request URL
-        String requestUrl = apiUrl + "/v2/databases/" + dbID + "/secureBundleURL?all=true";
-
-        // Make the HTTP request and get the response
-        String jsonResponse = makeHttpPostRequest(requestUrl, token);
-
-        // Parse JSON response
-        ObjectMapper objectMapper = new ObjectMapper();
-        JsonNode rootNode = objectMapper.readTree(jsonResponse);
-
-        // Extract the top-level download URL
-        JsonNode firstEntry = rootNode.get(0); // Assuming the first entry is relevant
-
-        if (firstEntry != null && firstEntry.has("downloadURL"))
-        {
-            return firstEntry.get("downloadURL").asText();
-        }
-        else
-        {
-            return "";
-        }
-    }
-
-    private static String makeHttpPostRequest(String requestUrl, String token) throws IOException
-    {
-        URL url = new URL(requestUrl);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("POST");
-        connection.setConnectTimeout(TIMEOUT_MILLIS);
-        connection.setReadTimeout(TIMEOUT_MILLIS);
-        connection.setRequestProperty("Authorization", "Bearer " + token);
-        connection.setRequestProperty("Accept", "application/json");
-
-        // Read the response
-        try (Scanner scanner = new Scanner(connection.getInputStream(), StandardCharsets.UTF_8))
-        {
-            return scanner.useDelimiter("\\A").next();
         }
     }
 }
