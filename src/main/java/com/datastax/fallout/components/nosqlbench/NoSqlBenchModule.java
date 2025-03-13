@@ -285,6 +285,7 @@ public class NoSqlBenchModule extends Module
                     args.add(arg);
                 }
             }));
+        replacePlaceHoldersInArgs();
     }
 
     @Override
@@ -472,6 +473,12 @@ public class NoSqlBenchModule extends Module
             return List.of();
         }
 
+        // e.g. if using the generic HTTP driver, we leave connection details to the user
+        if (serviceTypeSpec.value(properties).equals("other"))
+        {
+            return List.of();
+        }
+
         List<String> dsClientConnectionArgs = getDsClientConnectionArgs(clientNode, ensemble, properties);
         if (!dsClientConnectionArgs.isEmpty())
         {
@@ -482,6 +489,16 @@ public class NoSqlBenchModule extends Module
             .map(ServiceContactPointProvider::getContactPoint)
             .toList();
         return List.of(String.format("host=%s", String.join(",", contactPoints)));
+    }
+
+    protected List<String> getArgs()
+    {
+        return args;
+    }
+
+    protected void setArgs(List<String> args)
+    {
+        this.args = args;
     }
 
     protected List<String> getOptions()
@@ -498,6 +515,10 @@ public class NoSqlBenchModule extends Module
     {
         return Stream.concat(options.stream(), args.stream())
             .anyMatch(s -> s.contains(subString));
+    }
+
+    protected void replacePlaceHoldersInArgs()
+    {
     }
 
     protected List<String> getDsClientConnectionArgs(Node client, Ensemble ensemble, PropertyGroup properties)
