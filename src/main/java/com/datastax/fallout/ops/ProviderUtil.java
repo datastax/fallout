@@ -15,8 +15,8 @@
  */
 package com.datastax.fallout.ops;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -87,7 +87,7 @@ public class ProviderUtil
                 return true;
             }
 
-            Class clazz;
+            Class<?> clazz;
             try
             {
                 clazz = Provider.class.getClassLoader().loadClass(providerClassName);
@@ -108,25 +108,40 @@ public class ProviderUtil
 
             try
             {
-                Class argTypes[] = new Class[numArgs + 1];
-                Object args[] = new Object[argTypes.length];
-
-                argTypes[0] = Node.class;
-                args[0] = node;
-
-                for (int i = 1; i < argTypes.length; i++)
+                Constructor<?>[] constructors = clazz.getConstructors();
+                for (Constructor<?> constructor : constructors)
                 {
-                    argTypes[i] = String.class;
-                    args[i] = providerArgs.get(i - 1);
-                }
+                    Class<?>[] argTypes = constructor.getParameterTypes();
+                    if (argTypes.length != numArgs + 1)
+                    {
+                        continue;
+                    }
+                    if (argTypes[0] != Node.class)
+                    {
+                        continue;
+                    }
 
-                clazz.getConstructor(argTypes).newInstance(args);
-                return true;
-            }
-            catch (NoSuchMethodException e)
-            {
-                logger.error("No Provider class {} constructor with {} String args found", providerClassName,
-                    providerArgs == null ? 0 : providerArgs.size());
+                    Object[] args = new Object[argTypes.length];
+                    args[0] = node;
+                    boolean typesMatch = true;
+                    for (int i = 1; i < argTypes.length; i++)
+                    {
+                        Object convertedArg = convertType(providerArgs.get(i - 1), argTypes[i]);
+                        if (!convertedArg.getClass().isAssignableFrom(argTypes[i]))
+                        {
+                            typesMatch = false;
+                            break;
+                        }
+                        args[i] = convertedArg;
+                    }
+
+                    if (typesMatch)
+                    {
+                        constructor.newInstance(args);
+                        return true;
+                    }
+                }
+                logger.error("No matching constructor found for provider class {}", providerClassName);
                 return false;
             }
             catch (IllegalAccessException | InstantiationException | InvocationTargetException e)
@@ -146,7 +161,7 @@ public class ProviderUtil
                 return Set.of();
             }
 
-            Class clazz;
+            Class<?> clazz;
             try
             {
                 clazz = Provider.class.getClassLoader().loadClass(providerClassName);
@@ -164,21 +179,49 @@ public class ProviderUtil
 
             int numArgs = providerArgs == null ? 0 : providerArgs.size();
 
-            try
+            for (Constructor<?> constructor : clazz.getConstructors())
             {
-                Class argTypes[] = new Class[numArgs + 1];
-                Arrays.fill(argTypes, String.class);
-                argTypes[0] = Node.class;
+                Class<?>[] argTypes = constructor.getParameterTypes();
+                if (argTypes.length != numArgs + 1)
+                {
+                    continue;
+                }
+                if (argTypes[0] != Node.class)
+                {
+                    continue;
+                }
+                boolean typesMatch = true;
+                for (int i = 1; i < argTypes.length; i++)
+                {
+                    Object convertedArg = convertType(providerArgs.get(i - 1), argTypes[i]);
+                    if (!convertedArg.getClass().isAssignableFrom(argTypes[i]))
+                    {
+                        typesMatch = false;
+                        break;
+                    }
+                }
 
-                clazz.getConstructor(argTypes);
+                if (typesMatch)
+                {
+                    return Set.of((Class<? extends Provider>) clazz, HelmProvider.class);
+                }
+            }
 
-                return Set.of(clazz, HelmProvider.class);
-            }
-            catch (NoSuchMethodException e)
-            {
-                throw new RuntimeException("Specified provider class has no constructor with " + numArgs +
-                    " String arguments: " + providerClassName);
-            }
+            throw new RuntimeException(
+                "Specified provider class has no matching constructor or invalid argument types: " + providerClassName);
+        }
+
+        private Object convertType(String value, Class<?> targetType)
+        {
+            if (targetType == String.class)
+                return value;
+            if (targetType == Integer.class || targetType == int.class)
+                return Integer.parseInt(value);
+            if (targetType == Double.class || targetType == double.class)
+                return Double.parseDouble(value);
+            if (targetType == Boolean.class || targetType == boolean.class)
+                return Boolean.parseBoolean(value);
+            throw new IllegalArgumentException("Unsupported argument type: " + targetType.getName());
         }
     }
 }

@@ -86,6 +86,16 @@ public class KubeControlProvider extends Provider
         return Arrays.asList(getNamespaces.getStdout().split(" "));
     }
 
+    public AbstractKubernetesProvisioner getKubernetesProvisioner()
+    {
+        return kubernetesProvisioner;
+    }
+
+    public boolean kubeConfigExists()
+    {
+        return kubernetesProvisioner.kubeConfigExists();
+    }
+
     public <T> T inNamespace(Optional<String> namespace, Function<NamespacedKubeCtl, T> operation)
     {
         return operation.apply(createNamespacedKubeCtl(namespace));
@@ -659,20 +669,22 @@ public class KubeControlProvider extends Provider
             Consumer<Integer> doThingsWhilePortForwarded)
         {
             return Exceptions.getUncheckedIO(() -> {
+                int falloutHostPort;
+                // must close ServerSocket before port-forward, otherwise latter cannot bind to it
                 try (ServerSocket serverSocket = new ServerSocket(0))
                 {
-                    int falloutHostPort = serverSocket.getLocalPort();
-                    NodeResponse portForwardAction = execute(
-                        String.format("port-forward svc/%s %s:%s", serviceName, falloutHostPort, k8sLocalPort));
-
-                    // wait for port-forward action
-                    Exceptions.runUninterruptibly(() -> Thread.sleep(PORT_FORWARDING_WAIT.toMillis()));
-                    logger().info("port-forward for svc/{} finished successfully", serviceName);
-
-                    doThingsWhilePortForwarded.accept(falloutHostPort);
-                    portForwardAction.kill();
-                    return portForwardAction.doWait().withNonZeroIsNoError().forProcessEnd();
+                    falloutHostPort = serverSocket.getLocalPort();
                 }
+                // small race here
+                NodeResponse portForwardAction = execute(
+                    String.format("port-forward svc/%s %s:%s", serviceName, falloutHostPort, k8sLocalPort));
+                // wait for port-forward action
+                Exceptions.runUninterruptibly(() -> Thread.sleep(PORT_FORWARDING_WAIT.toMillis()));
+                logger().info("port-forward for svc/{} finished successfully", serviceName);
+
+                doThingsWhilePortForwarded.accept(falloutHostPort);
+                portForwardAction.kill();
+                return portForwardAction.doWait().withNonZeroIsNoError().forProcessEnd();
             });
         }
     }

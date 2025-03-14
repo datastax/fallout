@@ -26,19 +26,19 @@ public class PrometheusServerProvider extends Provider
 {
     protected final String host;
     protected final Integer port;
-    protected final Optional<String> apiKey;
+    protected final Optional<String> authToken;
 
     public PrometheusServerProvider(Node node, String host, Integer port)
     {
         this(node, host, port, Optional.empty());
     }
 
-    public PrometheusServerProvider(Node node, String host, Integer port, Optional<String> apiKey)
+    public PrometheusServerProvider(Node node, String host, Integer port, Optional<String> authToken)
     {
         super(node);
         this.host = host;
         this.port = port;
-        this.apiKey = apiKey;
+        this.authToken = authToken;
     }
 
     @Override
@@ -66,9 +66,9 @@ public class PrometheusServerProvider extends Provider
         return port;
     }
 
-    public Optional<String> getApiKey()
+    public Optional<String> getAuthToken()
     {
-        return apiKey;
+        return authToken;
     }
 
     public String getMetricsEndpoint()
@@ -85,5 +85,4 @@ public class PrometheusServerProvider extends Provider
     {
         return String.format("%s:%d/api/v1/query_range", host, port);
     }
-
 }

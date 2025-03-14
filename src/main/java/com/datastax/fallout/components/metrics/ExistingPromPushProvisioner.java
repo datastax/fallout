@@ -53,7 +53,7 @@ public class ExistingPromPushProvisioner extends NoRemoteAccessProvisioner
     static final PropertySpec<String> apiKeySpec = PropertySpecBuilder
         .createStr(PREFIX)
         .name("api_key")
-        .description("The API key for using the existing Prometheus PushGateway API")
+        .description("The API key for using the existing Prometheus server")
         .required(false)
         .build();
 
@@ -141,13 +141,13 @@ public class ExistingPromPushProvisioner extends NoRemoteAccessProvisioner
         if (!createProviders(nodeGroup))
             return NodeGroup.State.FAILED;
         PrometheusServerPushProvider provider = nodeGroup.findFirstRequiredProvider(PrometheusServerPushProvider.class);
-        // fail fast if issues connecting to prom pushgateway
+        // fail fast if issues connecting to Pometheus
         String uri = provider.getMetricsEndpoint();
         try
         {
-            HttpUtils.httpGetString(uri, provider.getApiKey());
+            HttpUtils.httpGetString(uri, provider.getAuthToken());
             nodeGroup.logger().info("Successfully verified existing Prometheus server");
-            return NodeGroup.State.STARTED_SERVICES_CONFIGURED;
+            return NodeGroup.State.STARTED_SERVICES_UNCONFIGURED;
         }
         catch (IOException e)
         {

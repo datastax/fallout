@@ -15,6 +15,7 @@
  */
 package com.datastax.fallout.components.kubernetes;
 
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -86,6 +87,23 @@ public abstract class AbstractKubernetesProvisioner extends NoRemoteAccessProvis
             kubeConfigPath = getNodeGroup().getLocalArtifactPath().resolve("kube-config.yaml");
         }
         return Optional.of(kubeConfigPath);
+    }
+
+    public boolean kubeConfigExists()
+    {
+        if (getOptionalKubeConfigPath().isEmpty())
+        {
+            return false;
+        }
+        try
+        {
+            String fileContent = FileUtils.readString(getOptionalKubeConfigPath().get());
+            return fileContent != null;
+        }
+        catch (UncheckedIOException e)
+        {
+            return false;
+        }
     }
 
     public Map<String, String> getKubernetesEnv()

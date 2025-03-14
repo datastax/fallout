@@ -20,6 +20,7 @@ import javax.ws.rs.client.Client;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -29,7 +30,6 @@ import com.datastax.fallout.cassandra.shaded.com.google.common.annotations.Visib
 import com.datastax.fallout.components.kubernetes.KubeControlProvider;
 import com.datastax.fallout.ops.ConfigurationManager;
 import com.datastax.fallout.ops.Node;
-import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.ops.PropertyGroup;
 import com.datastax.fallout.ops.PropertySpec;
 import com.datastax.fallout.ops.PropertySpecBuilder;
@@ -51,6 +51,8 @@ public class MetricsCollectionConfigurationManager extends ConfigurationManager
     public MetricsCollectionConfigurationManager(Supplier<Instant> instantSupplier)
     {
         this.instantSupplier = instantSupplier;
+        // don't set in configureImpl, to avoid NPE (in case nodegroup already has state STARTED_SERVICES_CONFIGURED)
+        clusterCreationInstant = instantSupplier.get();
         httpClient = FalloutClientBuilder.forComponent(MetricsCollectionConfigurationManager.class).build();
     }
 
@@ -70,15 +72,16 @@ public class MetricsCollectionConfigurationManager extends ConfigurationManager
         .createStr(PREFIX)
         .name("namespace")
         .description(
-            "The kubernetes namespace that will be used for find a prometheus service and do the port-forwarding.")
-        .required()
+            "For Prometheus deployed in a kubernetes environment, the kubernetes namespace that will be used for find a prometheus service and do the port-forwarding.")
+        .required(false)
         .build();
 
     static final PropertySpec<String> prometheusService = PropertySpecBuilder
         .createStr(PREFIX)
         .name("prometheus_service")
-        .description("Name of the prometheus service to collect metrics from.")
-        .required()
+        .description(
+            "For Prometheus deployed in a kubernetes environment, name of the prometheus service to collect metrics from.")
+        .required(false)
         .build();
 
     static final PropertySpec<Integer> prometheusServicePort = PropertySpecBuilder
@@ -115,14 +118,7 @@ public class MetricsCollectionConfigurationManager extends ConfigurationManager
     @Override
     public Set<Class<? extends Provider>> getRequiredProviders(PropertyGroup properties)
     {
-        return Set.of(KubeControlProvider.class);
-    }
-
-    @Override
-    public boolean configureImpl(NodeGroup nodeGroup)
-    {
-        clusterCreationInstant = instantSupplier.get();
-        return true;
+        return Set.of(PrometheusServerProvider.class);
     }
 
     @Override
@@ -152,23 +148,139 @@ public class MetricsCollectionConfigurationManager extends ConfigurationManager
 
     private void collectMetricsFromPrometheus(Node node)
     {
+        String prometheusUrl = null;
+
+        PrometheusServerProvider prometheusServer = node.getProvider(PrometheusServerProvider.class);
+        Optional<KubeControlProvider> kubeCtlProvider = node.maybeGetProvider(KubeControlProvider.class);
+        Optional<String> promServiceVal = prometheusService.optionalValue(getNodeGroup());
+        Optional<String> namespaceVal = namespace.optionalValue(getNodeGroup());
+
+        boolean prometheusRunsInKubernetes = kubeCtlProvider.isPresent();
+        boolean falloutRunsInKubernetes = prometheusRunsInKubernetes && !kubeCtlProvider.get().kubeConfigExists();
+
+        if (!prometheusRunsInKubernetes)
+        {
+            node.getNodeGroup().logger().info("Detected Prometheus is deployed outside Kubernetes.");
+            prometheusUrl = String.format("%s:%d", prometheusServer.getHost(), prometheusServer.getPort());
+        }
+        else
+        {
+            node.getNodeGroup().logger().info("Detected Prometheus is deployed inside Kubernetes.");
+            if (falloutRunsInKubernetes)
+            {
+                node.getNodeGroup().logger().info("Detected Fallout is deployed inside Kubernetes.");
+                prometheusUrl = constructPrometheusServiceBaseUrl(promServiceVal, namespaceVal);
+            }
+            else
+            {
+                node.getNodeGroup().logger().info("Detected Fallout is deployed outside Kubernetes.");
+            }
+        }
+
+        if (prometheusUrl != null)
+        {
+            saveAllMetricsToArtifacts(node, prometheusUrl, prometheusServer.getAuthToken());
+            return;
+        }
+        if (prometheusRunsInKubernetes)
+        {
+            handlePrometheusInKubernetes(node, kubeCtlProvider, promServiceVal, namespaceVal);
+        }
+        else
+        {
+            node.getNodeGroup().logger().error("Could not resolve Prometheus URL");
+        }
+    }
+
+    private String constructPrometheusServiceBaseUrl(Optional<String> promServiceVal, Optional<String> namespaceVal)
+    {
+        if (promServiceVal.isPresent() && namespaceVal.isPresent())
+        {
+            return String.format(
+                "http://%s.%s.svc.cluster.local:%s",
+                promServiceVal.get(),
+                namespaceVal.get(),
+                prometheusServicePort.value(getNodeGroup())
+            );
+        }
+        return null;
+    }
+
+    private void handlePrometheusInKubernetes(Node node, Optional<KubeControlProvider> kubeCtlProvider,
+        Optional<String> promServiceVal, Optional<String> namespaceVal)
+    {
+        if (promServiceVal.isEmpty())
+        {
+            node.getNodeGroup().logger().error("prometheus_service needs to be provided.");
+            return;
+        }
+        if (namespaceVal.isEmpty())
+        {
+            node.getNodeGroup().logger().error("namespace needs to be provided.");
+            return;
+        }
+        kubeCtlProvider.get().inNamespace(
+            namespaceVal,
+            namespacedKubeCtl -> namespacedKubeCtl.withPortForwarding(
+                promServiceVal.get(),
+                prometheusServicePort.value(node),
+                localPort -> {
+                    saveAllMetricsToArtifacts(
+                        node,
+                        String.format("http://localhost:%d", localPort)
+                    );
+                }
+            )
+        );
+    }
+
+    private void saveAllMetricsToArtifacts(Node node, String prometheusUrl)
+    {
+        saveAllMetricsToArtifacts(node, prometheusUrl, Optional.empty());
+    }
+
+    private void saveAllMetricsToArtifacts(Node node, String prometheusUrl, Optional<String> authToken)
+    {
         for (String metricToCollectName : metricsToCollect.value(node))
         {
-            String serviceUrl = String.format("http://%s.%s.svc.cluster.local:%s",
-                prometheusService.value(node),
-                namespace.value(node),
-                prometheusServicePort.value(node));
-            String metricsJsonContent = executeGetRequestForJsonContent(metricToCollectName, serviceUrl);
-            saveMetricsToArtifacts(metricsJsonContent, metricToCollectName);
+            try
+            {
+                String metricsJsonContent =
+                    executeGetRequestForJsonContent(metricToCollectName, prometheusUrl, authToken);
+                if (metricsJsonContent != null)
+                {
+                    saveMetricsToArtifacts(metricsJsonContent, metricToCollectName);
+                }
+                else
+                {
+                    node.getNodeGroup().logger().error("Skipping metric '{}' due to failed retrieval.",
+                        metricToCollectName);
+                }
+            }
+            catch (Exception e)
+            {
+                node.getNodeGroup().logger().error("Failed to collect and save metric '{}': {}", metricToCollectName,
+                    e.getMessage(), e);
+            }
         }
     }
 
     @VisibleForTesting
     String executeGetRequestForJsonContent(String metricToCollectName, String serviceUrl)
     {
+        return executeGetRequestForJsonContent(metricToCollectName, serviceUrl, Optional.empty());
+    }
+
+    @VisibleForTesting
+    String executeGetRequestForJsonContent(String metricToCollectName, String serviceUrl, Optional<String> authToken)
+    {
         String getMetricsUrl = constructMetricsUrl(metricToCollectName, serviceUrl);
         logger().info("Executing HTTP GET for: {}", getMetricsUrl);
-        return httpClient.target(getMetricsUrl).request().get(String.class);
+        if (authToken.isEmpty())
+            return httpClient.target(getMetricsUrl).request().get(String.class);
+        else
+            return httpClient.target(getMetricsUrl).request().header("Authorization", "Bearer " + authToken.get())
+                .get(String.class);
     }
 
     @VisibleForTesting

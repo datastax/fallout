@@ -24,9 +24,9 @@ public class PrometheusServerPushProvider extends PrometheusServerProvider
 {
     public static final String promPushKeySubdir = "prompush";
 
-    public PrometheusServerPushProvider(Node node, String host, Integer port, Optional<String> apiKey)
+    public PrometheusServerPushProvider(Node node, String host, Integer port, Optional<String> authToken)
     {
-        super(node, host, port, apiKey);
+        super(node, host, port, authToken);
     }
 
     @Override
