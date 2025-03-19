@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.fallout.util;
+package com.datastax.fallout.util.messenger;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.core.MediaType;
@@ -26,6 +26,8 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.datastax.fallout.util.ScopedLogger;
 
 public class SlackUserMessenger implements UserMessenger
 {

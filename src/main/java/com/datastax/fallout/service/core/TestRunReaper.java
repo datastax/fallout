@@ -38,7 +38,7 @@ import com.datastax.fallout.util.DateUtils;
 import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.ResourceUtils;
 import com.datastax.fallout.util.ScopedLogger;
-import com.datastax.fallout.util.UserMessenger;
+import com.datastax.fallout.util.messenger.UserMessenger;
 
 import static com.datastax.fallout.util.MustacheFactoryWithoutHTMLEscaping.renderWithScopes;
 

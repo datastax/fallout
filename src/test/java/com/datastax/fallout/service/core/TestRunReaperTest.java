@@ -34,8 +34,8 @@ import com.datastax.fallout.service.db.TestDAO;
 import com.datastax.fallout.service.db.TestRunDAO;
 import com.datastax.fallout.service.db.UserDAO;
 import com.datastax.fallout.service.db.UserGroupMapper;
-import com.datastax.fallout.util.NullUserMessenger;
-import com.datastax.fallout.util.UserMessenger;
+import com.datastax.fallout.util.messenger.NullUserMessenger;
+import com.datastax.fallout.util.messenger.UserMessenger;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
 import static com.datastax.fallout.service.core.Fakes.TEST_NAME;

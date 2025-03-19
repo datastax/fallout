@@ -26,6 +26,7 @@ import com.github.mustachejava.MustacheFactory;
 
 import com.datastax.fallout.service.core.TestCompletionNotification;
 import com.datastax.fallout.service.core.TestRun;
+import com.datastax.fallout.util.messenger.UserMessenger;
 
 import static com.datastax.fallout.service.resources.server.TestResource.uriForShowTestRunArtifacts;
 

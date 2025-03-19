@@ -140,14 +140,14 @@ import com.datastax.fallout.util.Duration;
 import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.FileUtils;
 import com.datastax.fallout.util.FinishedTestRunUserNotifier;
-import com.datastax.fallout.util.HtmlMailUserMessenger;
 import com.datastax.fallout.util.JacksonUtils;
 import com.datastax.fallout.util.MustacheViewRendererWithoutTemplatingErrors;
 import com.datastax.fallout.util.NamedThreadFactory;
 import com.datastax.fallout.util.ScopedLogger;
-import com.datastax.fallout.util.SlackUserMessenger;
-import com.datastax.fallout.util.UserMessenger;
 import com.datastax.fallout.util.component_discovery.ComponentFactory;
+import com.datastax.fallout.util.messenger.HtmlMailUserMessengerFactory;
+import com.datastax.fallout.util.messenger.SlackUserMessenger;
+import com.datastax.fallout.util.messenger.UserMessenger;
 
 public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extends Application<FC>
 {
@@ -663,7 +663,7 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
 
         ActiveTestRunFactory activeTestRunFactory = createActiveTestRunFactory(conf);
 
-        UserMessenger mailer = HtmlMailUserMessenger.create(conf);
+        UserMessenger mailer = HtmlMailUserMessengerFactory.create(conf);
 
         UserCredentialsFactory userCredentialsFactory = (testRun) -> {
             User user = userDAO.getUser(testRun.getOwner());
@@ -901,7 +901,7 @@ public abstract class FalloutServiceBase<FC extends FalloutConfiguration> extend
         final DirectTestRunner testRunner = m.manageStartOnly(
             new DirectTestRunner(
                 createThreadedTestRunExecutorFactoryWithFinishedCallbacks(
-                    conf, m, HtmlMailUserMessenger.create(conf), testDAO,
+                    conf, m, HtmlMailUserMessengerFactory.create(conf), testDAO,
                     testRunDAO, activeTestRunFactory),
                 this::shutdown,
                 testRunStatusUpdatePublisher));

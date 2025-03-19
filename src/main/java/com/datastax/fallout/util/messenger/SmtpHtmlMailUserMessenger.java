@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.fallout.util;
+package com.datastax.fallout.util.messenger;
 
 import javax.mail.Message;
 import javax.mail.MessagingException;
@@ -34,29 +34,8 @@ import org.slf4j.LoggerFactory;
 
 import com.datastax.fallout.service.FalloutConfiguration;
 
-public class HtmlMailUserMessenger implements UserMessenger
-{
-    private static final Logger log = LoggerFactory.getLogger(HtmlMailUserMessenger.class);
-    private final FalloutConfiguration configuration;
-
-    public static UserMessenger create(FalloutConfiguration conf)
-    {
-        if (conf.getSmtpHost() != null && conf.getSmtpPass() != null && conf.getSmtpPort() != null &&
-            conf.getSmtpUser() != null)
-        {
-            return new HtmlMailUserMessenger(conf);
-        }
-        else
-        {
-            log.warn("Fallout config missing mail setup");
-            return new NullUserMessenger();
-        }
-    }
-
-    private HtmlMailUserMessenger(FalloutConfiguration configuration)
-    {
-        this.configuration = configuration;
-    }
+public record SmtpHtmlMailUserMessenger(FalloutConfiguration configuration) implements UserMessenger {
+    private static final Logger log = LoggerFactory.getLogger(SmtpHtmlMailUserMessenger.class);
 
     @Override
     public void sendMessage(String emailAddr, String subject, String body) throws MessengerException
@@ -108,7 +87,7 @@ public class HtmlMailUserMessenger implements UserMessenger
         }
     }
 
-    private class SMTPAuthenticator extends javax.mail.Authenticator
+    private static class SMTPAuthenticator extends javax.mail.Authenticator
     {
 
         final String user;

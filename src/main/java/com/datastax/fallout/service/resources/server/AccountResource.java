@@ -59,7 +59,7 @@ import com.datastax.fallout.service.db.UserGroupMapper;
 import com.datastax.fallout.service.views.FalloutView;
 import com.datastax.fallout.service.views.MainView;
 import com.datastax.fallout.util.ScopedLogger;
-import com.datastax.fallout.util.UserMessenger;
+import com.datastax.fallout.util.messenger.UserMessenger;
 
 @Path("/account")
 @Produces(MediaType.APPLICATION_JSON)

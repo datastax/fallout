@@ -58,6 +58,7 @@ import com.datastax.fallout.service.auth.SecurityUtil;
 import com.datastax.fallout.service.core.GrafanaTenantUsageData;
 import com.datastax.fallout.util.Exceptions;
 import com.datastax.fallout.util.FileUtils;
+import com.datastax.fallout.util.messenger.HtmlMailUserMessengerFactory;
 
 /**
  * Fallout configuration file
@@ -149,6 +150,9 @@ public class FalloutConfiguration extends Configuration
 
     @JsonProperty
     private boolean useNginxToServeArtifacts = false;
+
+    @JsonProperty
+    private HtmlMailUserMessengerFactory.Emailer emailer = HtmlMailUserMessengerFactory.Emailer.NULL;
 
     @JsonProperty
     private String smtpFrom;
@@ -310,6 +314,16 @@ public class FalloutConfiguration extends Configuration
     public void setKeyspace(String keyspace)
     {
         this.keyspace = keyspace;
+    }
+
+    public HtmlMailUserMessengerFactory.Emailer getEmailer()
+    {
+        return emailer;
+    }
+
+    public void setEmailer(HtmlMailUserMessengerFactory.Emailer emailer)
+    {
+        this.emailer = emailer;
     }
 
     public String getSmtpFrom()
