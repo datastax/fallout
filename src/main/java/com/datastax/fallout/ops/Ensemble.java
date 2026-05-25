@@ -62,11 +62,12 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
     private final LocalScratchSpace workloadScratchSpace;
     private final Logger logger;
     private final LocalFilesHandler localFilesHandler;
+    private final Optional<Integer> provisioningBatchSize;
 
     protected Ensemble(UUID testRunId, List<NodeGroup> serverGroups, List<NodeGroup> clientGroups,
         NodeGroup observerGroup, NodeGroup controllerGroup, TestRunLinkUpdater testRunLinkUpdater,
         LocalScratchSpace workloadScratchSpace, Logger logger,
-        LocalFilesHandler localFilesHandler)
+        LocalFilesHandler localFilesHandler, Optional<Integer> provisioningBatchSize)
     {
         this.testRunId = testRunId;
         this.serverGroups = serverGroups;
@@ -77,6 +78,7 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
         this.workloadScratchSpace = workloadScratchSpace;
         this.logger = logger;
         this.localFilesHandler = localFilesHandler;
+        this.provisioningBatchSize = provisioningBatchSize;
 
         for (NodeGroup nodeGroup : getUniqueNodeGroupInstances())
         {
@@ -220,25 +222,192 @@ public class Ensemble implements DebugInfoProvidingComponent, AutoCloseable
         return workloadScratchSpace.makeScratchSpaceFor(component);
     }
 
+    public Optional<Integer> getProvisioningBatchSize()
+    {
+        return provisioningBatchSize;
+    }
+
     /** Transition entire ensemble at once */
     public CompletableFuture<Boolean> transitionState(NodeGroup.State state)
     {
         return transitionState(state, NodeGroup::transitionState);
     }
 
+
+    /**
+     * Transition node groups with per-group state determination, respecting batch size if configured.
+     *
+     * @param stateFunction Function that determines the target state for each NodeGroup
+     * @param transitionFunction Function that performs the actual transition
+     * @return CompletableFuture that completes when all transitions are done
+     */
+    public CompletableFuture<Boolean> transitionStateWithFunction(
+        Function<NodeGroup, NodeGroup.State> stateFunction,
+        BiFunction<NodeGroup, NodeGroup.State, CompletableFuture<CheckResourcesResult>> transitionFunction)
+    {
+        return transitionStateWithFunction(new ArrayList<>(getUniqueNodeGroupInstances()),
+            stateFunction, transitionFunction);
+    }
+
+    /**
+     * Transition specific node groups with per-group state determination, respecting batch size if configured.
+     *
+     * @param nodeGroups List of NodeGroups to transition
+     * @param stateFunction Function that determines the target state for each NodeGroup
+     * @param transitionFunction Function that performs the actual transition
+     * @return CompletableFuture that completes when all transitions are done
+     */
+    public CompletableFuture<Boolean> transitionStateWithFunction(
+        List<NodeGroup> nodeGroups,
+        Function<NodeGroup, NodeGroup.State> stateFunction,
+        BiFunction<NodeGroup, NodeGroup.State, CompletableFuture<CheckResourcesResult>> transitionFunction)
+    {
+        if (nodeGroups.isEmpty())
+        {
+            return CompletableFuture.completedFuture(true);
+        }
+
+        if (provisioningBatchSize.isEmpty())
+        {
+            logger.info("Transitioning {} node groups in parallel (per-group states)", nodeGroups.size());
+            return transitionNodeGroupsInParallel(nodeGroups, stateFunction, transitionFunction);
+        }
+
+        int batchSize = provisioningBatchSize.get();
+        logger.info("Transitioning {} node groups in batches of {} (per-group states)",
+            nodeGroups.size(), batchSize);
+        return transitionNodeGroupsInBatches(nodeGroups, batchSize, stateFunction, transitionFunction);
+    }
+
+    private CompletableFuture<Boolean> transitionNodeGroupsInParallel(
+        List<NodeGroup> nodeGroups,
+        Function<NodeGroup, NodeGroup.State> stateFunction,
+        BiFunction<NodeGroup, NodeGroup.State, CompletableFuture<CheckResourcesResult>> transitionFunction)
+    {
+        List<CompletableFuture<Boolean>> futures = nodeGroups.stream()
+            .map(ng -> transitionSingleNodeGroup(ng, stateFunction, transitionFunction))
+            .toList();
+        return Utils.waitForAllAsync(futures);
+    }
+
+    private CompletableFuture<Boolean> transitionNodeGroupsInBatches(
+        List<NodeGroup> nodeGroups,
+        int batchSize,
+        Function<NodeGroup, NodeGroup.State> stateFunction,
+        BiFunction<NodeGroup, NodeGroup.State, CompletableFuture<CheckResourcesResult>> transitionFunction)
+    {
+        return processBatches(nodeGroups, batchSize,
+            ng -> transitionSingleNodeGroup(ng, stateFunction, transitionFunction),
+            "transition");
+    }
+
+    private CompletableFuture<Boolean> transitionSingleNodeGroup(
+        NodeGroup nodeGroup,
+        Function<NodeGroup, NodeGroup.State> stateFunction,
+        BiFunction<NodeGroup, NodeGroup.State, CompletableFuture<CheckResourcesResult>> transitionFunction)
+    {
+        NodeGroup.State targetState = stateFunction.apply(nodeGroup);
+        return transitionFunction.apply(nodeGroup, targetState)
+            .thenApplyAsync(checkResourcesResult -> checkResourcesResult != CheckResourcesResult.FAILED);
+    }
+
     private CompletableFuture<Boolean> transitionState(
         NodeGroup.State state,
         BiFunction<NodeGroup, NodeGroup.State, CompletableFuture<CheckResourcesResult>> transitionNodeGroup)
     {
-        List<CompletableFuture<Boolean>> futures = new ArrayList<>();
+        List<NodeGroup> nodeGroups = new ArrayList<>(getUniqueNodeGroupInstances());
 
-        for (NodeGroup nodeGroup : getUniqueNodeGroupInstances())
+        if (provisioningBatchSize.isEmpty())
         {
-            futures.add(transitionNodeGroup.apply(nodeGroup, state)
-                .thenApplyAsync(checkResourcesResult -> checkResourcesResult != CheckResourcesResult.FAILED));
+            logger.info("Transitioning {} node groups to {} in parallel", nodeGroups.size(), state);
+            return transitionNodeGroupsToStateInParallel(nodeGroups, state, transitionNodeGroup);
         }
 
+        int batchSize = provisioningBatchSize.get();
+        logger.info("Transitioning {} node groups to {} in batches of {}",
+            nodeGroups.size(), state, batchSize);
+        return transitionNodeGroupsToStateInBatches(nodeGroups, state, batchSize, transitionNodeGroup);
+    }
+
+    private CompletableFuture<Boolean> transitionNodeGroupsToStateInParallel(
+        List<NodeGroup> nodeGroups,
+        NodeGroup.State state,
+        BiFunction<NodeGroup, NodeGroup.State, CompletableFuture<CheckResourcesResult>> transitionNodeGroup)
+    {
+        List<CompletableFuture<Boolean>> futures = nodeGroups.stream()
+            .map(ng -> transitionNodeGroupToState(ng, state, transitionNodeGroup))
+            .toList();
         return Utils.waitForAllAsync(futures);
+    }
+
+    private CompletableFuture<Boolean> transitionNodeGroupsToStateInBatches(
+        List<NodeGroup> nodeGroups,
+        NodeGroup.State state,
+        int batchSize,
+        BiFunction<NodeGroup, NodeGroup.State, CompletableFuture<CheckResourcesResult>> transitionNodeGroup)
+    {
+        return processBatches(nodeGroups, batchSize,
+            ng -> transitionNodeGroupToState(ng, state, transitionNodeGroup),
+            "transition to " + state);
+    }
+
+    /**
+     * Generic batch processor for node groups. Processes node groups in sequential batches,
+     * with each batch processed in parallel. Stops on first batch failure.
+     *
+     * @param nodeGroups List of node groups to process
+     * @param batchSize Size of each batch
+     * @param processor Function to process each node group, returning a CompletableFuture<Boolean>
+     * @param operationDescription Description of the operation for logging (e.g., "transition", "transition to STARTED_SERVICES_RUNNING")
+     * @return CompletableFuture that completes when all batches are processed or first failure occurs
+     */
+    private CompletableFuture<Boolean> processBatches(
+        List<NodeGroup> nodeGroups,
+        int batchSize,
+        Function<NodeGroup, CompletableFuture<Boolean>> processor,
+        String operationDescription)
+    {
+        List<CompletableFuture<Boolean>> allFutures = new ArrayList<>();
+        int totalBatches = (nodeGroups.size() + batchSize - 1) / batchSize;
+
+        for (int i = 0; i < nodeGroups.size(); i += batchSize)
+        {
+            int batchNumber = (i / batchSize) + 1;
+            int batchEnd = Math.min(i + batchSize, nodeGroups.size());
+            List<NodeGroup> batch = nodeGroups.subList(i, batchEnd);
+
+            logger.info("Processing batch {}/{}: NodeGroups {} to {} ({})",
+                batchNumber, totalBatches, i + 1, batchEnd,
+                batch.stream().map(ng -> ng.name).collect(java.util.stream.Collectors.joining(", ")));
+
+            List<CompletableFuture<Boolean>> batchFutures = batch.stream()
+                .map(processor)
+                .toList();
+
+            boolean batchSuccess = Utils.waitForAll(batchFutures, logger,
+                "batch " + batchNumber + " " + operationDescription);
+
+            allFutures.addAll(batchFutures);
+
+            if (!batchSuccess)
+            {
+                logger.error("Batch {}/{} failed, stopping further batches", batchNumber, totalBatches);
+                break;
+            }
+
+            logger.info("Batch {}/{} completed successfully", batchNumber, totalBatches);
+        }
+
+        return Utils.waitForAllAsync(allFutures);
+    }
+
+    private CompletableFuture<Boolean> transitionNodeGroupToState(
+        NodeGroup nodeGroup,
+        NodeGroup.State state,
+        BiFunction<NodeGroup, NodeGroup.State, CompletableFuture<CheckResourcesResult>> transitionNodeGroup)
+    {
+        return transitionNodeGroup.apply(nodeGroup, state)
+            .thenApplyAsync(checkResourcesResult -> checkResourcesResult != CheckResourcesResult.FAILED);
     }
 
     /**

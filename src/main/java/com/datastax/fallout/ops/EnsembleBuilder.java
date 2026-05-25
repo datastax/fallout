@@ -55,6 +55,7 @@ public class EnsembleBuilder
     private EnsembleCredentials credentials;
     private TestRunLinkUpdater testRunLinkUpdater = new NullTestRunLinkUpdater();
     private LocalFilesHandler localFilesHandler = LocalFilesHandler.empty();
+    private Optional<Integer> provisioningBatchSize = Optional.empty();
 
     public static EnsembleBuilder create()
     {
@@ -177,6 +178,12 @@ public class EnsembleBuilder
         return this;
     }
 
+    public EnsembleBuilder withProvisioningBatchSize(Optional<Integer> batchSize)
+    {
+        this.provisioningBatchSize = batchSize;
+        return this;
+    }
+
     private void check()
     {
         Preconditions.checkArgument(!serverBuilders.isEmpty(), "Server Builders are missing");
@@ -242,6 +249,7 @@ public class EnsembleBuilder
         NodeGroup controllers = controllerBuilder.build();
 
         return new Ensemble(testRunId, servers, clients, observers, controllers, testRunLinkUpdater,
-            testRunScratchSpace.makeScratchSpaceForWorkload(), loggers.getShared(), localFilesHandler);
+            testRunScratchSpace.makeScratchSpaceForWorkload(), loggers.getShared(), localFilesHandler,
+            provisioningBatchSize);
     }
 }

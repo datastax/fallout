@@ -263,23 +263,35 @@ public class ActiveTestRun implements AutoCloseable
 
     private CheckResourcesResult transitionEnsembleStateUpwards(Optional<NodeGroup.State> maximumState)
     {
-        List<CompletableFuture<CheckResourcesResult>> futures = new ArrayList<>();
+        // Use ensemble-level transition to support batch provisioning
+        Function<NodeGroup, NodeGroup.State> stateFunction = nodeGroup -> {
+            NodeGroup.State requiredState =
+                FalloutPropertySpecs.launchRunLevelPropertySpec.value(nodeGroup);
+            return NodeGroup.State.values()[Math.min(maximumState.orElse(requiredState).ordinal(),
+                requiredState.ordinal())];
+        };
+
+        CompletableFuture<Boolean> transitionFuture = ensemble.transitionStateWithFunction(
+            stateFunction,
+            NodeGroup::transitionStateIfUpwards);
+
+        boolean success = transitionFuture.join();
+
+        if (!success)
+        {
+            return CheckResourcesResult.FAILED;
+        }
 
         for (NodeGroup nodeGroup : ensemble.getUniqueNodeGroupInstances())
         {
-            NodeGroup.State requiredState =
-                FalloutPropertySpecs.launchRunLevelPropertySpec.value(nodeGroup);
-            requiredState = NodeGroup.State.values()[Math.min(maximumState.orElse(requiredState).ordinal(),
-                requiredState.ordinal())];
-
-            futures.add(nodeGroup.transitionStateIfUpwards(requiredState));
+            NodeGroup.State targetState = stateFunction.apply(nodeGroup);
+            if (nodeGroup.getState().ordinal() < targetState.ordinal())
+            {
+                return CheckResourcesResult.FAILED;
+            }
         }
 
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[] {})).join();
-
-        return futures.stream()
-            .map(CompletableFuture::join)
-            .reduce(CheckResourcesResult.AVAILABLE, CheckResourcesResult::worstCase);
+        return CheckResourcesResult.AVAILABLE;
     }
 
     private CheckResourcesResult transitionEnsembleStateUpwards(Optional<NodeGroup.State> maximumState,
@@ -579,14 +591,24 @@ public class ActiveTestRun implements AutoCloseable
 
     private CompletableFuture<Boolean> transitionEnsembleForTearDown(Optional<NodeGroup.State> endState)
     {
-        List<CompletableFuture<Boolean>> transitions = ensemble.getUniqueNodeGroupInstances().stream()
-            .flatMap(ng -> getStateForTearDownTransition(ng, endState)
-                .map(tearDownState -> ng.transitionStateIfDownwards(tearDownState)
-                    .thenApplyAsync(CheckResourcesResult::wasSuccessful))
-                .stream())
-            .toList();
-
-        return Utils.waitForAllAsync(transitions);
+        // Collect NodeGroups that need transition along with their target states
+        Map<NodeGroup, NodeGroup.State> nodeGroupsToTransition = new java.util.HashMap<>();
+        
+        for (NodeGroup ng : ensemble.getUniqueNodeGroupInstances())
+        {
+            getStateForTearDownTransition(ng, endState).ifPresent(tearDownState ->
+                nodeGroupsToTransition.put(ng, tearDownState));
+        }
+        
+        if (nodeGroupsToTransition.isEmpty())
+        {
+            return CompletableFuture.completedFuture(true);
+        }
+        
+        return ensemble.transitionStateWithFunction(
+            new ArrayList<>(nodeGroupsToTransition.keySet()),
+            nodeGroupsToTransition::get,
+            NodeGroup::transitionStateIfDownwards);
     }
 
     /** Calculate the {@link NodeGroup.State} that should be used when the code requires
