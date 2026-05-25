@@ -76,4 +76,12 @@ public class FalloutPropertySpecs
         .description("Name of the test")
         .internal()
         .build();
+
+    public static final PropertySpec<Integer> provisioningBatchSizePropertySpec = PropertySpecBuilder.createInt(prefix)
+        .name("provisioning.batch_size")
+        .description("Optional: Batch size for provisioning NodeGroups. " +
+            "When set, NodeGroups will be provisioned in batches of this size " +
+            "instead of all in parallel.")
+        .required(false)
+        .build();
 }

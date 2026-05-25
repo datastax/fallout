@@ -209,6 +209,33 @@ public class ActiveTestRunBuilder
         if (yamlMap.containsKey("ensemble"))
         {
             Map<String, Object> ensembleMap = (Map) yamlMap.get("ensemble");
+
+            // Read the provisioning batch size property if present
+            String batchSizePropertyName = "fallout.system.provisioning.batch_size";
+            Optional<Integer> batchSize = Optional.empty();
+
+            if (ensembleMap.containsKey(batchSizePropertyName))
+            {
+                Object batchSizeValue = ensembleMap.get(batchSizePropertyName);
+                logger.info("Found batch size property with value: {}", batchSizeValue);
+                if (batchSizeValue instanceof Number)
+                {
+                    batchSize = Optional.of(((Number) batchSizeValue).intValue());
+                    logger.info("Ensemble provisioning batch size set to: {}", batchSize.get());
+                }
+                else
+                {
+                    logger.warn("Batch size value is not a number: {} (type: {})",
+                        batchSizeValue, batchSizeValue != null ? batchSizeValue.getClass() : "null");
+                }
+            }
+            else
+            {
+                logger.debug("Batch size property not found, using default parallel provisioning");
+            }
+
+            ensembleBuilder.withProvisioningBatchSize(batchSize);
+
             //init or link each ensemble group
             for (Map.Entry<String, Object> entry : ensembleMap.entrySet())
             {
@@ -228,6 +255,9 @@ public class ActiveTestRunBuilder
                     case "local_files":
                         explicitLocalFilesHandler = Optional.of(LocalFilesHandler.fromMaps(
                             (List<Map<String, Object>>) entry.getValue(), testRunArtifactPath, commandExecutor));
+                        break;
+                    case "fallout.system.provisioning.batch_size":
+                        // skip to avoid treating it as a node group
                         break;
                     default:
                         readNodeGroup(ensembleGroup, ensembleValue);
