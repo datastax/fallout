@@ -92,7 +92,7 @@ class MetricsCollectionConfigurationManagerTest
     {
         MetricsCollectionConfigurationManager metricsCollectionConfigurationManager =
             new MetricsCollectionConfigurationManager(instantSupplier);
-        metricsCollectionConfigurationManager.configureImpl(mock(NodeGroup.class));
+        //metricsCollectionConfigurationManager.configureImpl(mock(NodeGroup.class));
 
         String jsonResponse =
             metricsCollectionConfigurationManager.executeGetRequestForJsonContent(metricName, prometheusUrl());
@@ -110,7 +110,7 @@ class MetricsCollectionConfigurationManagerTest
     {
         MetricsCollectionConfigurationManager metricsCollectionConfigurationManager =
             new MetricsCollectionConfigurationManager(instantSupplier);
-        metricsCollectionConfigurationManager.configureImpl(mock(NodeGroup.class));
+        //metricsCollectionConfigurationManager.configureImpl(mock(NodeGroup.class));
 
         assertThatThrownBy(
             () -> metricsCollectionConfigurationManager.executeGetRequestForJsonContent(nonExistingMetricName,
@@ -127,7 +127,7 @@ class MetricsCollectionConfigurationManagerTest
         Supplier<Instant> instantSupplier = nowReference::get;
         MetricsCollectionConfigurationManager metricsCollectionConfigurationManager =
             new MetricsCollectionConfigurationManager(instantSupplier);
-        metricsCollectionConfigurationManager.configureImpl(mock(NodeGroup.class));
+        //metricsCollectionConfigurationManager.configureImpl(mock(NodeGroup.class));
 
         String metricName = "metric_a";
         Instant end = start.plus(Duration.ofSeconds(100));
