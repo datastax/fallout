@@ -4,7 +4,7 @@
 # project root directory.  This Dockerfile won't do anything useful with a
 # direct `docker build` invocation.
 
-FROM openjdk:17-buster
+FROM eclipse-temurin:17-jdk-jammy
 
 # Make apt and debconf be quiet
 RUN --mount=type=bind,source=build-files,target=build-files \
