@@ -17,7 +17,7 @@ RUN apt-get install apt-utils
 RUN apt-get upgrade
 
 # Tools to support ENTRYPOINT and CMD
-RUN apt-get install wait-for-it gosu
+RUN apt-get install wait-for-it gosu openssh-client
 
 # Additional packages needed to run python-based tools
 RUN apt-get install \
