@@ -128,7 +128,7 @@ class GoogleKubernetesEngineProvisionerTest extends TestHelpers.FalloutTest<Fall
     }
 
     @BeforeAll
-    static void beforeAll()
+    public static void beforeAll()
     {
         // All the files used in this test are taken from a real run of the relevant commands,
         // and then tweaked with mustache if necessary to get the outputs needed to exercise the logic.

@@ -36,14 +36,14 @@ public abstract class WithTestNames
     private static final int MAX_SUFFIX_LEN = 30;
 
     @BeforeAll
-    static void beforeAll(TestInfo testInfo)
+    public static void beforeAll(TestInfo testInfo)
     {
         assertThat(testInfo.getTestClass()).isNotEmpty();
         currentTestClass = testInfo.getTestClass().get();
     }
 
     @BeforeEach
-    void beforeEach(TestInfo testInfo)
+    public void beforeEach(TestInfo testInfo)
     {
         assertThat(testInfo.getTestMethod()).isNotEmpty();
         currentTestMethod = testInfo.getTestMethod().get();

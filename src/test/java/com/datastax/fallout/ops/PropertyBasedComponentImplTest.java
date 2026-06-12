@@ -39,7 +39,7 @@ public class PropertyBasedComponentImplTest
     private static ComponentFactory componentFactory;
 
     @BeforeAll
-    static void loadComponents()
+    public static void loadComponents()
     {
         componentFactory = DefaultComponentFactory.createDefaultComponentFactory();
     }
