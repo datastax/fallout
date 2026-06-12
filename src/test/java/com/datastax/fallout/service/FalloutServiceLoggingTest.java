@@ -64,7 +64,6 @@ public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
             "    - type: file",
             "      archive: false",
             "      currentLogFilename: " + APP_LOG_FILENAME,
-            "    - type: console",
             "server:",
             "  requestLog:",
             "    appenders:",
