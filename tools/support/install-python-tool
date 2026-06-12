@@ -3,7 +3,7 @@
 tool_dir=${1?No tool dir specified}
 run_dir=${2?No run dir specified}
 
-python=python3.7
+python=python3
 
 tool="$(basename "$tool_dir")"
 category="$(basename "$(dirname "$tool_dir")")"

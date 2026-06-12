@@ -63,13 +63,13 @@ public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
             "  appenders:",
             "    - type: file",
             "      archive: false",
-            "      fileName: " + APP_LOG_FILENAME,
+            "      currentLogFilename: " + APP_LOG_FILENAME,
             "    - type: console",
             "server:",
             "  requestLog:",
             "    appenders:",
             "      - type: file",
-            "        fileName: " + REQUEST_LOG_FILENAME,
+            "        currentLogFilename: " + REQUEST_LOG_FILENAME,
             "        archive: false"
         ), StandardCharsets.UTF_8);
     }
@@ -90,9 +90,9 @@ public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
     private void startService(FalloutConfiguration.ServerMode mode, String directory)
     {
         startService(mode,
-            ConfigOverride.config("logging.appenders[0].fileName",
+            ConfigOverride.config("logging.appenders[0].currentLogFilename",
                 directory + APP_LOG_FILENAME),
-            ConfigOverride.config("server.requestLog.appenders[0].fileName",
+            ConfigOverride.config("server.requestLog.appenders[0].currentLogFilename",
                 directory + REQUEST_LOG_FILENAME));
     }
 
