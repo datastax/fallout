@@ -22,7 +22,7 @@ RUN apt-get install wait-for-it gosu openssh-client
 # Additional packages needed to run python-based tools
 RUN apt-get install \
     virtualenv \
-    python3 python3-pip python3-venv \
+    python3 python3-pip python3-venv python3-dev \
     gfortran \
     libopenblas-dev \
     liblapack-dev
