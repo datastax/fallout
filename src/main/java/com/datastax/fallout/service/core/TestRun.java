@@ -43,6 +43,7 @@ import com.datastax.driver.mapping.annotations.ClusteringColumn;
 import com.datastax.driver.mapping.annotations.Column;
 import com.datastax.driver.mapping.annotations.PartitionKey;
 import com.datastax.driver.mapping.annotations.Table;
+import com.datastax.driver.mapping.annotations.Transient;
 import com.datastax.fallout.cassandra.shaded.com.google.common.annotations.VisibleForTesting;
 import com.datastax.fallout.harness.TestDefinition;
 import com.datastax.fallout.ops.ResourceRequirement;
@@ -333,6 +334,7 @@ public class TestRun implements ReadOnlyTestRun
     }
 
     @JsonIgnore
+    @Transient
     public String getExpandedDefinition()
     {
         Preconditions.checkState(getDefinition() != null);
@@ -380,6 +382,7 @@ public class TestRun implements ReadOnlyTestRun
     }
 
     @JsonIgnore
+    @Transient
     public String getSizeOnDisk()
     {
         return getArtifactsSizeBytes().map(FileUtils::byteCountToDisplaySize).orElse("Unknown");
@@ -541,6 +544,7 @@ public class TestRun implements ReadOnlyTestRun
 
     @Override
     @JsonIgnore
+    @Transient
     public Map<String, Object> getTemplateParamsMap()
     {
         return templateParams != null ?
@@ -549,6 +553,7 @@ public class TestRun implements ReadOnlyTestRun
     }
 
     @JsonIgnore
+    @Transient
     public void setTemplateParamsMap(final Map<String, Object> templateParams)
     {
         // Don't use ImmutableMap, as that forbids null entries, and those are valid for templateParams
@@ -563,6 +568,7 @@ public class TestRun implements ReadOnlyTestRun
     }
 
     @JsonIgnore
+    @Transient
     public String getDefinitionWithTemplateParams()
     {
         if (getTemplateParamsMap().isEmpty())
