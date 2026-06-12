@@ -31,7 +31,7 @@ import com.datastax.fallout.util.HttpUtils;
 @AutoService(Provisioner.class)
 public class ExistingPromPushProvisioner extends NoRemoteAccessProvisioner
 {
-    private static final String PREFIX = "fallout.configuration.management.existing_prompush.";
+    private static final String PREFIX = "fallout.provisioner.existing_prompush.";
     private static final String NAME = "existing_prompush";
     private static final String DESCRIPTION = "For exporting metrics to an existing Prometheus server";
 

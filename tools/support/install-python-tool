@@ -3,7 +3,7 @@
 tool_dir=${1?No tool dir specified}
 run_dir=${2?No run dir specified}
 
-python=python3.7
+python=python3
 
 tool="$(basename "$tool_dir")"
 category="$(basename "$(dirname "$tool_dir")")"
@@ -23,7 +23,7 @@ $python -m venv --clear "$venv_dir"
     python -m pip install --upgrade pip
     cd "$tool_dir"
     # Use poetry to install so that we get the locked dependencies
-    poetry install --no-interaction --remove-untracked --no-dev
+    poetry install --no-interaction --only main
 )
 mkdir -p "$bin_dir"
 ln -fs "../venvs/$tool/bin/$tool" "$bin_dir/$tool"

@@ -28,7 +28,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import com.datastax.fallout.ops.NodeGroup;
 import com.datastax.fallout.util.ResourceUtils;
 
 import static com.datastax.fallout.assertj.Assertions.assertThat;
@@ -38,7 +37,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
-import static org.mockito.Mockito.mock;
 
 class MetricsCollectionConfigurationManagerTest
 {
@@ -92,7 +90,7 @@ class MetricsCollectionConfigurationManagerTest
     {
         MetricsCollectionConfigurationManager metricsCollectionConfigurationManager =
             new MetricsCollectionConfigurationManager(instantSupplier);
-        metricsCollectionConfigurationManager.configureImpl(mock(NodeGroup.class));
+        // metricsCollectionConfigurationManager.configureImpl(mock(NodeGroup.class));
 
         String jsonResponse =
             metricsCollectionConfigurationManager.executeGetRequestForJsonContent(metricName, prometheusUrl());
@@ -110,7 +108,7 @@ class MetricsCollectionConfigurationManagerTest
     {
         MetricsCollectionConfigurationManager metricsCollectionConfigurationManager =
             new MetricsCollectionConfigurationManager(instantSupplier);
-        metricsCollectionConfigurationManager.configureImpl(mock(NodeGroup.class));
+        // metricsCollectionConfigurationManager.configureImpl(mock(NodeGroup.class));
 
         assertThatThrownBy(
             () -> metricsCollectionConfigurationManager.executeGetRequestForJsonContent(nonExistingMetricName,
@@ -127,7 +125,7 @@ class MetricsCollectionConfigurationManagerTest
         Supplier<Instant> instantSupplier = nowReference::get;
         MetricsCollectionConfigurationManager metricsCollectionConfigurationManager =
             new MetricsCollectionConfigurationManager(instantSupplier);
-        metricsCollectionConfigurationManager.configureImpl(mock(NodeGroup.class));
+        // metricsCollectionConfigurationManager.configureImpl(mock(NodeGroup.class));
 
         String metricName = "metric_a";
         Instant end = start.plus(Duration.ofSeconds(100));

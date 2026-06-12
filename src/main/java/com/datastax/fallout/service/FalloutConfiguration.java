@@ -151,6 +151,7 @@ public class FalloutConfiguration extends Configuration
     @JsonProperty
     private boolean useNginxToServeArtifacts = false;
 
+    @NotNull
     @JsonProperty
     private HtmlMailUserMessengerFactory.Emailer emailer = HtmlMailUserMessengerFactory.Emailer.NULL;
 
@@ -704,12 +705,18 @@ public class FalloutConfiguration extends Configuration
             updateLogFilename(appender::getArchivedLogFilenamePattern, appender::setArchivedLogFilenamePattern);
         });
 
-        final var serverFactory = (DefaultServerFactory) getServerFactory();
-        final var requestLogFactory = (LogbackAccessRequestLogFactory) serverFactory.getRequestLogFactory();
-        modifyAppenders(FileAppenderFactory.class, requestLogFactory.getAppenders(), appender -> {
-            updateLogFilename(appender::getCurrentLogFilename, appender::setCurrentLogFilename);
-            updateLogFilename(appender::getArchivedLogFilenamePattern, appender::setArchivedLogFilenamePattern);
-        });
+        if (getServerFactory() instanceof DefaultServerFactory)
+        {
+            final var serverFactory = (DefaultServerFactory) getServerFactory();
+            if (serverFactory.getRequestLogFactory() instanceof LogbackAccessRequestLogFactory)
+            {
+                final var requestLogFactory = (LogbackAccessRequestLogFactory) serverFactory.getRequestLogFactory();
+                modifyAppenders(FileAppenderFactory.class, requestLogFactory.getAppenders(), appender -> {
+                    updateLogFilename(appender::getCurrentLogFilename, appender::setCurrentLogFilename);
+                    updateLogFilename(appender::getArchivedLogFilenamePattern, appender::setArchivedLogFilenamePattern);
+                });
+            }
+        }
     }
 
     /** Disables all configured loggers and sets logging to console */

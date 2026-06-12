@@ -27,6 +27,7 @@ import com.datastax.driver.mapping.annotations.ClusteringColumn;
 import com.datastax.driver.mapping.annotations.Column;
 import com.datastax.driver.mapping.annotations.PartitionKey;
 import com.datastax.driver.mapping.annotations.Table;
+import com.datastax.driver.mapping.annotations.Transient;
 import com.datastax.fallout.ops.ResourceRequirement;
 
 @Table(name = "finished_test_runs")
@@ -161,12 +162,14 @@ public class FinishedTestRun implements ReadOnlyTestRun
     }
 
     @Override
+    @Transient
     public Optional<Long> getArtifactsSizeBytes()
     {
         return Optional.empty();
     }
 
     @Override
+    @Transient
     public Map<String, Object> getTemplateParamsMap()
     {
         return Map.of();
@@ -184,6 +187,7 @@ public class FinishedTestRun implements ReadOnlyTestRun
     }
 
     @Override
+    @Transient
     public Map<String, String> getLinks()
     {
         return Map.of();

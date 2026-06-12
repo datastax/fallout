@@ -33,6 +33,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -155,6 +156,7 @@ public class TestRunDAOTest
         testRunDAO.maybeAddFinishedTestRunEndStop(dateFactory.next());
     }
 
+    @Nested
     public static class Tests extends TestRunDAOTest
     {
 
@@ -353,6 +355,7 @@ public class TestRunDAOTest
         }
     }
 
+    @Nested
     public static class ArtifactUpdate extends TestRunDAOTest
     {
 

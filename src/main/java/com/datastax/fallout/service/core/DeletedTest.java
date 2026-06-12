@@ -21,6 +21,12 @@ import com.datastax.fallout.util.JsonUtils;
 @Table(name = "deleted_tests")
 public class DeletedTest extends Test
 {
+    /** Protected ctor for serialization usage only */
+    protected DeletedTest()
+    {
+        super();
+    }
+
     public static DeletedTest fromTest(Test test)
     {
         return JsonUtils.copyUsingSerialization(test, DeletedTest.class);

@@ -64,13 +64,12 @@ public class FalloutServiceLoggingTest extends WithPersistentTestOutputDir
             "    - type: file",
             "      archive: false",
             "      currentLogFilename: " + APP_LOG_FILENAME,
-            "    - type: console",
             "server:",
             "  requestLog:",
             "    appenders:",
             "      - type: file",
-            "        archive: false",
-            "        currentLogFilename: " + REQUEST_LOG_FILENAME
+            "        currentLogFilename: " + REQUEST_LOG_FILENAME,
+            "        archive: false"
         ), StandardCharsets.UTF_8);
     }
 

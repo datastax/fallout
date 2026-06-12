@@ -4,7 +4,7 @@
 # project root directory.  This Dockerfile won't do anything useful with a
 # direct `docker build` invocation.
 
-FROM openjdk:17-buster
+FROM eclipse-temurin:17-jdk-jammy
 
 # Make apt and debconf be quiet
 RUN --mount=type=bind,source=build-files,target=build-files \
@@ -17,12 +17,15 @@ RUN apt-get install apt-utils
 RUN apt-get upgrade
 
 # Tools to support ENTRYPOINT and CMD
-RUN apt-get install wait-for-it gosu
+RUN apt-get install wait-for-it gosu openssh-client
 
 # Additional packages needed to run python-based tools
 RUN apt-get install \
     virtualenv \
-    python3.7 python3-pip python3.7-venv
+    python3 python3-pip python3-venv python3-dev \
+    gfortran \
+    libopenblas-dev \
+    liblapack-dev
 
 # Add the github key to known_hosts so we can clone repos as root
 RUN mkdir -m=0700 ~/.ssh
