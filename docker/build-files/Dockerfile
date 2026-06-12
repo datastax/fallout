@@ -22,7 +22,10 @@ RUN apt-get install wait-for-it gosu openssh-client
 # Additional packages needed to run python-based tools
 RUN apt-get install \
     virtualenv \
-    python3 python3-pip python3-venv
+    python3 python3-pip python3-venv \
+    gfortran \
+    libopenblas-dev \
+    liblapack-dev
 
 # Add the github key to known_hosts so we can clone repos as root
 RUN mkdir -m=0700 ~/.ssh
