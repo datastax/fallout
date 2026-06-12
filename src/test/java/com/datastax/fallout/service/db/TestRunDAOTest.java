@@ -156,6 +156,7 @@ public class TestRunDAOTest
         testRunDAO.maybeAddFinishedTestRunEndStop(dateFactory.next());
     }
 
+    @Nested
     public static class Tests extends TestRunDAOTest
     {
 
