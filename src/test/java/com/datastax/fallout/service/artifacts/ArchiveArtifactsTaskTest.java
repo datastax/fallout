@@ -31,7 +31,6 @@ import java.util.function.Function;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.TestInfo;
 import org.slf4j.LoggerFactory;
 
 import com.datastax.driver.core.Session;
@@ -81,9 +80,8 @@ public class ArchiveArtifactsTaskTest extends ManagedArtifactServiceTest
     private Path testRunArtifactPath;
 
     @BeforeAll
-    public static void startCassandra(TestInfo testInfo) throws Exception
+    public static void startCassandra() throws Exception
     {
-        WithPersistentTestOutputDir.setTestBaseOutputDir();
         driverManager = createDriverManager(keyspace);
 
         testRunDAO = new TestRunDAO(driverManager);
