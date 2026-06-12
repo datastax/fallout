@@ -487,6 +487,11 @@ public class TestRun implements ReadOnlyTestRun
         return templateParams;
     }
 
+    public void setTemplateParams(String templateParams)
+    {
+        this.templateParams = templateParams;
+    }
+
     public void setEmailPref(TestCompletionNotification emailPref)
     {
         this.emailPref = emailPref;
