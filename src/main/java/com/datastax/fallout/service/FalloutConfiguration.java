@@ -151,6 +151,7 @@ public class FalloutConfiguration extends Configuration
     @JsonProperty
     private boolean useNginxToServeArtifacts = false;
 
+    @NotNull
     @JsonProperty
     private HtmlMailUserMessengerFactory.Emailer emailer = HtmlMailUserMessengerFactory.Emailer.NULL;
 
