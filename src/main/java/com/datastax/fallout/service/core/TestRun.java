@@ -462,12 +462,14 @@ public class TestRun implements ReadOnlyTestRun
     }
 
     @JsonProperty("templateParams")
+    @Transient
     public String getTemplateParamsForJson()
     {
         return templateParams == null ? "{}" : templateParams;
     }
 
     @JsonProperty("templateParams")
+    @Transient
     public void setTemplateParamsForJson(String params)
     {
         if (params.equals("{}"))

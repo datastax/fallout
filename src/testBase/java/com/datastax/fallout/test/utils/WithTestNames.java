@@ -29,6 +29,7 @@ import static com.datastax.fallout.assertj.Assertions.assertThat;
 public abstract class WithTestNames
 {
     private static Class<?> currentTestClass;
+    private static Class<?> currentJUnitClassContext;
     private Method currentTestMethod;
     private String currentTestDisplayName;
 
@@ -39,20 +40,23 @@ public abstract class WithTestNames
     public static void beforeAll(TestInfo testInfo)
     {
         assertThat(testInfo.getTestClass()).isNotEmpty();
-        currentTestClass = testInfo.getTestClass().get();
+        currentJUnitClassContext = testInfo.getTestClass().get();
     }
 
     @BeforeEach
     public void beforeEach(TestInfo testInfo)
     {
+        assertThat(testInfo.getTestClass()).isNotEmpty();
         assertThat(testInfo.getTestMethod()).isNotEmpty();
+        currentTestClass = testInfo.getTestClass().get();
+        currentJUnitClassContext = currentTestClass;
         currentTestMethod = testInfo.getTestMethod().get();
         currentTestDisplayName = testInfo.getDisplayName();
     }
 
     protected static Class<?> currentTestClass()
     {
-        return currentTestClass;
+        return currentTestClass != null ? currentTestClass : currentJUnitClassContext;
     }
 
     protected static String testClassName(Class<?> testClass)
