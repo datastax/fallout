@@ -375,6 +375,7 @@ public class TestRun implements ReadOnlyTestRun
     }
 
     @Override
+    @Transient
     public Optional<Long> getArtifactsSizeBytes()
     {
         return artifacts.isEmpty() ? Optional.empty() :
